@@ -143,16 +143,158 @@ docker compose --profile test up --exit-code-from test test
 
 ```
 src/
-├── crypto/       # PBKDF2 hashing, Web Crypto AES-GCM utilities
-├── db/           # Dexie database schema and migrations
-├── store/        # Zustand global state stores
-├── types/        # TypeScript interfaces and enums
-├── components/   # Reusable UI primitives
-├── pages/        # Route-level page components
-├── hooks/        # Custom React hooks
-├── utils/        # Pure utility functions
-└── test/         # Test setup and shared test utilities
+├── auth/
+│   └── permissions.ts          # Role-based permission matrix (23 permissions × 4 roles)
+├── components/
+│   ├── auction/                # BidForm, CountdownTimer
+│   ├── auth/                   # ProtectedRoute
+│   ├── layout/                 # AppShell, NavDrawer, TabBar, TabContent, NotificationBell
+│   └── ui/                     # Design system: Button, Input, Modal, Table, Badge, Card…
+├── crypto/
+│   ├── encryption.ts           # AES-GCM-256 encrypt/decrypt (Web Crypto API)
+│   ├── ids.ts                  # generateId() — crypto.randomUUID()
+│   └── password.ts             # PBKDF2-HMAC-SHA-256 (310,000 iterations)
+├── db/
+│   ├── database.ts             # MeridianDB Dexie class — 22 tables + indexes
+│   ├── index.ts                # Singleton db export
+│   └── seeds.ts                # Default admin + categories seeded on first launch
+├── hooks/
+│   └── usePermission.ts        # usePermission(permission) hook for guarded UI
+├── pages/
+│   ├── admin/                  # UserManagement, SystemSettings, SensitiveWords, AuditLog, DataExport
+│   ├── auction/                # AuctionList/Form/Detail, Browse, MyBids, Wallet
+│   ├── catalog/                # CatalogManagement, ItemForm, Browse, ModerationQueue
+│   ├── documents/              # DocumentList, Form, Detail
+│   ├── notifications/          # NotificationCenter, OutboundQueue
+│   └── publishing/             # PublicationList/Form, ReviewQueue, ReviewDetail, Feed
+├── services/
+│   ├── auctionLifecycle.ts     # closeAuction(), startAuctionLifecycleTimer()
+│   ├── auctionService.ts       # Auction CRUD, publish, cancel
+│   ├── bidChannel.ts           # BroadcastChannel('meridian_bids') singleton
+│   ├── biddingEngine.ts        # placeBid(), setProxyBid() with proxy resolution + anti-sniping
+│   ├── catalogService.ts       # Catalog item CRUD + moderation + publish
+│   ├── documentService.ts      # Document lifecycle: create→checkout→review→approve→destroy
+│   ├── notificationService.ts  # createNotification(), queueOutboundMessage(), bulk ops
+│   ├── publicationService.ts   # Publication lifecycle: draft→review→approve→publish
+│   └── walletService.ts        # credit, debit, reserve, release, deductDeposit
+├── store/
+│   ├── authStore.ts            # Zustand: login, logout, session restore
+│   ├── notificationStore.ts    # Zustand: notifications + BroadcastChannel sync
+│   └── tabStore.ts             # Zustand: tab open/close/activate/dirty tracking
+├── test/
+│   ├── crypto/                 # Unit tests: password, encryption, ids
+│   ├── services/               # Integration tests: biddingEngine, lifecycle, workflow, checkout
+│   └── utils/                  # Unit tests: moderation
+├── types/
+│   ├── auction.ts              # Auction, Bid, ProxyBid, Wallet, WalletTransaction
+│   ├── audit.ts                # AuditLog, AuditEventType (60+ event types)
+│   ├── auth.ts                 # User, Session, Role enum
+│   ├── catalog.ts              # CatalogItem, Category, Tag
+│   ├── document.ts             # Document, DocumentVersion, CheckoutRecord, RetentionPolicy, DestructionApproval
+│   ├── notification.ts         # Notification, OutboundQueueItem, NotificationType
+│   ├── publication.ts          # Publication, PublicationVersion, ViewEvent
+│   ├── system.ts               # SystemConfig, SensitiveWord
+│   └── index.ts                # Central re-export barrel
+└── utils/
+    ├── audit.ts                # writeAuditLog() — append-only, never updates or deletes
+    ├── moderation.ts           # moderateContent() — whole-word regex against sensitiveWords table
+    └── sanitize.ts             # sanitizeHtml() — DOMPurify wrapper for dangerouslySetInnerHTML
 ```
+
+---
+
+## IndexedDB Schema
+
+All 22 tables are declared in version 1 of the Dexie schema. Prefix `&` = unique index, `*` = multi-entry index.
+
+| Table                 | Key Indexes                                                  |
+| --------------------- | ------------------------------------------------------------ |
+| `users`               | `&username`, `role`, `isActive`                              |
+| `sessions`            | `userId`, `expiresAt`                                        |
+| `auditLogs`           | `actorId`, `entityType`, `entityId`, `createdAt`             |
+| `auctions`            | `status`, `createdBy`, `endTime`, `[status+endTime]`         |
+| `bids`                | `auctionId`, `bidderId`, `&idempotencyKey`, `createdAt`      |
+| `proxyBids`           | `auctionId`, `bidderId`, `isActive`, `[auctionId+isActive]`  |
+| `wallets`             | `userId`                                                     |
+| `walletTransactions`  | `walletId`, `userId`, `type`, `relatedAuctionId`             |
+| `catalogItems`        | `status`, `categoryId`, `*tags`, `createdBy`                 |
+| `categories`          | `&slug`, `parentId`                                          |
+| `tags`                | `&slug`                                                      |
+| `publications`        | `status`, `createdBy`, `publishedAt`                         |
+| `publicationVersions` | `publicationId`, `createdAt`                                 |
+| `viewEvents`          | `entityId`, `userId`, `openedAt`                             |
+| `documents`           | `status`, `documentNumber`, `categoryId`, `createdBy`, `retentionDueDate` |
+| `documentVersions`    | `documentId`, `createdAt`                                    |
+| `checkoutRecords`     | `documentId`, `userId`, `isActive`                           |
+| `retentionPolicies`   | `documentType`                                               |
+| `destructionApprovals`| `documentId`, `status`                                       |
+| `notifications`       | `userId`, `isRead`, `createdAt`                              |
+| `outboundQueue`       | `status`, `recipientType`, `createdAt`                       |
+| `sensitiveWords`      | `&word`                                                      |
+
+---
+
+## Permission Matrix
+
+| Permission          | Admin | Editor | Reviewer | Participant |
+| ------------------- | :---: | :----: | :------: | :---------: |
+| manageUsers         |  ✓   |        |          |             |
+| manageSystem        |  ✓   |        |          |             |
+| manageWallets       |  ✓   |        |          |             |
+| viewAuditLog        |  ✓   |        |   ✓      |             |
+| exportData          |  ✓   |        |          |             |
+| createAuction       |  ✓   |   ✓    |          |             |
+| editAuction         |  ✓   |   ✓    |          |             |
+| publishAuction      |  ✓   |   ✓    |          |             |
+| placeBid            |  ✓   |        |          |   ✓         |
+| createCatalogItem   |  ✓   |   ✓    |          |             |
+| editCatalogItem     |  ✓   |   ✓    |          |             |
+| publishCatalogItem  |  ✓   |   ✓    |          |             |
+| moderateCatalog     |  ✓   |        |   ✓      |             |
+| createPublication   |  ✓   |   ✓    |          |             |
+| editPublication     |  ✓   |   ✓    |          |             |
+| approvePublication  |  ✓   |        |   ✓      |             |
+| publishPublication  |  ✓   |        |   ✓      |             |
+| createDocument      |  ✓   |   ✓    |          |             |
+| editDocument        |  ✓   |   ✓    |          |             |
+| approveDocument     |  ✓   |        |   ✓      |             |
+| requestDestruction  |  ✓   |   ✓    |   ✓      |             |
+| approveDestruction  |  ✓   |        |   ✓      |             |
+| manageNotifications |  ✓   |        |          |             |
+
+Full implementation: `src/auth/permissions.ts`
+
+---
+
+## Security
+
+| Concern         | Implementation                                                      |
+| --------------- | ------------------------------------------------------------------- |
+| Passwords       | PBKDF2-HMAC-SHA-256, 310,000 iterations, 16-byte salt, 256-bit key  |
+| Session tokens  | AES-GCM-256 encrypted in LocalStorage; per-device master key        |
+| Rich text XSS   | DOMPurify sanitization before every `dangerouslySetInnerHTML` call  |
+| Audit log       | Append-only — zero delete/update code paths exist in the codebase   |
+| Duplicate bids  | Unique `idempotencyKey` index + Dexie `rw` transaction + BroadcastChannel |
+| Moderation      | Sensitive-word scan on every save and submit-for-review             |
+
+---
+
+## Test Coverage
+
+65 tests across 10 test files (Vitest + fake-indexeddb):
+
+| File                            | Tests | What it covers                                              |
+| ------------------------------- | :---: | ----------------------------------------------------------- |
+| `crypto/password.test.ts`       |   5   | PBKDF2 format, uniqueness, verify, wrong password/salt      |
+| `crypto/encryption.test.ts`     |   6   | AES-GCM round-trip, unique IVs, tamper rejection            |
+| `crypto/ids.test.ts`            |   2   | UUID format, 100-sample collision check                     |
+| `utils/moderation.test.ts`      |   8   | Empty list, case-insensitive, whole-word, multi-text, dedup |
+| `services/biddingEngine.test.ts`|  11   | Min increment, state guards, idempotency, anti-sniping, proxy |
+| `services/documentNumbering.test.ts` | 4 | No number on Draft, ORG-YYYY-NNNNNN on Approved, sequential, retention date |
+| `services/auctionLifecycle.test.ts`  |10 | Draft→Active, Awarded (deposit/release/notifications), NoSale |
+| `services/publicationWorkflow.test.ts`|11| Draft→Published workflow, moderation block, notifications   |
+| `services/documentCheckout.test.ts`  | 7 | Lock/block/checkin/version snapshot/expired auto-release    |
+| `app.test.tsx`                  |   1   | App renders without crashing                                |
 
 ---
 

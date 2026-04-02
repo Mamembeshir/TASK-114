@@ -555,9 +555,9 @@
 
 ### 9.6 Documentation
 
-- [ ] Document folder structure and module responsibilities in `README.md`
-- [ ] Document IndexedDB schema (tables, indexes, relationships)
-- [ ] Document permission matrix in `docs/permissions.md`
+- [x] Document folder structure and module responsibilities in `README.md`
+- [x] Document IndexedDB schema (tables, indexes, relationships) in `README.md`
+- [x] Document permission matrix in `README.md`
 - [ ] Document export/import JSON schema
 
 ---
@@ -574,5 +574,5 @@
 | Phase 6: Documents        | ✅ Complete     | 22 / 22           |
 | Phase 7: Messages         | ✅ Complete     | 20 / 20           |
 | Phase 8: Admin & Export   | ✅ Complete     | 19 / 19           |
-| Phase 9: Polish & Testing | In Progress     | 17 / 23           |
-| **Total**                 | **In Progress** | **155 / 198**     |
+| Phase 9: Polish & Testing | In Progress     | 20 / 23           |
+| **Total**                 | **In Progress** | **158 / 198**     |
