@@ -37,10 +37,13 @@ export function AuctionListPage() {
 
   const load = useCallback(async () => {
     setIsLoading(true)
-    const all = await db.auctions.toCollection().sortBy('createdAt')
-    const filtered = statusFilter ? all.filter((a) => a.status === statusFilter) : all
-    setAuctions(filtered.reverse())
-    setIsLoading(false)
+    try {
+      const all = await db.auctions.toCollection().sortBy('createdAt')
+      const filtered = statusFilter ? all.filter((a) => a.status === statusFilter) : all
+      setAuctions(filtered.reverse())
+    } finally {
+      setIsLoading(false)
+    }
   }, [statusFilter])
 
   useEffect(() => {

@@ -36,9 +36,12 @@ export function PublicationListPage() {
 
   const load = async () => {
     setIsLoading(true)
-    const pubs = await db.publications.orderBy('updatedAt').reverse().toArray()
-    setPublications(pubs)
-    setIsLoading(false)
+    try {
+      const pubs = await db.publications.orderBy('updatedAt').reverse().toArray()
+      setPublications(pubs)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   useEffect(() => {

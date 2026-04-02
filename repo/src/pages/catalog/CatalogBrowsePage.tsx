@@ -146,13 +146,16 @@ export function CatalogBrowsePage() {
 
   useEffect(() => {
     const load = async () => {
-      const [allItems, cats] = await Promise.all([
-        db.catalogItems.where('status').equals('Active').toArray(),
-        db.categories.toArray(),
-      ])
-      setItems(allItems)
-      setCategories(cats)
-      setIsLoading(false)
+      try {
+        const [allItems, cats] = await Promise.all([
+          db.catalogItems.where('status').equals('Active').toArray(),
+          db.categories.toArray(),
+        ])
+        setItems(allItems)
+        setCategories(cats)
+      } finally {
+        setIsLoading(false)
+      }
     }
     void load()
   }, [])

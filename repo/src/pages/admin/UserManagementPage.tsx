@@ -92,10 +92,13 @@ export function UserManagementPage() {
 
   const load = useCallback(async () => {
     setIsLoading(true)
-    const all = await db.users.orderBy('createdAt').toArray()
-    // Map to DTOs — password hashes are never held in component state
-    setUsers(all.map(toDTO))
-    setIsLoading(false)
+    try {
+      const all = await db.users.orderBy('createdAt').toArray()
+      // Map to DTOs — password hashes are never held in component state
+      setUsers(all.map(toDTO))
+    } finally {
+      setIsLoading(false)
+    }
   }, [])
 
   useEffect(() => {

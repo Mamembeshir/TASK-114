@@ -36,14 +36,17 @@ export function WalletPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const load = async (userId: string) => {
-    await ensureWallet(userId)
-    const [w, txns] = await Promise.all([
-      getWallet(userId),
-      db.walletTransactions.where('userId').equals(userId).sortBy('createdAt'),
-    ])
-    setWallet(w)
-    setTransactions(txns.reverse())
-    setIsLoading(false)
+    try {
+      await ensureWallet(userId)
+      const [w, txns] = await Promise.all([
+        getWallet(userId),
+        db.walletTransactions.where('userId').equals(userId).sortBy('createdAt'),
+      ])
+      setWallet(w)
+      setTransactions(txns.reverse())
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   useEffect(() => {

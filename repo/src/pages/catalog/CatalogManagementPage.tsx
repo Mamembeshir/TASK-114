@@ -40,18 +40,21 @@ export function CatalogManagementPage() {
 
   const load = async () => {
     setIsLoading(true)
-    const [items, cats] = await Promise.all([
-      db.catalogItems.orderBy('createdAt').reverse().toArray(),
-      db.categories.toArray(),
-    ])
-    const catMap = new Map(cats.map((c) => [c.id, c.name]))
-    setRows(
-      items.map((item) => ({
-        item,
-        categoryName: catMap.get(item.categoryId) ?? '—',
-      })),
-    )
-    setIsLoading(false)
+    try {
+      const [items, cats] = await Promise.all([
+        db.catalogItems.orderBy('createdAt').reverse().toArray(),
+        db.categories.toArray(),
+      ])
+      const catMap = new Map(cats.map((c) => [c.id, c.name]))
+      setRows(
+        items.map((item) => ({
+          item,
+          categoryName: catMap.get(item.categoryId) ?? '—',
+        })),
+      )
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   useEffect(() => {

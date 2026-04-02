@@ -30,9 +30,12 @@ export function AuctionBrowsePage() {
   const [isLoading, setIsLoading] = useState(true)
 
   const load = useCallback(async () => {
-    const active = await db.auctions.where('status').anyOf('Active', 'Extended').toArray()
-    setAuctions(active.sort((a, b) => a.endTime - b.endTime))
-    setIsLoading(false)
+    try {
+      const active = await db.auctions.where('status').anyOf('Active', 'Extended').toArray()
+      setAuctions(active.sort((a, b) => a.endTime - b.endTime))
+    } finally {
+      setIsLoading(false)
+    }
   }, [])
 
   useEffect(() => {

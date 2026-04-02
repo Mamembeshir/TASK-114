@@ -519,7 +519,7 @@
 
 ### 9.1 UI Polish
 
-- [ ] Audit all pages for visual consistency (spacing, typography, colors)
+- [x] Audit all pages for visual consistency (spacing, typography, colors)
 - [x] Add skeleton loaders for all data-loading states
 - [ ] Ensure all modals have focus trap and accessible close behavior
 - [ ] Add keyboard navigation support for auction bid form and catalog search

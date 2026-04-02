@@ -1,6 +1,21 @@
 import '@testing-library/jest-dom'
 // Polyfill IndexedDB for jsdom — must come before any Dexie imports
 import 'fake-indexeddb/auto'
+
+// Polyfill window.matchMedia — not implemented in jsdom
+Object.defineProperty(window, 'matchMedia', {
+  writable: true,
+  value: (query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: () => {},
+    removeListener: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => false,
+  }),
+})
 import { beforeAll, afterAll } from 'vitest'
 import { useAuthStore } from '@/store/authStore'
 import { Role } from '@/types'

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { X } from 'lucide-react'
+import { Menu, X } from 'lucide-react'
 import { useTabStore, type Tab } from '@/store/tabStore'
 import { NotificationBell } from './NotificationBell'
 
@@ -73,12 +73,20 @@ function TabPill({ tab, isActive }: TabPillProps) {
 
 // ── TabBar ─────────────────────────────────────────────────────────────────────
 
+interface TabBarProps {
+  /** Called when the mobile hamburger is tapped */
+  onMenuClick?: () => void
+  /** Whether the viewport is currently in mobile mode */
+  isMobile?: boolean
+}
+
 /**
  * Horizontal tab strip rendered at the top of the main content area.
  *
  * Keyboard shortcut: Ctrl+W closes the active tab (with dirty-state guard).
+ * On mobile, renders a hamburger button to open the drawer overlay.
  */
-export function TabBar() {
+export function TabBar({ onMenuClick, isMobile }: TabBarProps) {
   const tabs = useTabStore((s) => s.tabs)
   const activeTabId = useTabStore((s) => s.activeTabId)
   const { closeTab } = useTabStore()
@@ -107,6 +115,17 @@ export function TabBar() {
 
   return (
     <div className="flex items-center bg-surface-900 border-b border-surface-800">
+      {/* Hamburger — only shown on mobile */}
+      {isMobile && onMenuClick && (
+        <button
+          onClick={onMenuClick}
+          aria-label="Open navigation menu"
+          className="px-3 py-2 text-surface-400 hover:text-surface-200 hover:bg-surface-800 transition-colors shrink-0"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+      )}
+
       <div className="flex items-center gap-1 px-3 py-2 flex-1 overflow-x-auto scrollbar-none">
         {tabs.map((tab) => (
           <TabPill key={tab.id} tab={tab} isActive={tab.id === activeTabId} />

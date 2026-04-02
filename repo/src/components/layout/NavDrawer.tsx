@@ -49,8 +49,14 @@ const ROLE_BADGE: Record<Role, { label: string; className: string }> = {
 interface NavItem {
   label: string
   icon: React.ElementType
-  /** Route path this item links to — used for active-state detection later */
+  /** Canonical base path — used for active-state detection */
   to: string
+  /**
+   * Optional role-aware resolver for the actual navigation target.
+   * Allows lower-privilege roles to land on a browse/view page instead of
+   * the management page that would show "Access Denied".
+   */
+  toFn?: (role: Role) => string
   /** If set, item is hidden when the user lacks this permission */
   permission?: Permission
 }
@@ -65,18 +71,30 @@ const NAV_ITEMS: NavItem[] = [
     label: 'Auctions',
     icon: Gavel,
     to: '/auctions',
+    toFn: (role) =>
+      role === Role.Participant ? '/auctions/browse' : '/auctions',
     permission: 'viewAuctions',
   },
   {
     label: 'Catalog',
     icon: Package,
     to: '/catalog',
+    toFn: (role) => {
+      if (role === Role.Administrator || role === Role.ContentEditor) return '/catalog'
+      if (role === Role.ReviewerApprover) return '/catalog/moderation'
+      return '/catalog/browse'
+    },
     permission: 'viewCatalog',
   },
   {
     label: 'Publishing',
     icon: FileText,
     to: '/publishing',
+    toFn: (role) => {
+      if (role === Role.Administrator || role === Role.ContentEditor) return '/publishing'
+      if (role === Role.ReviewerApprover) return '/publishing/queue'
+      return '/publishing/feed'
+    },
     permission: 'viewPublications',
   },
   {
@@ -145,20 +163,23 @@ interface NavItemRowProps {
 
 function NavItemRow({ item, open, active }: NavItemRowProps) {
   const allowed = usePermission(item.permission)
+  const currentUser = useAuthStore((s) => s.currentUser)
   const { openTab, activateTab, tabs } = useTabStore()
 
-  if (!allowed) return null
+  if (!allowed || !currentUser) return null
 
   const Icon = item.icon
+  // Resolve the actual navigation target — may differ from the canonical `to`
+  const resolvedPath = item.toFn ? item.toFn(currentUser.role) : item.to
 
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault()
     // If a tab for this path already exists, activate it; otherwise open a new tab
-    const existing = tabs.find((t) => t.path === item.to)
+    const existing = tabs.find((t) => t.path === resolvedPath)
     if (existing) {
       activateTab(existing.id)
     } else {
-      openTab({ id: item.to, title: item.label, path: item.to })
+      openTab({ id: resolvedPath, title: item.label, path: resolvedPath })
     }
   }
 
