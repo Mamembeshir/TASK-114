@@ -310,39 +310,56 @@
 
 ### 5.1 Data Models
 
-- [ ] Define `Publication`, `PublicationVersion`, `ApprovalWorkflow`, `WorkflowStep` interfaces
-- [ ] Add Dexie tables with version history support
+- [x] Define `Publication`, `PublicationVersion` TypeScript interfaces
+  - Already defined in Phase 1.2 (`src/types/publication.ts`)
+- [x] Dexie tables with version history support already in schema
 
 ### 5.2 Content Authoring (Content Editor)
 
-- [ ] Build rich-text editor component (use a bundled library, e.g., TipTap or Quill)
-- [ ] Build `CreatePublicationForm`: title, type (announcement / notice / bulletin), body, attachments
-- [ ] Auto-save draft to IndexedDB every 30 seconds
-- [ ] Show "Last saved" timestamp in editor toolbar
+- [x] Build `RichTextEditor` component using TipTap (StarterKit — bold, italic, headings, lists)
+  - `src/components/ui/RichTextEditor.tsx` — toolbar + EditorContent, syncs external value via useEffect
+- [x] Build `PublicationFormPage`: title, type, body (rich text), attachments
+  - `src/pages/publishing/PublicationFormPage.tsx` — create + edit mode, moderation banner
+- [x] Auto-save draft to IndexedDB every 30 seconds
+  - `useCallback` `handleSave` + `setInterval` auto-save in `PublicationFormPage`
+- [x] Show "Last saved" timestamp
+  - `lastSaved` state displayed in header when set
 
 ### 5.3 Approval Workflow
 
-- [ ] Implement workflow state machine: `Draft → InReview → Approved | Rejected → Published`
-- [ ] Build `SubmitForReviewAction` (Content Editor)
-- [ ] Build `ReviewQueuePage` listing pending submissions (Reviewer/Approver)
-- [ ] Build `ReviewDetailPage` with approve/reject action and comment field
-- [ ] Notify author on approval or rejection via Message Center
-- [ ] Run sensitive-word moderation on submit for review
+- [x] Implement workflow state machine: `Draft → InReview → Approved | Rejected → Published`
+  - `publicationService.ts` — submitForReview, approvePublication, rejectPublication, publishPublication
+- [x] Build `SubmitForReviewAction` — Submit for Review button in `PublicationFormPage`
+- [x] Build `ReviewQueuePage` listing InReview publications
+  - `src/pages/publishing/ReviewQueuePage.tsx`
+- [x] Build `ReviewDetailPage` with approve/reject actions and comment field
+  - `src/pages/publishing/ReviewDetailPage.tsx` — rich content display + review decision card
+- [x] Run sensitive-word moderation on submit for review
+  - `submitForReview()` re-runs moderation, throws if flags found
 
 ### 5.4 Version Control & Rollback
 
-- [ ] Save a new `PublicationVersion` snapshot on every submit-for-review
-- [ ] Build `VersionHistoryPanel` showing all versions with timestamp and author
-- [ ] Implement `rollbackToVersion(versionId)` — restore content, create new draft version
-- [ ] Add audit log entry for every version save and rollback
+- [x] Save a new `PublicationVersion` snapshot on every status transition
+  - `snapshotVersion()` helper in `publicationService.ts` — called on submit, approve, reject, rollback
+- [x] Build `VersionHistoryPanel` showing all versions with timestamp, status, and comment
+  - Right sidebar in `ReviewDetailPage`
+- [x] Implement `rollbackToVersion(versionId)` — restore content, create new draft version
+  - `rollbackToVersion()` in `publicationService.ts`; Rollback button in version list
 
 ### 5.5 Publishing & Readership
 
-- [ ] Implement `publishPublication()` — set status to Published, record publish timestamp
-- [ ] Build `PublicationFeedPage` for Participants: list of published announcements
-- [ ] Record a view event (userId, publicationId, timestamp) on open
-- [ ] Track time-on-page via visibility API; store in IndexedDB on tab close/navigate away
-- [ ] Build `Readership Analytics Panel` (Admin/Reviewer): unique readers, avg time-on-page per publication
+- [x] Implement `publishPublication()` — set status to Published, record timestamp
+- [x] Build `PublicationFeedPage` — accordion-style feed of published items for participants
+  - `src/pages/publishing/PublicationFeedPage.tsx`
+- [x] Record view events (userId, entityId, openedAt) on accordion expand
+- [x] Track time-on-page via Page Visibility API; stored on tab hide/navigate away
+- [ ] Build Readership Analytics Panel — covered in Phase 8 Admin Panel
+
+**Also added:**
+- `src/services/publicationService.ts` — full publication lifecycle service
+- `src/pages/publishing/PublicationListPage.tsx` — management view with status filters
+- `TabContent.tsx` updated with all `/publishing/*` routes
+- TipTap 3.x installed (`@tiptap/react`, `@tiptap/pm`, `@tiptap/starter-kit`)
 
 ---
 

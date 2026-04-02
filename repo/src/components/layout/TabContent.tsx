@@ -28,6 +28,11 @@ import { CatalogManagementPage } from '@/pages/catalog/CatalogManagementPage'
 import { CatalogItemFormPage } from '@/pages/catalog/CatalogItemFormPage'
 import { CatalogBrowsePage } from '@/pages/catalog/CatalogBrowsePage'
 import { ModerationQueuePage } from '@/pages/catalog/ModerationQueuePage'
+import { PublicationListPage } from '@/pages/publishing/PublicationListPage'
+import { PublicationFormPage } from '@/pages/publishing/PublicationFormPage'
+import { ReviewQueuePage } from '@/pages/publishing/ReviewQueuePage'
+import { ReviewDetailPage } from '@/pages/publishing/ReviewDetailPage'
+import { PublicationFeedPage } from '@/pages/publishing/PublicationFeedPage'
 
 function matchRoute(path: string): React.ReactNode {
   if (path === '/') return <DashboardPage />
@@ -79,6 +84,32 @@ function matchRoute(path: string): React.ReactNode {
 
   // /catalog (management)
   if (path === '/catalog') return <CatalogManagementPage />
+
+  // /publishing/new
+  if (path === '/publishing/new') return <PublicationFormPage />
+
+  // /publishing/:id/edit
+  const pubEditMatch = /^\/publishing\/([^/]+)\/edit$/.exec(path)
+  if (pubEditMatch) {
+    const [, id] = pubEditMatch
+    return <PublicationFormPage editId={id} tabId={id} />
+  }
+
+  // /publishing/:id/review
+  const pubReviewMatch = /^\/publishing\/([^/]+)\/review$/.exec(path)
+  if (pubReviewMatch) {
+    const [, id] = pubReviewMatch
+    return <ReviewDetailPage publicationId={id} />
+  }
+
+  // /publishing/queue
+  if (path === '/publishing/queue') return <ReviewQueuePage />
+
+  // /publishing/feed
+  if (path === '/publishing/feed') return <PublicationFeedPage />
+
+  // /publishing (list)
+  if (path === '/publishing') return <PublicationListPage />
 
   // Fallback
   return (

@@ -17,3 +17,5 @@ export type { ColumnDef, SortState } from './Table'
 export { EmptyState } from './EmptyState'
 
 export { Spinner, Skeleton, SkeletonText } from './Spinner'
+
+export { RichTextEditor } from './RichTextEditor'
