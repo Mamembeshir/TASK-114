@@ -197,8 +197,9 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
 // ── Demo account seeding ──────────────────────────────────────────────────────
 
 /**
- * On first launch (empty users table), seed one demo account per role so the
- * portal is immediately usable without a registration flow.
+ * On first launch (empty users table), seed three staff accounts so the
+ * portal is immediately usable. Buyer (Participant) accounts are created via
+ * the self-registration form on the login screen.
  *
  * All accounts use the same pattern:  password = <username>Pass1!
  *
@@ -207,7 +208,6 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
  * | admin     | Administrator      | adminPass1!     |
  * | editor    | ContentEditor      | editorPass1!    |
  * | reviewer  | ReviewerApprover   | reviewerPass1!  |
- * | buyer     | Participant        | buyerPass1!     |
  */
 export async function seedDefaultAdmin(): Promise<void> {
   const now = Date.now()
@@ -240,13 +240,6 @@ export async function seedDefaultAdmin(): Promise<void> {
       email: 'reviewer@meridian.internal',
       password: 'reviewerPass1!',
       role: Role.ReviewerApprover,
-    },
-    {
-      username: 'buyer',
-      displayName: 'Buyer',
-      email: 'buyer@meridian.internal',
-      password: 'buyerPass1!',
-      role: Role.Participant,
     },
   ]
 

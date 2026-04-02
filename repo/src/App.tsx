@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Toaster } from 'sonner'
 import { Loader2 } from 'lucide-react'
 import { useAuthStore, seedDefaultAdmin } from '@/store/authStore'
@@ -6,12 +6,14 @@ import { seedDefaultCategories } from '@/db/seeds'
 import { startAuctionLifecycleTimer } from '@/services/auctionLifecycle'
 import { startNotificationSync, useNotificationStore } from '@/store/notificationStore'
 import { LoginPage } from '@/pages/LoginPage'
+import { RegisterPage } from '@/pages/RegisterPage'
 import { AppShell } from '@/components/layout/AppShell'
 
 export default function App() {
   const currentUser = useAuthStore((s) => s.currentUser)
   const isLoading = useAuthStore((s) => s.isLoading)
   const refreshNotifications = useNotificationStore((s) => s.refresh)
+  const [view, setView] = useState<'login' | 'register'>('login')
 
   // On mount: seed defaults, restore session, start auction timer
   useEffect(() => {
@@ -62,7 +64,19 @@ export default function App() {
     return (
       <>
         <Toaster position="top-right" richColors />
-        <LoginPage />
+        {view === 'register' ? (
+          <RegisterPage
+            onBackToLogin={() => {
+              setView('login')
+            }}
+          />
+        ) : (
+          <LoginPage
+            onRegister={() => {
+              setView('register')
+            }}
+          />
+        )}
       </>
     )
   }

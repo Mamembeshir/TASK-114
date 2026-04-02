@@ -3,7 +3,11 @@ import { Eye, EyeOff, Loader2, Lock, Shield, User } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/store/authStore'
 
-export function LoginPage() {
+interface Props {
+  onRegister: () => void
+}
+
+export function LoginPage({ onRegister }: Props) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -161,6 +165,17 @@ export function LoginPage() {
               )}
             </button>
           </form>
+        </div>
+
+        {/* ── Register link ────────────────────────────────────────────── */}
+        <div className="mt-5 text-center">
+          <button
+            type="button"
+            onClick={onRegister}
+            className="text-sm text-surface-500 hover:text-primary-400 transition-colors"
+          >
+            New buyer? <span className="font-medium">Create an account</span>
+          </button>
         </div>
 
         {/* ── Footer ───────────────────────────────────────────────────── */}

@@ -300,13 +300,16 @@ Full implementation: `src/auth/permissions.ts`
 
 ## Demo Accounts
 
-On first launch the app seeds **four ready-to-use accounts** — one per role — so every workflow can be exercised immediately without a registration step.
+On first launch the app seeds **three ready-to-use staff accounts**. Buyer (Participant) accounts are created via the self-registration form on the login screen.
 
 | Username   | Password        | Role               | What you can do                                                      |
 | ---------- | --------------- | ------------------ | -------------------------------------------------------------------- |
 | `admin`    | `adminPass1!`   | Administrator      | Everything: user management, system settings, wallet management, full audit log, data export |
 | `editor`   | `editorPass1!`  | Content Editor     | Create & publish auctions, catalog items, publications, and documents |
 | `reviewer` | `reviewerPass1!`| ReviewerApprover   | Approve / reject publications and documents; view audit log; approve destruction requests |
-| `buyer`    | `buyerPass1!`   | Participant        | Browse the catalog, place bids, manage wallet, read published content |
 
-> Accounts are only seeded on first launch (empty database). If you have an existing IndexedDB instance, clear it via DevTools → Application → IndexedDB → Delete database, then refresh.
+### Registering as a Buyer
+
+Click **"New buyer? Create an account"** on the login screen to self-register. Buyer accounts are assigned the **Participant** role and can browse the catalog, place bids, manage their wallet, and read published content.
+
+> Staff accounts are only seeded on first launch (empty database). If you have an existing IndexedDB instance, clear it via DevTools → Application → IndexedDB → Delete database, then refresh.
