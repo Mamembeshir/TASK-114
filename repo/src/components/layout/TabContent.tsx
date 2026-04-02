@@ -114,6 +114,9 @@ const NotificationCenterPage = lazy(() =>
     default: m.NotificationCenterPage,
   })),
 )
+const TrainingPage = lazy(() =>
+  import('@/pages/training/TrainingPage').then((m) => ({ default: m.TrainingPage })),
+)
 const OutboundQueuePage = lazy(() =>
   import('@/pages/notifications/OutboundQueuePage').then((m) => ({
     default: m.OutboundQueuePage,
@@ -386,6 +389,14 @@ function matchRoute(path: string): React.ReactNode {
     return (
       <PermissionGuard permission="checkoutDocument">
         <DocumentListPage />
+      </PermissionGuard>
+    )
+
+  // /training
+  if (path === '/training')
+    return (
+      <PermissionGuard permission="viewTraining">
+        <TrainingPage />
       </PermissionGuard>
     )
 

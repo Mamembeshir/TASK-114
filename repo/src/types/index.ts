@@ -48,3 +48,5 @@ export type {
 export { RETRY_DELAYS_MS } from './notification'
 
 export type { SystemConfig, SensitiveWord } from './system'
+
+export type { TrainingCourse, TrainingProgress, TrainingStatus } from './training'

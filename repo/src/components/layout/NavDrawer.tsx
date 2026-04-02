@@ -6,6 +6,7 @@ import {
   Database,
   FileText,
   Gavel,
+  GraduationCap,
   LayoutDashboard,
   LogOut,
   MailCheck,
@@ -83,6 +84,12 @@ const NAV_ITEMS: NavItem[] = [
     icon: Archive,
     to: '/documents',
     permission: 'viewDocuments',
+  },
+  {
+    label: 'Training',
+    icon: GraduationCap,
+    to: '/training',
+    permission: 'viewTraining',
   },
   {
     label: 'Notifications',

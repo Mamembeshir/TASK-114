@@ -59,6 +59,10 @@ export const Permission = {
   /** Full document admin: manage retention policies, purge drafts */
   manageDocuments: 'manageDocuments',
 
+  // ── Training ───────────────────────────────────────────────────────────────
+  /** Access and progress through training courses */
+  viewTraining: 'viewTraining',
+
   // ── Message Center ─────────────────────────────────────────────────────────
   /** View received notifications and announcements */
   viewMessages: 'viewMessages',
@@ -77,6 +81,7 @@ const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   [Role.Administrator]: [
     // Full system access
     Permission.manageUsers,
+    Permission.viewTraining,
     Permission.viewAuditLog,
     Permission.manageSystem,
 
@@ -109,6 +114,7 @@ const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   ],
 
   [Role.ContentEditor]: [
+    Permission.viewTraining,
     Permission.viewAuctions,
     Permission.createAuction,
 
@@ -127,6 +133,7 @@ const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   ],
 
   [Role.ReviewerApprover]: [
+    Permission.viewTraining,
     Permission.viewAuditLog,
 
     Permission.viewAuctions,
@@ -147,6 +154,7 @@ const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   ],
 
   [Role.Participant]: [
+    Permission.viewTraining,
     Permission.viewAuctions,
     Permission.placeBid,
 

@@ -18,6 +18,7 @@ import type {
   NotificationSubscription,
   MessageReadReceipt,
 } from '@/types/notification'
+import type { TrainingCourse, TrainingProgress } from '@/types/training'
 import type { SystemConfig, SensitiveWord } from '@/types/system'
 
 /**
@@ -69,6 +70,10 @@ export class MeridianDB extends Dexie {
   notificationTemplates!: Table<NotificationTemplate>
   notificationSubscriptions!: Table<NotificationSubscription>
   messageReadReceipts!: Table<MessageReadReceipt>
+
+  // ── Training ───────────────────────────────────────────────────────────────
+  trainingCourses!: Table<TrainingCourse>
+  trainingProgress!: Table<TrainingProgress>
 
   // ── System ─────────────────────────────────────────────────────────────────
   systemConfig!: Table<SystemConfig>
@@ -125,7 +130,7 @@ export class MeridianDB extends Dexie {
       sensitiveWords: 'id, &word, createdAt',
     })
 
-    // Version 2: outbound retry fields + Message Center enhancement tables
+    // Version 2: outbound retry fields + Message Center + Training tables
     this.version(2).stores({
       // Add nextRetryAt index for efficient retry polling
       outboundQueue: 'id, recipientUserId, status, channel, queuedAt, nextRetryAt',
@@ -133,6 +138,9 @@ export class MeridianDB extends Dexie {
       notificationTemplates: 'id, &key, isActive, createdAt',
       notificationSubscriptions: 'id, userId, notificationType',
       messageReadReceipts: 'id, notificationId, userId, readAt',
+      // Training module
+      trainingCourses: 'id, isActive, createdAt',
+      trainingProgress: 'id, userId, courseId, status, updatedAt',
     })
   }
 }
