@@ -102,17 +102,24 @@
 
 ### 2.1 App Shell
 
-- [ ] Build `AppShell` layout with left Drawer + main content area
-- [ ] Make Drawer collapsible with smooth CSS transition
-- [ ] Persist Drawer open/closed state to LocalStorage
+- [x] Build `AppShell` layout with left Drawer + main content area
+  - `src/components/layout/AppShell.tsx` — fixed-position drawer + margin-shifted main content
+- [x] Make Drawer collapsible with smooth CSS transition
+  - CSS `transition-[width]` on drawer, `transition-[margin-left]` on main; 200 ms ease-in-out
+  - Collapsed = 64 px icon rail; expanded = 256 px
+- [x] Persist Drawer open/closed state to LocalStorage
+  - Key `meridian_drawer_open`; defaults to `true` (open) on first visit
 
 ### 2.2 Navigation Drawer
 
-- [ ] Build `NavDrawer` component with role-aware navigation items
-- [ ] Add navigation sections: Auctions, Catalog, Publishing, Documents, Messages, Admin
-- [ ] Show/hide nav items based on current user's role and permissions
-- [ ] Add user avatar, name, and role badge at the bottom of the Drawer
-- [ ] Add logout button in Drawer footer
+- [x] Build `NavDrawer` component with role-aware navigation items
+  - `src/components/layout/NavDrawer.tsx`
+- [x] Add navigation sections: Auctions, Catalog, Publishing, Documents, Messages, Admin
+- [x] Show/hide nav items based on current user's role and permissions
+  - Each nav item has an optional `permission` field; hidden when `usePermission` returns false
+- [x] Add user avatar, name, and role badge at the bottom of the Drawer
+  - Initials avatar, display name, colour-coded role badge per role
+- [x] Add logout button in Drawer footer
 
 ### 2.3 Tabbed Workspace
 
