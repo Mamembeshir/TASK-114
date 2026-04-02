@@ -13,7 +13,7 @@ import { db } from '@/db'
 import { generateId } from '@/crypto'
 import { writeAuditLog } from '@/utils/audit'
 import { moderateContent } from '@/utils/moderation'
-import { createNotification } from './notificationService'
+import { createNotification, createNotificationForMany } from './notificationService'
 import type { Publication, PublicationType, WorkflowStatus } from '@/types'
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -265,6 +265,17 @@ export async function publishPublication(
     entityType: 'Publication',
     entityId: id,
     description: `${actorName} published "${pub.title}"`,
+  })
+
+  // Notify all active users that a new publication is available
+  const users = await db.users.filter((u) => u.isActive).toArray()
+  const recipientIds = users.map((u) => u.id).filter((uid) => uid !== actorId)
+  await createNotificationForMany(recipientIds, {
+    type: 'PublicationPublished',
+    title: 'New Publication',
+    message: `"${pub.title}" has been published and is now available in the feed.`,
+    relatedEntityType: 'Publication',
+    relatedEntityId: id,
   })
 }
 

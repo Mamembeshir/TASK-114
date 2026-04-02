@@ -451,12 +451,13 @@
 ### 7.4 System-Triggered Notifications
 
 - [x] Notify bid authors when outbid (wire into biddingEngine.ts)
-- [ ] Notify auction winner on auction close
-- [ ] Notify seller when auction ends with no sale
+- [x] Notify auction winner on auction close
+- [x] Notify seller when auction ends with no sale
 - [x] Notify publication author on review approval/rejection
+- [x] Notify document author on approve/reject
 - [ ] Notify document checkout owner when auto-release is approaching
-- [ ] Notify all users when a new publication is published
-- [ ] Notify Admin when a document enters retention queue
+- [x] Notify all users when a new publication is published
+- [x] Notify Admin when a document enters retention queue (on destruction request)
 
 **Also added:**
 - `NotificationBell` wired into `TabBar` (right-side slot)
@@ -571,7 +572,7 @@
 | Phase 4: Catalog & Search | ✅ Complete     | 18 / 18           |
 | Phase 5: Publishing       | ✅ Complete     | 21 / 21           |
 | Phase 6: Documents        | ✅ Complete     | 22 / 22           |
-| Phase 7: Messages         | ✅ Complete     | 18 / 18           |
+| Phase 7: Messages         | ✅ Complete     | 20 / 20           |
 | Phase 8: Admin & Export   | ✅ Complete     | 19 / 19           |
 | Phase 9: Polish & Testing | In Progress     | 2 / 23            |
 | **Total**                 | **In Progress** | **140 / 198**     |

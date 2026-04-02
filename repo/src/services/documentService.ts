@@ -11,7 +11,8 @@ import { db } from '@/db'
 import { generateId } from '@/crypto'
 import { writeAuditLog } from '@/utils/audit'
 import { moderateContent } from '@/utils/moderation'
-import { createNotification } from './notificationService'
+import { createNotification, createNotificationForMany } from './notificationService'
+import { Role } from '@/types'
 import type { Document } from '@/types'
 
 // ── Watermark ─────────────────────────────────────────────────────────────────
@@ -400,6 +401,17 @@ export async function requestDestruction(
     entityType: 'Document',
     entityId: id,
     description: `${actorName} requested destruction of "${doc.title}" — reason: ${reason}`,
+  })
+
+  // Notify all Administrators that a destruction request needs their approval
+  const admins = await db.users.filter((u) => u.role === Role.Administrator && u.isActive).toArray()
+  const adminIds = admins.map((u) => u.id)
+  await createNotificationForMany(adminIds, {
+    type: 'DocumentDestructionRequested',
+    title: 'Destruction Request Pending',
+    message: `Document "${doc.title}" has been flagged for destruction by ${actorName} and requires reviewer then admin approval.`,
+    relatedEntityType: 'Document',
+    relatedEntityId: id,
   })
 }
 
