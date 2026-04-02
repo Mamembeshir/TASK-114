@@ -315,7 +315,7 @@ When a valid bid lands in the **final 30 seconds** of an auction, the end time i
 
 ## Test Coverage
 
-169 tests across 15 test files (Vitest + fake-indexeddb + Testing Library):
+191 tests across 16 test files (Vitest + fake-indexeddb + Testing Library):
 
 | File                            | Tests | What it covers                                              |
 | ------------------------------- | :---: | ----------------------------------------------------------- |
@@ -333,7 +333,8 @@ When a valid bid lands in the **final 30 seconds** of an auction, the end time i
 | `auth/loginPage.test.tsx`       |  10   | Form rendering, validation, lockout error display, register nav |
 | `auth/registerPage.test.tsx`    |  13   | All field rules (username regex, 12-char min, optional email, confirm) |
 | `auth/forcePasswordChange.test.tsx`| 9  | Renders for temp-password users; all 4 validation rules     |
-| `pages/dashboardPage.test.tsx`  |  27   | Role-based Quick Action visibility; tab opens correct path  |
+| `pages/dashboardPage.test.tsx`  |  20   | Role-based Quick Action visibility; tab opens correct path  |
+| `layout/tabContentPermissions.test.tsx` | 22 | PermissionGuard blocks all 6 guarded routes for unauthorized roles; allows authorized roles; unauthenticated denial |
 
 ---
 
