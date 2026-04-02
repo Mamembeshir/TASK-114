@@ -19,10 +19,10 @@ import { Role } from '@/types'
 // Stub out Dexie calls so we don't need live DB for rendering tests
 vi.mock('@/db', () => ({
   db: {
-    auctions: { where: () => ({ equals: () => ({ count: async () => 0 }) }) },
-    notifications: { where: () => ({ equals: () => ({ count: async () => 0 }) }) },
-    documents: { where: () => ({ notEqual: () => ({ count: async () => 0 }) }) },
-    catalogItems: { count: async () => 0 },
+    auctions: { where: () => ({ equals: () => ({ count: () => Promise.resolve(0) }) }) },
+    notifications: { where: () => ({ equals: () => ({ count: () => Promise.resolve(0) }) }) },
+    documents: { where: () => ({ notEqual: () => ({ count: () => Promise.resolve(0) }) }) },
+    catalogItems: { count: () => Promise.resolve(0) },
   },
 }))
 
@@ -54,7 +54,10 @@ function setUser(role: Role) {
 
 function resetTab() {
   // Reset tab store to initial state between tests
-  useTabStore.setState({ tabs: [{ id: 'home', title: 'Dashboard', path: '/', isDirty: false }], activeTabId: 'home' })
+  useTabStore.setState({
+    tabs: [{ id: 'home', title: 'Dashboard', path: '/', isDirty: false }],
+    activeTabId: 'home',
+  })
 }
 
 beforeEach(resetTab)
@@ -63,7 +66,9 @@ afterEach(resetTab)
 // ── Administrator ─────────────────────────────────────────────────────────────
 
 describe('DashboardPage — Administrator', () => {
-  beforeEach(() => setUser(Role.Administrator))
+  beforeEach(() => {
+    setUser(Role.Administrator)
+  })
 
   it('shows the Administrator role badge', () => {
     render(<DashboardPage />)
@@ -102,7 +107,9 @@ describe('DashboardPage — Administrator', () => {
 // ── ContentEditor ─────────────────────────────────────────────────────────────
 
 describe('DashboardPage — ContentEditor', () => {
-  beforeEach(() => setUser(Role.ContentEditor))
+  beforeEach(() => {
+    setUser(Role.ContentEditor)
+  })
 
   it('shows New Auction, Add Catalog Item, Upload Document, Messages', () => {
     render(<DashboardPage />)
@@ -135,7 +142,9 @@ describe('DashboardPage — ContentEditor', () => {
 // ── ReviewerApprover ──────────────────────────────────────────────────────────
 
 describe('DashboardPage — ReviewerApprover', () => {
-  beforeEach(() => setUser(Role.ReviewerApprover))
+  beforeEach(() => {
+    setUser(Role.ReviewerApprover)
+  })
 
   it('shows Review Queue and Messages', () => {
     render(<DashboardPage />)
@@ -171,7 +180,9 @@ describe('DashboardPage — ReviewerApprover', () => {
 // ── Participant ───────────────────────────────────────────────────────────────
 
 describe('DashboardPage — Participant', () => {
-  beforeEach(() => setUser(Role.Participant))
+  beforeEach(() => {
+    setUser(Role.Participant)
+  })
 
   it('shows only the Messages Quick Action', () => {
     render(<DashboardPage />)

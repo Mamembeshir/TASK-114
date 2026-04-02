@@ -15,6 +15,7 @@ const TYPE_VARIANTS: Record<PublicationType, 'info' | 'warning' | 'primary'> = {
   Announcement: 'primary',
   Notice: 'warning',
   Bulletin: 'info',
+  Carousel: 'info',
 }
 
 interface ViewSession {

@@ -37,8 +37,10 @@
  */
 
 import { lazy, Suspense } from 'react'
-import { Loader2 } from 'lucide-react'
+import { Loader2, ShieldX } from 'lucide-react'
 import { useTabStore } from '@/store/tabStore'
+import { useAuthStore } from '@/store/authStore'
+import { hasPermission, type Permission } from '@/auth/permissions'
 
 // ── Lazy page imports ──────────────────────────────────────────────────────────
 
@@ -143,6 +145,35 @@ function PageLoader() {
       <Loader2 className="w-6 h-6 text-primary-500 animate-spin" />
     </div>
   )
+}
+
+// ── Permission guard ───────────────────────────────────────────────────────────
+
+/**
+ * Renders children only when the authenticated user holds `permission`.
+ * Otherwise shows an access-denied message. This enforces the permission
+ * matrix at the page level, preventing tab-system bypass via DevTools.
+ */
+function PermissionGuard({
+  permission,
+  children,
+}: {
+  permission: Permission
+  children: React.ReactNode
+}) {
+  const currentUser = useAuthStore((s) => s.currentUser)
+  if (!currentUser || !hasPermission(currentUser.role, permission)) {
+    return (
+      <div className="p-12 flex flex-col items-center gap-4 text-center">
+        <ShieldX className="w-12 h-12 text-red-500/50" />
+        <p className="text-surface-300 text-base font-semibold">Access Denied</p>
+        <p className="text-surface-500 text-sm">
+          You don&apos;t have permission to view this page.
+        </p>
+      </div>
+    )
+  }
+  return <>{children}</>
 }
 
 // ── Route matching ─────────────────────────────────────────────────────────────
@@ -252,25 +283,60 @@ function matchRoute(path: string): React.ReactNode {
   if (path === '/documents') return <DocumentListPage />
 
   // /notifications
-  if (path === '/notifications') return <NotificationCenterPage />
+  if (path === '/notifications')
+    return (
+      <PermissionGuard permission="viewMessages">
+        <NotificationCenterPage />
+      </PermissionGuard>
+    )
 
   // /outbound-queue
-  if (path === '/outbound-queue') return <OutboundQueuePage />
+  if (path === '/outbound-queue')
+    return (
+      <PermissionGuard permission="manageMessages">
+        <OutboundQueuePage />
+      </PermissionGuard>
+    )
 
   // /admin/users
-  if (path === '/admin/users') return <UserManagementPage />
+  if (path === '/admin/users')
+    return (
+      <PermissionGuard permission="manageUsers">
+        <UserManagementPage />
+      </PermissionGuard>
+    )
 
   // /admin/settings
-  if (path === '/admin/settings') return <SystemSettingsPage />
+  if (path === '/admin/settings')
+    return (
+      <PermissionGuard permission="manageSystem">
+        <SystemSettingsPage />
+      </PermissionGuard>
+    )
 
   // /admin/sensitive-words
-  if (path === '/admin/sensitive-words') return <SensitiveWordListPage />
+  if (path === '/admin/sensitive-words')
+    return (
+      <PermissionGuard permission="manageSystem">
+        <SensitiveWordListPage />
+      </PermissionGuard>
+    )
 
   // /admin/audit-log
-  if (path === '/admin/audit-log') return <AuditLogPage />
+  if (path === '/admin/audit-log')
+    return (
+      <PermissionGuard permission="viewAuditLog">
+        <AuditLogPage />
+      </PermissionGuard>
+    )
 
   // /admin/export
-  if (path === '/admin/export') return <DataExportPage />
+  if (path === '/admin/export')
+    return (
+      <PermissionGuard permission="manageSystem">
+        <DataExportPage />
+      </PermissionGuard>
+    )
 
   // Fallback
   return (

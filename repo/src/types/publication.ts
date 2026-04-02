@@ -1,6 +1,6 @@
 // ── Publishing Workbench ──────────────────────────────────────────────────────
 
-export type PublicationType = 'Announcement' | 'Notice' | 'Bulletin'
+export type PublicationType = 'Announcement' | 'Notice' | 'Bulletin' | 'Carousel'
 
 export type WorkflowStatus = 'Draft' | 'InReview' | 'Approved' | 'Rejected' | 'Published'
 

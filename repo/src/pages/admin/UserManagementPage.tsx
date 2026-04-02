@@ -9,10 +9,41 @@ import { useAuthStore } from '@/store/authStore'
 import { db } from '@/db'
 import { hashPassword, generateId } from '@/crypto'
 import { writeAuditLog } from '@/utils/audit'
+import { requirePermission } from '@/utils/permissions'
 import { Badge, Button, Card, Input, Modal, Select, Spinner, Table } from '@/components/ui'
 import type { ColumnDef } from '@/components/ui'
 import { Role } from '@/types'
 import type { User } from '@/types'
+
+/**
+ * DTO — strips sensitive credential fields from the full User record so that
+ * password hashes never live in React state.
+ */
+interface UserDTO {
+  id: string
+  username: string
+  displayName: string
+  email: string
+  role: Role
+  isActive: boolean
+  isTemporaryPassword: boolean
+  createdAt: number
+  createdBy: string
+}
+
+function toDTO(u: User): UserDTO {
+  return {
+    id: u.id,
+    username: u.username,
+    displayName: u.displayName,
+    email: u.email,
+    role: u.role,
+    isActive: u.isActive,
+    isTemporaryPassword: u.isTemporaryPassword,
+    createdAt: u.createdAt,
+    createdBy: u.createdBy,
+  }
+}
 
 const ROLE_VARIANTS: Record<
   Role,
@@ -46,14 +77,15 @@ const emptyForm = (): UserFormState => ({
 
 export function UserManagementPage() {
   const currentUser = useAuthStore((s) => s.currentUser)
-  const [users, setUsers] = useState<User[]>([])
+  // UserDTO strips passwordHash/passwordSalt — credential fields never held in React state
+  const [users, setUsers] = useState<UserDTO[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isActing, setIsActing] = useState(false)
 
   const [showCreateModal, setShowCreateModal] = useState(false)
-  const [editingUser, setEditingUser] = useState<User | null>(null)
+  const [editingUser, setEditingUser] = useState<UserDTO | null>(null)
   const [showResetModal, setShowResetModal] = useState(false)
-  const [resetTarget, setResetTarget] = useState<User | null>(null)
+  const [resetTarget, setResetTarget] = useState<UserDTO | null>(null)
   const [newPassword, setNewPassword] = useState('')
   const [form, setForm] = useState(emptyForm())
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -61,7 +93,8 @@ export function UserManagementPage() {
   const load = useCallback(async () => {
     setIsLoading(true)
     const all = await db.users.orderBy('createdAt').toArray()
-    setUsers(all)
+    // Map to DTOs — password hashes are never held in component state
+    setUsers(all.map(toDTO))
     setIsLoading(false)
   }, [])
 
@@ -85,6 +118,7 @@ export function UserManagementPage() {
 
   const handleCreate = async () => {
     if (!validate(false)) return
+    requirePermission('manageUsers')
     setIsActing(true)
     try {
       const existing = await db.users
@@ -133,6 +167,7 @@ export function UserManagementPage() {
 
   const handleUpdate = async () => {
     if (!editingUser || !validate(true)) return
+    requirePermission('manageUsers')
     setIsActing(true)
     try {
       await db.users.update(editingUser.id, {
@@ -159,7 +194,8 @@ export function UserManagementPage() {
     }
   }
 
-  const handleToggleActive = async (user: User) => {
+  const handleToggleActive = async (user: UserDTO) => {
+    requirePermission('manageUsers')
     setIsActing(true)
     try {
       const newActive = !user.isActive
@@ -182,10 +218,11 @@ export function UserManagementPage() {
   }
 
   const handleResetPassword = async () => {
-    if (!resetTarget || newPassword.length < 8) {
-      setErrors({ newPassword: 'Password must be at least 8 characters' })
+    if (!resetTarget || newPassword.length < 12) {
+      setErrors({ newPassword: 'Password must be at least 12 characters' })
       return
     }
+    requirePermission('manageUsers')
     setIsActing(true)
     try {
       const { hash, salt } = await hashPassword(newPassword)
@@ -214,7 +251,7 @@ export function UserManagementPage() {
     }
   }
 
-  const openEdit = (user: User) => {
+  const openEdit = (user: UserDTO) => {
     setEditingUser(user)
     setForm({
       ...emptyForm(),
@@ -225,7 +262,7 @@ export function UserManagementPage() {
     setErrors({})
   }
 
-  const columns: ColumnDef<User>[] = [
+  const columns: ColumnDef<UserDTO>[] = [
     {
       key: 'name',
       header: 'Name',

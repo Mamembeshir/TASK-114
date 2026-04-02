@@ -88,7 +88,7 @@ describe('RegisterPage — field validation', () => {
     expect(await screen.findByText(/enter a valid email/i)).toBeInTheDocument()
   })
 
-  it('accepts an empty email (field is optional)', async () => {
+  it('accepts an empty email (field is optional)', () => {
     renderRegister()
     fireEvent.blur(screen.getByLabelText(/email/i))
     expect(screen.queryByText(/enter a valid email/i)).not.toBeInTheDocument()

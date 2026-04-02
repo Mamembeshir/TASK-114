@@ -27,6 +27,8 @@ async function nextVersionNumber(publicationId: string): Promise<number> {
   return versions.length + 1
 }
 
+const MAX_VERSIONS = 20
+
 async function snapshotVersion(
   pub: Publication,
   status: WorkflowStatus,
@@ -48,6 +50,17 @@ async function snapshotVersion(
     createdBy: actorId,
     createdAt: Date.now(),
   })
+
+  // Prune oldest versions so the total never exceeds MAX_VERSIONS
+  const all = await db.publicationVersions
+    .where('publicationId')
+    .equals(pub.id)
+    .sortBy('versionNumber')
+  if (all.length > MAX_VERSIONS) {
+    const toDelete = all.slice(0, all.length - MAX_VERSIONS).map((v) => v.id)
+    await db.publicationVersions.bulkDelete(toDelete)
+  }
+
   return versionId
 }
 

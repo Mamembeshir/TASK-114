@@ -81,12 +81,12 @@ describe('LoginPage — auth store integration', () => {
 
   it('surfaces a lockout error from the auth store as a toast', async () => {
     const { toast } = await import('sonner')
-    useAuthStore.setState({ error: 'Account locked — too many failed attempts. Try again in 15 minutes.' })
+    useAuthStore.setState({
+      error: 'Account locked — too many failed attempts. Try again in 15 minutes.',
+    })
     renderLogin()
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith(
-        expect.stringMatching(/account locked/i),
-      )
+      expect(toast.error).toHaveBeenCalledWith(expect.stringMatching(/account locked/i))
     })
   })
 })

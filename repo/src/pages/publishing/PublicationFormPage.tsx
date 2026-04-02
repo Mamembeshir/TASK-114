@@ -16,7 +16,7 @@ import {
 import { Button, Card, CardHeader, Input, RichTextEditor, Select } from '@/components/ui'
 import type { PublicationType } from '@/types'
 
-const PUBLICATION_TYPES: PublicationType[] = ['Announcement', 'Notice', 'Bulletin']
+const PUBLICATION_TYPES: PublicationType[] = ['Announcement', 'Notice', 'Bulletin', 'Carousel']
 const AUTO_SAVE_INTERVAL = 30_000
 
 interface Props {

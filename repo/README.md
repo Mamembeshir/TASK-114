@@ -304,12 +304,18 @@ Full implementation: `src/auth/permissions.ts`
 | Audit log       | Append-only — zero delete/update code paths exist in the codebase   |
 | Duplicate bids  | Unique `idempotencyKey` index + Dexie `rw` transaction + BroadcastChannel |
 | Moderation      | Sensitive-word scan on every save and submit-for-review             |
+| Page-level RBAC | `PermissionGuard` in `TabContent` blocks rendering of restricted pages even if a tab is opened programmatically |
+| User data       | `UserManagementPage` maps DB records to DTOs before storing in React state — `passwordHash`/`passwordSalt` never held in component memory |
+
+### Anti-sniping rule
+
+When a valid bid lands in the **final 30 seconds** of an auction, the end time is extended by **2 minutes — once per auction**. No further extensions are granted after `antiSnipingTriggered` is set. This is a deliberate product decision (recorded in `CLAUDE.md`) that prevents indefinite extension chains while still protecting against last-second snipe bids.
 
 ---
 
 ## Test Coverage
 
-65 tests across 10 test files (Vitest + fake-indexeddb):
+169 tests across 15 test files (Vitest + fake-indexeddb + Testing Library):
 
 | File                            | Tests | What it covers                                              |
 | ------------------------------- | :---: | ----------------------------------------------------------- |
@@ -323,6 +329,11 @@ Full implementation: `src/auth/permissions.ts`
 | `services/publicationWorkflow.test.ts`|11| Draft→Published workflow, moderation block, notifications   |
 | `services/documentCheckout.test.ts`  | 7 | Lock/block/checkin/version snapshot/expired auto-release    |
 | `app.test.tsx`                  |   1   | App renders without crashing                                |
+| `auth/rbac.test.ts`             |  45   | Permission matrix allow/deny for all roles; requirePermission guard |
+| `auth/loginPage.test.tsx`       |  10   | Form rendering, validation, lockout error display, register nav |
+| `auth/registerPage.test.tsx`    |  13   | All field rules (username regex, 12-char min, optional email, confirm) |
+| `auth/forcePasswordChange.test.tsx`| 9  | Renders for temp-password users; all 4 validation rules     |
+| `pages/dashboardPage.test.tsx`  |  27   | Role-based Quick Action visibility; tab opens correct path  |
 
 ---
 

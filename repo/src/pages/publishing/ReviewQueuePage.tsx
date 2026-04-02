@@ -24,6 +24,7 @@ const TYPE_LABELS: Record<PublicationType, string> = {
   Announcement: 'Announcement',
   Notice: 'Notice',
   Bulletin: 'Bulletin',
+  Carousel: 'Carousel',
 }
 
 export function ReviewQueuePage() {

@@ -11,7 +11,7 @@ import { db } from '@/db'
 import { Badge, Card, EmptyState, Spinner } from '@/components/ui'
 import type { CatalogItem, Category } from '@/types'
 
-type SortOption = 'newest' | 'price_asc' | 'price_desc'
+type SortOption = 'newest' | 'price_asc' | 'price_desc' | 'top_sellers'
 
 export function CatalogBrowsePage() {
   const [items, setItems] = useState<CatalogItem[]>([])
@@ -86,6 +86,7 @@ export function CatalogBrowsePage() {
 
     if (sort === 'price_asc') result.sort((a, b) => a.price - b.price)
     else if (sort === 'price_desc') result.sort((a, b) => b.price - a.price)
+    else if (sort === 'top_sellers') result.sort((a, b) => b.salesCount - a.salesCount)
     else result.sort((a, b) => b.createdAt - a.createdAt)
 
     return result
@@ -121,6 +122,7 @@ export function CatalogBrowsePage() {
           <option value="newest">Newest</option>
           <option value="price_asc">Price: Low → High</option>
           <option value="price_desc">Price: High → Low</option>
+          <option value="top_sellers">Top Sellers</option>
         </select>
       </div>
 
