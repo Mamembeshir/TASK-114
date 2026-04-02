@@ -210,9 +210,6 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
  * | buyer     | Participant        | buyerPass1!     |
  */
 export async function seedDefaultAdmin(): Promise<void> {
-  const count = await db.users.count()
-  if (count > 0) return
-
   const now = Date.now()
 
   interface AccountSeed {
@@ -254,6 +251,10 @@ export async function seedDefaultAdmin(): Promise<void> {
   ]
 
   for (const account of accounts) {
+    // Skip if this username already exists (idempotent — safe to call on every launch)
+    const existing = await db.users.where('username').equals(account.username).first()
+    if (existing) continue
+
     const { hash, salt } = await hashPassword(account.password)
     await db.users.add({
       id: generateId(),
