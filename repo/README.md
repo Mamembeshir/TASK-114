@@ -298,13 +298,15 @@ Full implementation: `src/auth/permissions.ts`
 
 ---
 
-## Default Credentials
+## Demo Accounts
 
-On first launch, a default Administrator account is seeded automatically:
+On first launch the app seeds **four ready-to-use accounts** — one per role — so every workflow can be exercised immediately without a registration step.
 
-| Field    | Value         |
-| -------- | ------------- |
-| Username | `admin`       |
-| Password | `Admin@1234!` |
+| Username   | Password        | Role               | What you can do                                                      |
+| ---------- | --------------- | ------------------ | -------------------------------------------------------------------- |
+| `admin`    | `adminPass1!`   | Administrator      | Everything: user management, system settings, wallet management, full audit log, data export |
+| `editor`   | `editorPass1!`  | Content Editor     | Create & publish auctions, catalog items, publications, and documents |
+| `reviewer` | `reviewerPass1!`| ReviewerApprover   | Approve / reject publications and documents; view audit log; approve destruction requests |
+| `buyer`    | `buyerPass1!`   | Participant        | Browse the catalog, place bids, manage wallet, read published content |
 
-> **Change the default password immediately after first login.**
+> Accounts are only seeded on first launch (empty database). If you have an existing IndexedDB instance, clear it via DevTools → Application → IndexedDB → Delete database, then refresh.

@@ -194,35 +194,80 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
   },
 }))
 
-// ── Default admin seeding ─────────────────────────────────────────────────────
+// ── Demo account seeding ──────────────────────────────────────────────────────
 
 /**
- * On first launch (empty users table), seed the default Administrator account.
- * `isTemporaryPassword: true` signals the UI to prompt a password change.
+ * On first launch (empty users table), seed one demo account per role so the
+ * portal is immediately usable without a registration flow.
  *
- * Default credentials — change immediately after first login:
- *   username : admin
- *   password : Admin@1234!
+ * All accounts use the same pattern:  password = <username>Pass1!
+ *
+ * | Username  | Role               | Password        |
+ * | --------- | ------------------ | --------------- |
+ * | admin     | Administrator      | adminPass1!     |
+ * | editor    | ContentEditor      | editorPass1!    |
+ * | reviewer  | ReviewerApprover   | reviewerPass1!  |
+ * | buyer     | Participant        | buyerPass1!     |
  */
 export async function seedDefaultAdmin(): Promise<void> {
   const count = await db.users.count()
   if (count > 0) return
 
-  const { hash, salt } = await hashPassword('Admin@1234!')
   const now = Date.now()
 
-  await db.users.add({
-    id: generateId(),
-    username: 'admin',
-    displayName: 'Administrator',
-    email: '',
-    passwordHash: hash,
-    passwordSalt: salt,
-    role: Role.Administrator,
-    isActive: true,
-    isTemporaryPassword: true,
-    createdAt: now,
-    updatedAt: now,
-    createdBy: 'system',
-  })
+  interface AccountSeed {
+    username: string
+    displayName: string
+    email: string
+    password: string
+    role: Role
+  }
+  const accounts: AccountSeed[] = [
+    {
+      username: 'admin',
+      displayName: 'Admin User',
+      email: 'admin@meridian.internal',
+      password: 'adminPass1!',
+      role: Role.Administrator,
+    },
+    {
+      username: 'editor',
+      displayName: 'Content Editor',
+      email: 'editor@meridian.internal',
+      password: 'editorPass1!',
+      role: Role.ContentEditor,
+    },
+    {
+      username: 'reviewer',
+      displayName: 'Reviewer',
+      email: 'reviewer@meridian.internal',
+      password: 'reviewerPass1!',
+      role: Role.ReviewerApprover,
+    },
+    {
+      username: 'buyer',
+      displayName: 'Buyer',
+      email: 'buyer@meridian.internal',
+      password: 'buyerPass1!',
+      role: Role.Participant,
+    },
+  ]
+
+  for (const account of accounts) {
+    const { hash, salt } = await hashPassword(account.password)
+    await db.users.add({
+      id: generateId(),
+      username: account.username,
+      displayName: account.displayName,
+      email: account.email,
+      passwordHash: hash,
+      passwordSalt: salt,
+      role: account.role,
+      isActive: true,
+      isTemporaryPassword: false,
+      createdAt: now,
+      updatedAt: now,
+      createdBy: 'system',
+    })
+  }
 }
