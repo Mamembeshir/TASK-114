@@ -13,6 +13,7 @@ import { db } from '@/db'
 import { generateId } from '@/crypto'
 import { writeAuditLog } from '@/utils/audit'
 import { moderateContent } from '@/utils/moderation'
+import { createNotification } from './notificationService'
 import type { Publication, PublicationType, WorkflowStatus } from '@/types'
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -195,6 +196,15 @@ export async function approvePublication(
     entityId: id,
     description: `${actorName} approved "${pub.title}"${comment ? ` — ${comment}` : ''}`,
   })
+
+  await createNotification({
+    userId: pub.createdBy,
+    type: 'PublicationApproved',
+    title: 'Publication Approved',
+    message: `"${pub.title}" has been approved${comment ? `: ${comment}` : '.'}`,
+    relatedEntityType: 'Publication',
+    relatedEntityId: id,
+  })
 }
 
 export async function rejectPublication(
@@ -221,6 +231,15 @@ export async function rejectPublication(
     entityType: 'Publication',
     entityId: id,
     description: `${actorName} rejected "${pub.title}" — ${comment}`,
+  })
+
+  await createNotification({
+    userId: pub.createdBy,
+    type: 'PublicationRejected',
+    title: 'Publication Rejected',
+    message: `"${pub.title}" was rejected: ${comment}`,
+    relatedEntityType: 'Publication',
+    relatedEntityId: id,
   })
 }
 

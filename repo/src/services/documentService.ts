@@ -11,6 +11,7 @@ import { db } from '@/db'
 import { generateId } from '@/crypto'
 import { writeAuditLog } from '@/utils/audit'
 import { moderateContent } from '@/utils/moderation'
+import { createNotification } from './notificationService'
 import type { Document } from '@/types'
 
 // ── Watermark ─────────────────────────────────────────────────────────────────
@@ -327,6 +328,15 @@ export async function approveDocument(
     entityId: id,
     description: `${actorName} approved document "${doc.title}" → ${documentNumber}`,
   })
+
+  await createNotification({
+    userId: doc.createdBy,
+    type: 'DocumentApproved',
+    title: 'Document Approved',
+    message: `"${doc.title}" has been approved and assigned number ${documentNumber}.`,
+    relatedEntityType: 'Document',
+    relatedEntityId: id,
+  })
 }
 
 export async function rejectDocument(
@@ -347,6 +357,15 @@ export async function rejectDocument(
     entityType: 'Document',
     entityId: id,
     description: `${actorName} rejected document "${doc.title}" — ${comment}`,
+  })
+
+  await createNotification({
+    userId: doc.createdBy,
+    type: 'DocumentRejected',
+    title: 'Document Rejected',
+    message: `"${doc.title}" was rejected: ${comment}`,
+    relatedEntityType: 'Document',
+    relatedEntityId: id,
   })
 }
 

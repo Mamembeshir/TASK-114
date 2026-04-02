@@ -450,10 +450,10 @@
 
 ### 7.4 System-Triggered Notifications
 
-- [ ] Notify bid authors when outbid (wire into biddingEngine.ts)
+- [x] Notify bid authors when outbid (wire into biddingEngine.ts)
 - [ ] Notify auction winner on auction close
 - [ ] Notify seller when auction ends with no sale
-- [ ] Notify publication author on review approval/rejection
+- [x] Notify publication author on review approval/rejection
 - [ ] Notify document checkout owner when auto-release is approaching
 - [ ] Notify all users when a new publication is published
 - [ ] Notify Admin when a document enters retention queue
@@ -521,7 +521,7 @@
 
 ### 9.2 Performance
 
-- [ ] Lazy-load all page-level components with `React.lazy` + `Suspense`
+- [x] Lazy-load all page-level components with `React.lazy` + `Suspense`
 - [ ] Implement virtual scrolling for long tables (auction bids, audit log, document list)
 - [ ] Profile IndexedDB query performance; add missing indexes if needed
 - [ ] Debounce all search inputs and live-filter interactions
@@ -536,7 +536,7 @@
 
 ### 9.4 Security Hardening
 
-- [ ] Audit all user inputs for XSS vectors; sanitize rich-text content before storage and display
+- [x] Audit all user inputs for XSS vectors; sanitize rich-text content before storage and display
 - [ ] Verify PBKDF2 iterations meet current recommendations (≥ 310,000)
 - [ ] Confirm all sensitive IndexedDB fields are encrypted at rest
 - [ ] Ensure audit log table has no delete or update path in application code
@@ -573,5 +573,5 @@
 | Phase 6: Documents        | ✅ Complete     | 22 / 22           |
 | Phase 7: Messages         | ✅ Complete     | 18 / 18           |
 | Phase 8: Admin & Export   | ✅ Complete     | 19 / 19           |
-| Phase 9: Polish & Testing | Pending         | 0 / 23            |
-| **Total**                 | **In Progress** | **138 / 198**     |
+| Phase 9: Polish & Testing | In Progress     | 2 / 23            |
+| **Total**                 | **In Progress** | **140 / 198**     |

@@ -14,6 +14,7 @@ import { generateId } from '@/crypto'
 import { writeAuditLog } from '@/utils/audit'
 import { reserveForAuction } from './walletService'
 import { broadcast } from './bidChannel'
+import { createNotification } from './notificationService'
 import type { Bid } from '@/types'
 
 export { subscribeToBidEvents } from './bidChannel'
@@ -143,6 +144,11 @@ export async function placeBid(
         }
       }
 
+      // Capture previous leader for outbid notification
+      const prevBids = await db.bids.where('auctionId').equals(auctionId).sortBy('amount')
+      const previousLeaderId =
+        prevBids.length > 0 ? prevBids[prevBids.length - 1]?.bidderId : undefined
+
       // Place the manual bid
       const bid = await insertBid(auctionId, bidderId, amount, false, idempotencyKey)
 
@@ -188,6 +194,21 @@ export async function placeBid(
       if (extended) broadcast({ type: 'AUCTION_EXTENDED', auctionId, newEndTime })
 
       const userWon = winningBidderId === bidderId
+
+      // Notify previous leader that they were outbid (if there was a previous leader
+      // and they are not the current winner)
+      if (previousLeaderId && previousLeaderId !== winningBidderId) {
+        const auction = await db.auctions.get(auctionId)
+        await createNotification({
+          userId: previousLeaderId,
+          type: 'BidOutbid',
+          title: 'You Were Outbid',
+          message: `Someone placed a higher bid on "${auction?.title ?? auctionId}". New price: ${String(winningAmount)}.`,
+          relatedEntityType: 'Auction',
+          relatedEntityId: auctionId,
+        })
+      }
+
       return {
         success: true,
         bid: finalBid,

@@ -1,5 +1,6 @@
 /**
  * TabContent — renders the correct page component for the currently active tab.
+ * All page components are lazy-loaded to keep the initial bundle small.
  *
  * Route matching rules (evaluated top-to-bottom, first match wins):
  *  /                         → DashboardPage
@@ -13,36 +14,138 @@
  *  /catalog/new              → CatalogItemFormPage (create)
  *  /catalog/:id/edit         → CatalogItemFormPage (edit, id extracted)
  *  /catalog/browse           → CatalogBrowsePage
+ *  /catalog/moderation       → ModerationQueuePage
  *  /catalog                  → CatalogManagementPage
+ *  /publishing/new           → PublicationFormPage (create)
+ *  /publishing/:id/edit      → PublicationFormPage (edit)
+ *  /publishing/:id/review    → ReviewDetailPage
+ *  /publishing/queue         → ReviewQueuePage
+ *  /publishing/feed          → PublicationFeedPage
+ *  /publishing               → PublicationListPage
+ *  /documents/new            → DocumentFormPage (create)
+ *  /documents/:id/edit       → DocumentFormPage (edit)
+ *  /documents/:id/review     → DocumentDetailPage
+ *  /documents/:id            → DocumentDetailPage
+ *  /documents                → DocumentListPage
+ *  /notifications            → NotificationCenterPage
+ *  /outbound-queue           → OutboundQueuePage
+ *  /admin/users              → UserManagementPage
+ *  /admin/settings           → SystemSettingsPage
+ *  /admin/sensitive-words    → SensitiveWordListPage
+ *  /admin/audit-log          → AuditLogPage
+ *  /admin/export             → DataExportPage
  */
 
+import { lazy, Suspense } from 'react'
+import { Loader2 } from 'lucide-react'
 import { useTabStore } from '@/store/tabStore'
-import { DashboardPage } from '@/pages/DashboardPage'
-import { AuctionListPage } from '@/pages/auction/AuctionListPage'
-import { AuctionFormPage } from '@/pages/auction/AuctionFormPage'
-import { AuctionDetailPage } from '@/pages/auction/AuctionDetailPage'
-import { AuctionBrowsePage } from '@/pages/auction/AuctionBrowsePage'
-import { WalletPage } from '@/pages/auction/WalletPage'
-import { MyBidsPage } from '@/pages/auction/MyBidsPage'
-import { CatalogManagementPage } from '@/pages/catalog/CatalogManagementPage'
-import { CatalogItemFormPage } from '@/pages/catalog/CatalogItemFormPage'
-import { CatalogBrowsePage } from '@/pages/catalog/CatalogBrowsePage'
-import { ModerationQueuePage } from '@/pages/catalog/ModerationQueuePage'
-import { PublicationListPage } from '@/pages/publishing/PublicationListPage'
-import { DocumentListPage } from '@/pages/documents/DocumentListPage'
-import { DocumentFormPage } from '@/pages/documents/DocumentFormPage'
-import { DocumentDetailPage } from '@/pages/documents/DocumentDetailPage'
-import { PublicationFormPage } from '@/pages/publishing/PublicationFormPage'
-import { ReviewQueuePage } from '@/pages/publishing/ReviewQueuePage'
-import { ReviewDetailPage } from '@/pages/publishing/ReviewDetailPage'
-import { PublicationFeedPage } from '@/pages/publishing/PublicationFeedPage'
-import { NotificationCenterPage } from '@/pages/notifications/NotificationCenterPage'
-import { OutboundQueuePage } from '@/pages/notifications/OutboundQueuePage'
-import { UserManagementPage } from '@/pages/admin/UserManagementPage'
-import { SystemSettingsPage } from '@/pages/admin/SystemSettingsPage'
-import { SensitiveWordListPage } from '@/pages/admin/SensitiveWordListPage'
-import { AuditLogPage } from '@/pages/admin/AuditLogPage'
-import { DataExportPage } from '@/pages/admin/DataExportPage'
+
+// ── Lazy page imports ──────────────────────────────────────────────────────────
+
+const DashboardPage = lazy(() =>
+  import('@/pages/DashboardPage').then((m) => ({ default: m.DashboardPage })),
+)
+const AuctionListPage = lazy(() =>
+  import('@/pages/auction/AuctionListPage').then((m) => ({ default: m.AuctionListPage })),
+)
+const AuctionFormPage = lazy(() =>
+  import('@/pages/auction/AuctionFormPage').then((m) => ({ default: m.AuctionFormPage })),
+)
+const AuctionDetailPage = lazy(() =>
+  import('@/pages/auction/AuctionDetailPage').then((m) => ({ default: m.AuctionDetailPage })),
+)
+const AuctionBrowsePage = lazy(() =>
+  import('@/pages/auction/AuctionBrowsePage').then((m) => ({ default: m.AuctionBrowsePage })),
+)
+const WalletPage = lazy(() =>
+  import('@/pages/auction/WalletPage').then((m) => ({ default: m.WalletPage })),
+)
+const MyBidsPage = lazy(() =>
+  import('@/pages/auction/MyBidsPage').then((m) => ({ default: m.MyBidsPage })),
+)
+const CatalogManagementPage = lazy(() =>
+  import('@/pages/catalog/CatalogManagementPage').then((m) => ({
+    default: m.CatalogManagementPage,
+  })),
+)
+const CatalogItemFormPage = lazy(() =>
+  import('@/pages/catalog/CatalogItemFormPage').then((m) => ({ default: m.CatalogItemFormPage })),
+)
+const CatalogBrowsePage = lazy(() =>
+  import('@/pages/catalog/CatalogBrowsePage').then((m) => ({ default: m.CatalogBrowsePage })),
+)
+const ModerationQueuePage = lazy(() =>
+  import('@/pages/catalog/ModerationQueuePage').then((m) => ({ default: m.ModerationQueuePage })),
+)
+const PublicationListPage = lazy(() =>
+  import('@/pages/publishing/PublicationListPage').then((m) => ({
+    default: m.PublicationListPage,
+  })),
+)
+const PublicationFormPage = lazy(() =>
+  import('@/pages/publishing/PublicationFormPage').then((m) => ({
+    default: m.PublicationFormPage,
+  })),
+)
+const ReviewQueuePage = lazy(() =>
+  import('@/pages/publishing/ReviewQueuePage').then((m) => ({ default: m.ReviewQueuePage })),
+)
+const ReviewDetailPage = lazy(() =>
+  import('@/pages/publishing/ReviewDetailPage').then((m) => ({ default: m.ReviewDetailPage })),
+)
+const PublicationFeedPage = lazy(() =>
+  import('@/pages/publishing/PublicationFeedPage').then((m) => ({
+    default: m.PublicationFeedPage,
+  })),
+)
+const DocumentListPage = lazy(() =>
+  import('@/pages/documents/DocumentListPage').then((m) => ({ default: m.DocumentListPage })),
+)
+const DocumentFormPage = lazy(() =>
+  import('@/pages/documents/DocumentFormPage').then((m) => ({ default: m.DocumentFormPage })),
+)
+const DocumentDetailPage = lazy(() =>
+  import('@/pages/documents/DocumentDetailPage').then((m) => ({ default: m.DocumentDetailPage })),
+)
+const NotificationCenterPage = lazy(() =>
+  import('@/pages/notifications/NotificationCenterPage').then((m) => ({
+    default: m.NotificationCenterPage,
+  })),
+)
+const OutboundQueuePage = lazy(() =>
+  import('@/pages/notifications/OutboundQueuePage').then((m) => ({
+    default: m.OutboundQueuePage,
+  })),
+)
+const UserManagementPage = lazy(() =>
+  import('@/pages/admin/UserManagementPage').then((m) => ({ default: m.UserManagementPage })),
+)
+const SystemSettingsPage = lazy(() =>
+  import('@/pages/admin/SystemSettingsPage').then((m) => ({ default: m.SystemSettingsPage })),
+)
+const SensitiveWordListPage = lazy(() =>
+  import('@/pages/admin/SensitiveWordListPage').then((m) => ({
+    default: m.SensitiveWordListPage,
+  })),
+)
+const AuditLogPage = lazy(() =>
+  import('@/pages/admin/AuditLogPage').then((m) => ({ default: m.AuditLogPage })),
+)
+const DataExportPage = lazy(() =>
+  import('@/pages/admin/DataExportPage').then((m) => ({ default: m.DataExportPage })),
+)
+
+// ── Loading fallback ───────────────────────────────────────────────────────────
+
+function PageLoader() {
+  return (
+    <div className="flex items-center justify-center p-12">
+      <Loader2 className="w-6 h-6 text-primary-500 animate-spin" />
+    </div>
+  )
+}
+
+// ── Route matching ─────────────────────────────────────────────────────────────
 
 function matchRoute(path: string): React.ReactNode {
   if (path === '/') return <DashboardPage />
@@ -185,7 +288,7 @@ export function TabContent() {
     <div className="flex-1">
       {tabs.map((tab) => (
         <div key={tab.id} className={tab.id === activeTabId ? 'block' : 'hidden'} role="tabpanel">
-          {matchRoute(tab.path)}
+          <Suspense fallback={<PageLoader />}>{matchRoute(tab.path)}</Suspense>
         </div>
       ))}
     </div>
