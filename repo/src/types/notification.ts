@@ -36,11 +36,17 @@ export interface Notification {
 }
 
 export type OutboundChannel = 'Email' | 'SMS'
-export type OutboundStatus = 'Queued' | 'Sent' | 'Failed'
+export type OutboundStatus = 'Queued' | 'Sent' | 'Failed' | 'Retrying'
+
+/** Retry schedule (ms offsets from first failure): 1 min, 5 min, 15 min */
+export const RETRY_DELAYS_MS = [60_000, 5 * 60_000, 15 * 60_000] as const
 
 /**
  * Offline outbound queue — no real send.
  * Exported as CSV/JSON for manual processing per decision #11.
+ *
+ * Retry policy: on failure, up to 3 automatic retries at 1 / 5 / 15 minutes.
+ * After the third failure the item transitions to `Failed` (terminal).
  */
 export interface OutboundQueueItem {
   id: string
@@ -50,9 +56,68 @@ export interface OutboundQueueItem {
   recipientAddress: string
   subject?: string
   body: string
+  /** Template key used to generate this message, if any */
+  templateKey?: string
   relatedEntityType?: string
   relatedEntityId?: string
   status: OutboundStatus
+  /** Number of send attempts made (0 = never tried) */
+  attemptCount: number
+  /** Timestamp of the next scheduled retry attempt (epoch ms) */
+  nextRetryAt?: number
   queuedAt: number
   sentAt?: number
+  /** ISO timestamp of the last failure */
+  lastFailedAt?: number
+}
+
+// ── Notification templates ─────────────────────────────────────────────────────
+
+export type TemplateKey =
+  | 'auction.outbid'
+  | 'auction.won'
+  | 'auction.no_sale'
+  | 'publication.approved'
+  | 'publication.rejected'
+  | 'publication.published'
+  | 'document.approved'
+  | 'document.rejected'
+  | 'system.welcome'
+
+export interface NotificationTemplate {
+  id: string
+  key: TemplateKey
+  name: string
+  subjectTemplate: string
+  bodyTemplate: string
+  /** Handlebars-style variable names expected in the template */
+  variables: string[]
+  isActive: boolean
+  createdAt: number
+  updatedAt: number
+}
+
+// ── Subscription preferences ───────────────────────────────────────────────────
+
+export interface NotificationSubscription {
+  id: string
+  userId: string
+  /** Which notification type this preference applies to */
+  notificationType: string
+  /** Whether the user wants in-app notifications */
+  inApp: boolean
+  /** Whether the user wants email outbound messages */
+  email: boolean
+  /** Whether the user wants SMS outbound messages */
+  sms: boolean
+  updatedAt: number
+}
+
+// ── Read receipt ───────────────────────────────────────────────────────────────
+
+export interface MessageReadReceipt {
+  id: string
+  notificationId: string
+  userId: string
+  readAt: number
 }

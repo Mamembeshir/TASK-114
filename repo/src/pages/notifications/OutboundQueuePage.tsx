@@ -23,6 +23,7 @@ const STATUS_VARIANTS: Record<OutboundStatus, 'default' | 'success' | 'danger' |
   Queued: 'warning',
   Sent: 'success',
   Failed: 'danger',
+  Retrying: 'default',
 }
 
 const ALL_STATUSES: (OutboundStatus | 'All')[] = ['All', 'Queued', 'Sent', 'Failed']

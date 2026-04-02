@@ -182,105 +182,212 @@ function matchRoute(path: string): React.ReactNode {
   if (path === '/') return <DashboardPage />
 
   // /auctions/new
-  if (path === '/auctions/new') return <AuctionFormPage />
+  if (path === '/auctions/new')
+    return (
+      <PermissionGuard permission="createAuction">
+        <AuctionFormPage />
+      </PermissionGuard>
+    )
 
   // /auctions/:id/edit
   const auctionEditMatch = /^\/auctions\/([^/]+)\/edit$/.exec(path)
   if (auctionEditMatch) {
     const [, id] = auctionEditMatch
-    return <AuctionFormPage editId={id} tabId={id} />
+    return (
+      <PermissionGuard permission="createAuction">
+        <AuctionFormPage editId={id} tabId={id} />
+      </PermissionGuard>
+    )
   }
 
   // /auctions/browse
-  if (path === '/auctions/browse') return <AuctionBrowsePage />
+  if (path === '/auctions/browse')
+    return (
+      <PermissionGuard permission="viewAuctions">
+        <AuctionBrowsePage />
+      </PermissionGuard>
+    )
 
   // /auctions/my-bids
-  if (path === '/auctions/my-bids') return <MyBidsPage />
+  if (path === '/auctions/my-bids')
+    return (
+      <PermissionGuard permission="placeBid">
+        <MyBidsPage />
+      </PermissionGuard>
+    )
 
   // /auctions/wallet
-  if (path === '/auctions/wallet') return <WalletPage />
+  if (path === '/auctions/wallet')
+    return (
+      <PermissionGuard permission="viewAuctions">
+        <WalletPage />
+      </PermissionGuard>
+    )
 
   // /auctions/:id (detail)
   const detailMatch = /^\/auctions\/([^/]+)$/.exec(path)
   if (detailMatch) {
     const [, id] = detailMatch
-    return <AuctionDetailPage auctionId={id} />
+    return (
+      <PermissionGuard permission="viewAuctions">
+        <AuctionDetailPage auctionId={id} />
+      </PermissionGuard>
+    )
   }
 
   // /auctions (list)
-  if (path === '/auctions') return <AuctionListPage />
+  if (path === '/auctions')
+    return (
+      <PermissionGuard permission="viewAuctions">
+        <AuctionListPage />
+      </PermissionGuard>
+    )
 
   // /catalog/new
-  if (path === '/catalog/new') return <CatalogItemFormPage />
+  if (path === '/catalog/new')
+    return (
+      <PermissionGuard permission="createCatalogItem">
+        <CatalogItemFormPage />
+      </PermissionGuard>
+    )
 
   // /catalog/:id/edit
   const catalogEditMatch = /^\/catalog\/([^/]+)\/edit$/.exec(path)
   if (catalogEditMatch) {
     const [, id] = catalogEditMatch
-    return <CatalogItemFormPage editId={id} tabId={id} />
+    return (
+      <PermissionGuard permission="createCatalogItem">
+        <CatalogItemFormPage editId={id} tabId={id} />
+      </PermissionGuard>
+    )
   }
 
   // /catalog/browse
-  if (path === '/catalog/browse') return <CatalogBrowsePage />
+  if (path === '/catalog/browse')
+    return (
+      <PermissionGuard permission="viewCatalog">
+        <CatalogBrowsePage />
+      </PermissionGuard>
+    )
 
   // /catalog/moderation
-  if (path === '/catalog/moderation') return <ModerationQueuePage />
+  if (path === '/catalog/moderation')
+    return (
+      <PermissionGuard permission="moderateCatalogItem">
+        <ModerationQueuePage />
+      </PermissionGuard>
+    )
 
   // /catalog (management)
-  if (path === '/catalog') return <CatalogManagementPage />
+  if (path === '/catalog')
+    return (
+      <PermissionGuard permission="createCatalogItem">
+        <CatalogManagementPage />
+      </PermissionGuard>
+    )
 
   // /publishing/new
-  if (path === '/publishing/new') return <PublicationFormPage />
+  if (path === '/publishing/new')
+    return (
+      <PermissionGuard permission="createPublication">
+        <PublicationFormPage />
+      </PermissionGuard>
+    )
 
   // /publishing/:id/edit
   const pubEditMatch = /^\/publishing\/([^/]+)\/edit$/.exec(path)
   if (pubEditMatch) {
     const [, id] = pubEditMatch
-    return <PublicationFormPage editId={id} tabId={id} />
+    return (
+      <PermissionGuard permission="createPublication">
+        <PublicationFormPage editId={id} tabId={id} />
+      </PermissionGuard>
+    )
   }
 
   // /publishing/:id/review
   const pubReviewMatch = /^\/publishing\/([^/]+)\/review$/.exec(path)
   if (pubReviewMatch) {
     const [, id] = pubReviewMatch
-    return <ReviewDetailPage publicationId={id} />
+    return (
+      <PermissionGuard permission="approvePublication">
+        <ReviewDetailPage publicationId={id} />
+      </PermissionGuard>
+    )
   }
 
   // /publishing/queue
-  if (path === '/publishing/queue') return <ReviewQueuePage />
+  if (path === '/publishing/queue')
+    return (
+      <PermissionGuard permission="approvePublication">
+        <ReviewQueuePage />
+      </PermissionGuard>
+    )
 
   // /publishing/feed
-  if (path === '/publishing/feed') return <PublicationFeedPage />
+  if (path === '/publishing/feed')
+    return (
+      <PermissionGuard permission="viewPublications">
+        <PublicationFeedPage />
+      </PermissionGuard>
+    )
 
   // /publishing (list)
-  if (path === '/publishing') return <PublicationListPage />
+  if (path === '/publishing')
+    return (
+      <PermissionGuard permission="createPublication">
+        <PublicationListPage />
+      </PermissionGuard>
+    )
 
   // /documents/new
-  if (path === '/documents/new') return <DocumentFormPage />
+  if (path === '/documents/new')
+    return (
+      <PermissionGuard permission="createDocument">
+        <DocumentFormPage />
+      </PermissionGuard>
+    )
 
   // /documents/:id/edit
   const docEditMatch = /^\/documents\/([^/]+)\/edit$/.exec(path)
   if (docEditMatch) {
     const [, id] = docEditMatch
-    return <DocumentFormPage editId={id} tabId={id} />
+    return (
+      <PermissionGuard permission="createDocument">
+        <DocumentFormPage editId={id} tabId={id} />
+      </PermissionGuard>
+    )
   }
 
   // /documents/:id/review  (same detail page, reviewer sees actions based on role)
   const docReviewMatch = /^\/documents\/([^/]+)\/review$/.exec(path)
   if (docReviewMatch) {
     const [, id] = docReviewMatch
-    return <DocumentDetailPage documentId={id} />
+    return (
+      <PermissionGuard permission="approveDocument">
+        <DocumentDetailPage documentId={id} />
+      </PermissionGuard>
+    )
   }
 
   // /documents/:id
   const docDetailMatch = /^\/documents\/([^/]+)$/.exec(path)
   if (docDetailMatch) {
     const [, id] = docDetailMatch
-    return <DocumentDetailPage documentId={id} />
+    return (
+      <PermissionGuard permission="checkoutDocument">
+        <DocumentDetailPage documentId={id} />
+      </PermissionGuard>
+    )
   }
 
   // /documents (list)
-  if (path === '/documents') return <DocumentListPage />
+  if (path === '/documents')
+    return (
+      <PermissionGuard permission="checkoutDocument">
+        <DocumentListPage />
+      </PermissionGuard>
+    )
 
   // /notifications
   if (path === '/notifications')

@@ -40,6 +40,11 @@ export type {
   OutboundQueueItem,
   OutboundChannel,
   OutboundStatus,
+  NotificationTemplate,
+  TemplateKey,
+  NotificationSubscription,
+  MessageReadReceipt,
 } from './notification'
+export { RETRY_DELAYS_MS } from './notification'
 
 export type { SystemConfig, SensitiveWord } from './system'

@@ -5,6 +5,7 @@ import { useAuthStore, seedDefaultAdmin } from '@/store/authStore'
 import { seedDefaultCategories } from '@/db/seeds'
 import { startAuctionLifecycleTimer } from '@/services/auctionLifecycle'
 import { startNotificationSync, useNotificationStore } from '@/store/notificationStore'
+import { startOutboundRetryTimer } from '@/services/notificationService'
 import { LoginPage } from '@/pages/LoginPage'
 import { RegisterPage } from '@/pages/RegisterPage'
 import { ForcePasswordChangePage } from '@/pages/ForcePasswordChangePage'
@@ -34,6 +35,7 @@ export default function App() {
     void initialize()
 
     const stopTimer = startAuctionLifecycleTimer()
+    startOutboundRetryTimer()
     return stopTimer
   }, [])
 

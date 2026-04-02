@@ -40,6 +40,7 @@ export function AuctionFormPage({ editId, tabId }: Props) {
   const [startPrice, setStartPrice] = useState('')
   const [minimumIncrement, setMinimumIncrement] = useState('')
   const [depositAmount, setDepositAmount] = useState('')
+  const [depositUserEdited, setDepositUserEdited] = useState(false)
   const [startTime, setStartTime] = useState('')
   const [endTime, setEndTime] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -55,6 +56,16 @@ export function AuctionFormPage({ editId, tabId }: Props) {
     void db.categories.toArray().then(setCategories)
   }, [])
 
+  // Auto-compute default deposit when start price changes (10% of start, min $50)
+  // Only applies when the user has not manually overridden the deposit field.
+  useEffect(() => {
+    if (depositUserEdited || editId) return
+    const sp = Number(startPrice)
+    if (!isNaN(sp) && sp > 0) {
+      setDepositAmount(String(Math.max(50, Math.round(sp * 0.1))))
+    }
+  }, [startPrice, depositUserEdited, editId])
+
   // Load existing auction for edit mode
   useEffect(() => {
     if (!editId) return
@@ -66,6 +77,7 @@ export function AuctionFormPage({ editId, tabId }: Props) {
       setStartPrice(String(auction.startPrice))
       setMinimumIncrement(String(auction.minimumIncrement))
       setDepositAmount(String(auction.depositAmount))
+      setDepositUserEdited(true) // treat loaded value as user-confirmed
       setStartTime(toDatetimeLocal(auction.startTime))
       setEndTime(toDatetimeLocal(auction.endTime))
     })
@@ -223,9 +235,12 @@ export function AuctionFormPage({ editId, tabId }: Props) {
             min={0}
             step={1}
             value={depositAmount}
-            onChange={fieldChange(setDepositAmount)}
+            onChange={(e) => {
+              setDepositUserEdited(true)
+              fieldChange(setDepositAmount)(e)
+            }}
             error={errors.depositAmount}
-            placeholder="0"
+            hint="Default: 10% of start price, min $50"
           />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">

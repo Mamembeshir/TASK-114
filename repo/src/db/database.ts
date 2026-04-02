@@ -11,7 +11,13 @@ import type {
   RetentionPolicy,
   DestructionApproval,
 } from '@/types/document'
-import type { Notification, OutboundQueueItem } from '@/types/notification'
+import type {
+  Notification,
+  OutboundQueueItem,
+  NotificationTemplate,
+  NotificationSubscription,
+  MessageReadReceipt,
+} from '@/types/notification'
 import type { SystemConfig, SensitiveWord } from '@/types/system'
 
 /**
@@ -60,6 +66,9 @@ export class MeridianDB extends Dexie {
   // ── Notifications ──────────────────────────────────────────────────────────
   notifications!: Table<Notification>
   outboundQueue!: Table<OutboundQueueItem>
+  notificationTemplates!: Table<NotificationTemplate>
+  notificationSubscriptions!: Table<NotificationSubscription>
+  messageReadReceipts!: Table<MessageReadReceipt>
 
   // ── System ─────────────────────────────────────────────────────────────────
   systemConfig!: Table<SystemConfig>
@@ -114,6 +123,16 @@ export class MeridianDB extends Dexie {
       // ── System ────────────────────────────────────────────────────────────
       systemConfig: 'id',
       sensitiveWords: 'id, &word, createdAt',
+    })
+
+    // Version 2: outbound retry fields + Message Center enhancement tables
+    this.version(2).stores({
+      // Add nextRetryAt index for efficient retry polling
+      outboundQueue: 'id, recipientUserId, status, channel, queuedAt, nextRetryAt',
+      // New Message Center tables
+      notificationTemplates: 'id, &key, isActive, createdAt',
+      notificationSubscriptions: 'id, userId, notificationType',
+      messageReadReceipts: 'id, notificationId, userId, readAt',
     })
   }
 }

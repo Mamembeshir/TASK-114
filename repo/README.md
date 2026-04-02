@@ -160,7 +160,7 @@ docker compose --profile test up --exit-code-from test test
 | Global State      | Zustand 5                |
 | Icons             | Lucide React             |
 | Notifications     | Sonner                   |
-| Routing           | React Router 7           |
+| Routing           | Tab-store path matching (no URL sync) |
 | Testing           | Vitest + Testing Library |
 | Package Manager   | pnpm                     |
 | Container Runtime | Docker + Docker Compose  |
