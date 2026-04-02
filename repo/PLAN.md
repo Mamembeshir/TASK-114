@@ -42,9 +42,20 @@
 
 ### 1.3 Crypto & Security Utilities
 
-- [ ] Implement PBKDF2 password hashing utility (`src/crypto/password.ts`)
-- [ ] Implement Web Crypto AES-GCM encrypt/decrypt utility (`src/crypto/encryption.ts`)
-- [ ] Implement secure random ID generator
+- [x] Implement PBKDF2 password hashing utility (`src/crypto/password.ts`)
+  - [x] PBKDF2-HMAC-SHA-256, 310,000 iterations, 16-byte random salt, 256-bit output
+  - [x] `hashPassword(password)` → `{ hash, salt }` (both hex-encoded)
+  - [x] `verifyPassword(password, hash, salt)` → `boolean`
+  - [x] Tests: unique salts, correct verify, wrong password returns false, altered salt returns false
+- [x] Implement Web Crypto AES-GCM encrypt/decrypt utility (`src/crypto/encryption.ts`)
+  - [x] AES-GCM-256 with random 12-byte IV prepended to ciphertext
+  - [x] `generateEncryptionKey()`, `exportKey()`, `importKey()` for LocalStorage persistence
+  - [x] `encrypt(plaintext, key)` → base64, `decrypt(base64, key)` → string
+  - [x] Tests: round-trip, unique IVs, wrong key throws, tampered ciphertext throws, key export/import
+- [x] Implement secure random ID generator (`src/crypto/ids.ts`)
+  - [x] `generateId()` wraps `crypto.randomUUID()` — RFC 4122 v4, 122 bits of randomness
+  - [x] Tests: UUID format regex, 100 unique IDs with no collisions
+- [x] `src/crypto/index.ts` — barrel export for all crypto utilities
 
 ### 1.4 Auth Module
 
@@ -410,7 +421,7 @@
 
 | Phase                     | Status          | Completed / Total |
 | ------------------------- | --------------- | ----------------- |
-| Phase 1: Setup & Auth     | In Progress     | 12 / 27           |
+| Phase 1: Setup & Auth     | In Progress     | 15 / 27           |
 | Phase 2: Layout & Shell   | Pending         | 0 / 22            |
 | Phase 3: Auction System   | Pending         | 0 / 28            |
 | Phase 4: Catalog & Search | Pending         | 0 / 18            |
@@ -419,4 +430,4 @@
 | Phase 7: Messages         | Pending         | 0 / 18            |
 | Phase 8: Admin & Export   | Pending         | 0 / 19            |
 | Phase 9: Polish & Testing | Pending         | 0 / 23            |
-| **Total**                 | **In Progress** | **12 / 198**      |
+| **Total**                 | **In Progress** | **15 / 198**      |
