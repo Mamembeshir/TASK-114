@@ -73,7 +73,7 @@ Deterministic proxy bidding engine. Process bids in **timestamp + bid amount** o
 
 ### 4. Anti-Sniping Auto-Extension
 
-Extend by **2 minutes, once per auction**, when a bid is placed in the final 30-second window. No further extensions after that.
+Extend by **2 minutes** every time a bid is placed in the final 30-second window. Each snipe bid resets the clock; no cap on extensions.
 
 ### 5. Document Checkout & Concurrent Editing
 

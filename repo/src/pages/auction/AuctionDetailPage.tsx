@@ -95,7 +95,7 @@ export function AuctionDetailPage({ auctionId }: Props) {
       {auction.antiSnipingTriggered && isOpen && (
         <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-3 text-amber-400 text-sm">
           <AlertTriangle className="w-4 h-4 shrink-0" />
-          This auction was extended by 2 minutes due to last-second bidding.
+          This auction has been extended due to last-second bidding. Each bid in the final 30 seconds adds 2 minutes.
         </div>
       )}
 

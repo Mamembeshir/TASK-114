@@ -153,21 +153,17 @@ describe('placeBid — anti-sniping', () => {
     expect(updated?.endTime).toBeGreaterThan(nearEnd + 100_000)
   })
 
-  it('does NOT extend again when antiSnipingTriggered is already true', async () => {
+  it('extends again even when antiSnipingTriggered is already true (no cap)', async () => {
+    // Auction already extended once — antiSnipingTriggered:true — but still in snipe window
     const nearEnd = Date.now() + 15_000
     await seedAuction({ endTime: nearEnd, antiSnipingTriggered: true, status: 'Extended' })
     await seedWallet('bidder-1')
-    await seedWallet('bidder-2')
 
-    // First bid
-    await placeBid('auction-1', 'bidder-1', 'Alice', 110, 'key-a', 50, 0)
-    const after1 = await db.auctions.get('auction-1')
-    const endTimeAfterFirst = after1?.endTime ?? nearEnd
+    const result = await placeBid('auction-1', 'bidder-1', 'Alice', 110, 'key-a', 50, 0)
 
-    // Second bid — must NOT extend end time further
-    await placeBid('auction-1', 'bidder-2', 'Bob', 120, 'key-b', 50, 0)
-    const after2 = await db.auctions.get('auction-1')
-    expect(after2?.endTime).toBe(endTimeAfterFirst)
+    expect(result.extended).toBe(true)
+    const updated = await db.auctions.get('auction-1')
+    expect(updated?.endTime).toBeGreaterThan(nearEnd + 100_000)
   })
 
   it('does NOT extend when bid is outside the 30-second snipe window', async () => {

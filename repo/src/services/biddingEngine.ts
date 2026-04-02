@@ -4,7 +4,7 @@
  * Design decisions (CLAUDE.md #3, #4, #10):
  *  - Minimum increment enforced on every bid
  *  - Proxy bids auto-resolved: highest maxAmount wins; ties broken by earliest proxy
- *  - Anti-sniping: extends end time by 2 min once when bid lands in final 30 s
+ *  - Anti-sniping: extends end time by 2 min on every bid that lands in final 30 s
  *  - Idempotency key prevents duplicate bids from cross-tab races
  *  - BroadcastChannel notifies all open tabs of price changes
  */
@@ -193,15 +193,11 @@ export async function placeBid(
         auction.minimumIncrement,
       )
 
-      // Anti-sniping: extend ONCE per auction when a bid lands in the final 30 s.
-      // Design decision (CLAUDE.md §4): the extension is capped at one occurrence.
-      // Allowing unlimited extensions would create a "perpetual auction" edge case
-      // where two proxy bidders continuously push the end time indefinitely.
-      // The single extension balances fairness (late bidders get one more chance)
-      // with predictability (sellers and bidders can rely on a bounded end time).
+      // Anti-sniping: every bid that lands in the final 30 s extends the end time
+      // by 2 minutes. Multiple extensions are allowed — each snipe resets the clock.
       let extended = false
       let newEndTime = auction.endTime
-      if (!auction.antiSnipingTriggered && auction.endTime - Date.now() <= SNIPE_WINDOW_MS) {
+      if (auction.endTime - Date.now() <= SNIPE_WINDOW_MS) {
         newEndTime = auction.endTime + SNIPE_EXTENSION_MS
         extended = true
       }

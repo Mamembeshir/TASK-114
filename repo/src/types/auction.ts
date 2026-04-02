@@ -3,7 +3,7 @@
 export type AuctionStatus =
   | 'Draft'
   | 'Active'
-  | 'Extended' // anti-sniping triggered, end time extended once by 2 min
+  | 'Extended' // anti-sniping triggered; end time extended by 2 min per snipe bid
   | 'Ended'
   | 'Awarded' // winner determined, deposit deducted
   | 'NoSale' // ended with zero bids
@@ -26,9 +26,9 @@ export interface Auction {
   status: AuctionStatus
   winnerId?: string
   winningBidId?: string
-  /** True once anti-sniping extension has been applied — cannot extend again */
+  /** True once the first anti-sniping extension has been applied */
   antiSnipingTriggered: boolean
-  /** Timestamp (ms) when the anti-sniping extension was applied, if ever */
+  /** Timestamp (ms) when the first anti-sniping extension was applied, if ever */
   antiSnipingTriggeredAt?: number
   createdBy: string
   createdAt: number
