@@ -16,9 +16,17 @@ export default function App() {
   // On mount: seed defaults, restore session, start auction timer
   useEffect(() => {
     const initialize = async () => {
-      await seedDefaultAdmin()
-      await seedDefaultCategories()
-      await useAuthStore.getState().restoreSession()
+      // Show loading spinner for the entire init sequence — seeding PBKDF2
+      // hashes for demo accounts can take ~1-2 s and must finish before login.
+      useAuthStore.setState({ isLoading: true })
+      try {
+        await seedDefaultAdmin()
+        await seedDefaultCategories()
+        await useAuthStore.getState().restoreSession()
+      } catch (err) {
+        console.error('[Meridian] Initialization error:', err)
+        useAuthStore.setState({ isLoading: false })
+      }
     }
     void initialize()
 
