@@ -525,7 +525,7 @@
 - [x] Lazy-load all page-level components with `React.lazy` + `Suspense`
 - [ ] Implement virtual scrolling for long tables (auction bids, audit log, document list)
 - [ ] Profile IndexedDB query performance; add missing indexes if needed
-- [ ] Debounce all search inputs and live-filter interactions
+- [x] Debounce all search inputs and live-filter interactions
 - [ ] Memoize expensive computed values with `useMemo` and `useCallback`
 
 ### 9.3 Offline Robustness
@@ -574,5 +574,5 @@
 | Phase 6: Documents        | ✅ Complete     | 22 / 22           |
 | Phase 7: Messages         | ✅ Complete     | 20 / 20           |
 | Phase 8: Admin & Export   | ✅ Complete     | 19 / 19           |
-| Phase 9: Polish & Testing | In Progress     | 21 / 23           |
-| **Total**                 | **In Progress** | **159 / 198**     |
+| Phase 9: Polish & Testing | In Progress     | 22 / 23           |
+| **Total**                 | **In Progress** | **160 / 198**     |

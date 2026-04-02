@@ -4,6 +4,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
+import { useDebounce } from '@/hooks/useDebounce'
 import { Download } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { db } from '@/db'
@@ -62,10 +63,15 @@ export function AuditLogPage() {
   const [page, setPage] = useState(0)
   const [total, setTotal] = useState(0)
 
-  // Filters
+  // Filters (raw input state)
   const [actorFilter, setActorFilter] = useState('')
   const [entityTypeFilter, setEntityTypeFilter] = useState('')
   const [eventTypeFilter, setEventTypeFilter] = useState('')
+
+  // Debounced values used for the actual DB query (300 ms delay)
+  const debouncedActorFilter = useDebounce(actorFilter)
+  const debouncedEntityTypeFilter = useDebounce(entityTypeFilter)
+  const debouncedEventTypeFilter = useDebounce(eventTypeFilter)
 
   const load = useCallback(async () => {
     setIsLoading(true)
@@ -73,25 +79,29 @@ export function AuditLogPage() {
 
     const all = await query.toArray()
     const filtered = all.filter((l) => {
-      if (actorFilter && !l.actorName.toLowerCase().includes(actorFilter.toLowerCase()))
+      if (
+        debouncedActorFilter &&
+        !l.actorName.toLowerCase().includes(debouncedActorFilter.toLowerCase())
+      )
         return false
-      if (entityTypeFilter && l.entityType !== entityTypeFilter) return false
-      if (eventTypeFilter && !l.eventType.startsWith(eventTypeFilter)) return false
+      if (debouncedEntityTypeFilter && l.entityType !== debouncedEntityTypeFilter) return false
+      if (debouncedEventTypeFilter && !l.eventType.startsWith(debouncedEventTypeFilter))
+        return false
       return true
     })
     setTotal(filtered.length)
     setLogs(filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE))
     setIsLoading(false)
-  }, [actorFilter, entityTypeFilter, eventTypeFilter, page])
+  }, [debouncedActorFilter, debouncedEntityTypeFilter, debouncedEventTypeFilter, page])
 
   useEffect(() => {
     void load()
   }, [load])
 
-  // Reset page when filters change
+  // Reset page when debounced filters change
   useEffect(() => {
     setPage(0)
-  }, [actorFilter, entityTypeFilter, eventTypeFilter])
+  }, [debouncedActorFilter, debouncedEntityTypeFilter, debouncedEventTypeFilter])
 
   if (!currentUser) return null
 
