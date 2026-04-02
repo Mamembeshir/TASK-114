@@ -1,4 +1,5 @@
 import { ChevronDown, ChevronUp, ChevronsUpDown } from 'lucide-react'
+import { Skeleton } from './Spinner'
 
 // ── Sort state ─────────────────────────────────────────────────────────────────
 
@@ -87,13 +88,15 @@ export function Table<T>({
           </thead>
           <tbody>
             {isLoading ? (
-              <tr>
-                <td colSpan={columns.length} className="px-4 py-10 text-center text-surface-600">
-                  <div className="flex justify-center">
-                    <div className="w-5 h-5 border-2 border-surface-700 border-t-primary-500 rounded-full animate-spin" />
-                  </div>
-                </td>
-              </tr>
+              Array.from({ length: 5 }).map((_, rowIdx) => (
+                <tr key={rowIdx} className="border-b border-surface-800/60">
+                  {columns.map((col) => (
+                    <td key={col.key} className="px-4 py-3">
+                      <Skeleton className="h-4 w-full" />
+                    </td>
+                  ))}
+                </tr>
+              ))
             ) : data.length === 0 ? (
               <tr>
                 <td

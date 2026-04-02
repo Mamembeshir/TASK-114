@@ -10,7 +10,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Clock, Search, TrendingUp, X, Package } from 'lucide-react'
 import { db } from '@/db'
-import { Badge, Card, EmptyState, Spinner } from '@/components/ui'
+import { Badge, Card, EmptyState, SkeletonCard } from '@/components/ui'
 import type { CatalogItem, Category } from '@/types'
 
 type SortOption = 'newest' | 'price_asc' | 'price_desc' | 'top_sellers'
@@ -465,8 +465,10 @@ export function CatalogBrowsePage() {
         {/* Results grid */}
         <div className="flex-1 min-w-0">
           {isLoading ? (
-            <div className="flex justify-center py-12">
-              <Spinner size="lg" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <SkeletonCard key={i} hasImage />
+              ))}
             </div>
           ) : filtered.length === 0 ? (
             <EmptyState

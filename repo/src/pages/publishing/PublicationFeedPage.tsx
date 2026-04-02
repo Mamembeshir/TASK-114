@@ -7,7 +7,7 @@ import { FileText } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { db } from '@/db'
 import { generateId } from '@/crypto'
-import { Badge, Card, EmptyState, Spinner } from '@/components/ui'
+import { Badge, Card, EmptyState, Skeleton, SkeletonText } from '@/components/ui'
 import { sanitizeHtml } from '@/utils/sanitize'
 import type { Publication, PublicationType } from '@/types'
 
@@ -99,8 +99,29 @@ export function PublicationFeedPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center p-12">
-        <Spinner size="lg" />
+      <div className="p-6 space-y-4 max-w-3xl">
+        <div>
+          <h1 className="text-lg font-semibold text-surface-100">Publications</h1>
+          <p className="text-sm text-surface-500 mt-0.5">
+            Official announcements, notices, and bulletins
+          </p>
+        </div>
+        <div className="space-y-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div
+              key={i}
+              className="bg-surface-900 border border-surface-800 rounded-xl p-4 space-y-3"
+              aria-hidden="true"
+            >
+              <div className="flex items-center gap-3">
+                <Skeleton className="h-5 w-24 rounded-full" />
+                <Skeleton className="h-3 w-32" />
+              </div>
+              <Skeleton className="h-5 w-2/3" />
+              <SkeletonText lines={2} />
+            </div>
+          ))}
+        </div>
       </div>
     )
   }

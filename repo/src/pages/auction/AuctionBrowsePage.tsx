@@ -7,7 +7,7 @@ import { Gavel } from 'lucide-react'
 import { db } from '@/db'
 import { useTabStore } from '@/store/tabStore'
 import { subscribeToBidEvents } from '@/services/biddingEngine'
-import { Badge, Card, EmptyState } from '@/components/ui'
+import { Badge, Card, EmptyState, SkeletonCard } from '@/components/ui'
 import { CountdownTimer } from '@/components/auction/CountdownTimer'
 import type { Auction, AuctionStatus } from '@/types'
 
@@ -50,7 +50,21 @@ export function AuctionBrowsePage() {
     openTab({ id: `auction-${auction.id}`, title: auction.title, path: `/auctions/${auction.id}` })
   }
 
-  if (isLoading) return null
+  if (isLoading) {
+    return (
+      <div className="p-6 space-y-4">
+        <div>
+          <h1 className="text-lg font-semibold text-surface-100">Live Auctions</h1>
+          <p className="text-sm text-surface-500 mt-0.5">Loading…</p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="p-6 space-y-4">
