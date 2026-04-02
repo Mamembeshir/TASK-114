@@ -38,6 +38,11 @@ import { ReviewDetailPage } from '@/pages/publishing/ReviewDetailPage'
 import { PublicationFeedPage } from '@/pages/publishing/PublicationFeedPage'
 import { NotificationCenterPage } from '@/pages/notifications/NotificationCenterPage'
 import { OutboundQueuePage } from '@/pages/notifications/OutboundQueuePage'
+import { UserManagementPage } from '@/pages/admin/UserManagementPage'
+import { SystemSettingsPage } from '@/pages/admin/SystemSettingsPage'
+import { SensitiveWordListPage } from '@/pages/admin/SensitiveWordListPage'
+import { AuditLogPage } from '@/pages/admin/AuditLogPage'
+import { DataExportPage } from '@/pages/admin/DataExportPage'
 
 function matchRoute(path: string): React.ReactNode {
   if (path === '/') return <DashboardPage />
@@ -148,6 +153,21 @@ function matchRoute(path: string): React.ReactNode {
 
   // /outbound-queue
   if (path === '/outbound-queue') return <OutboundQueuePage />
+
+  // /admin/users
+  if (path === '/admin/users') return <UserManagementPage />
+
+  // /admin/settings
+  if (path === '/admin/settings') return <SystemSettingsPage />
+
+  // /admin/sensitive-words
+  if (path === '/admin/sensitive-words') return <SensitiveWordListPage />
+
+  // /admin/audit-log
+  if (path === '/admin/audit-log') return <AuditLogPage />
+
+  // /admin/export
+  if (path === '/admin/export') return <DataExportPage />
 
   // Fallback
   return (

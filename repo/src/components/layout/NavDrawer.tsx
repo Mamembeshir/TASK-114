@@ -3,14 +3,18 @@ import {
   Bell,
   ChevronLeft,
   ChevronRight,
+  Database,
   FileText,
   Gavel,
   LayoutDashboard,
   LogOut,
   MailCheck,
   Package,
+  ScrollText,
   Settings,
   Shield,
+  ShieldAlert,
+  Users,
 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { usePermission } from '@/hooks/usePermission'
@@ -93,10 +97,34 @@ const NAV_ITEMS: NavItem[] = [
     permission: 'manageMessages',
   },
   {
-    label: 'Admin',
-    icon: Settings,
-    to: '/admin',
+    label: 'Users',
+    icon: Users,
+    to: '/admin/users',
     permission: 'manageUsers',
+  },
+  {
+    label: 'System Settings',
+    icon: Settings,
+    to: '/admin/settings',
+    permission: 'manageSystem',
+  },
+  {
+    label: 'Sensitive Words',
+    icon: ShieldAlert,
+    to: '/admin/sensitive-words',
+    permission: 'manageSystem',
+  },
+  {
+    label: 'Audit Log',
+    icon: ScrollText,
+    to: '/admin/audit-log',
+    permission: 'viewAuditLog',
+  },
+  {
+    label: 'Data Export',
+    icon: Database,
+    to: '/admin/export',
+    permission: 'manageSystem',
   },
 ]
 

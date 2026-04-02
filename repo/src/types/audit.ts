@@ -6,6 +6,7 @@ export type AuditEventType =
   | 'user.logout'
   | 'user.created'
   | 'user.updated'
+  | 'user.activated'
   | 'user.deactivated'
   | 'user.password_reset'
   | 'user.role_changed'
