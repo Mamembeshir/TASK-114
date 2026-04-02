@@ -56,7 +56,9 @@ export async function exportKey(key: CryptoKey): Promise<string> {
  * Re-import a CryptoKey previously exported with `exportKey`.
  */
 export async function importKey(base64: string): Promise<CryptoKey> {
-  const raw = base64ToUint8Array(base64).buffer
+  // Pass the Uint8Array directly — SubtleCrypto accepts ArrayBufferView,
+  // avoiding ArrayBuffer realm-mismatch errors in some test environments.
+  const raw = base64ToUint8Array(base64)
   return crypto.subtle.importKey('raw', raw, { name: 'AES-GCM', length: 256 }, true, [
     'encrypt',
     'decrypt',

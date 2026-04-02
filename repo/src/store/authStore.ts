@@ -17,15 +17,53 @@ import { writeAuditLog } from '@/utils/audit'
 // ── LocalStorage keys ─────────────────────────────────────────────────────────
 const LS_ENC_KEY = 'meridian_enc_key'
 const LS_SESSION = 'meridian_session'
+const LS_LOCKOUT_PREFIX = 'meridian_lockout_'
 
 // ── Session config ────────────────────────────────────────────────────────────
 /** Session lifetime: 8 hours */
 const SESSION_DURATION_MS = 8 * 60 * 60 * 1000
 
+/** Max failed login attempts before lockout */
+const MAX_FAILURES = 5
+/** Lockout duration after exceeding max failures */
+const LOCKOUT_DURATION_MS = 15 * 60 * 1000
+
 interface SessionToken {
   sessionId: string
   userId: string
   expiresAt: number
+}
+
+interface LoginAttemptRecord {
+  failures: number
+  lockedUntil?: number
+}
+
+// ── Login-attempt helpers ─────────────────────────────────────────────────────
+
+function lockoutKey(username: string): string {
+  return `${LS_LOCKOUT_PREFIX}${username.toLowerCase()}`
+}
+
+function getAttemptRecord(username: string): LoginAttemptRecord {
+  try {
+    const raw = localStorage.getItem(lockoutKey(username))
+    if (raw) return JSON.parse(raw) as LoginAttemptRecord
+  } catch {
+    // ignore parse errors
+  }
+  return { failures: 0 }
+}
+
+function recordFailure(username: string): void {
+  const rec = getAttemptRecord(username)
+  const failures = rec.failures + 1
+  const lockedUntil = failures >= MAX_FAILURES ? Date.now() + LOCKOUT_DURATION_MS : rec.lockedUntil
+  localStorage.setItem(lockoutKey(username), JSON.stringify({ failures, lockedUntil }))
+}
+
+function clearAttempts(username: string): void {
+  localStorage.removeItem(lockoutKey(username))
 }
 
 // ── Store shape ───────────────────────────────────────────────────────────────
@@ -72,12 +110,27 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
   login: async (username, password) => {
     set({ isLoading: true, error: null })
     try {
+      const normalizedUsername = username.toLowerCase().trim()
+
+      // 0. Check lockout before touching the DB
+      const attemptRec = getAttemptRecord(normalizedUsername)
+      if (attemptRec.lockedUntil && Date.now() < attemptRec.lockedUntil) {
+        const remaining = Math.ceil((attemptRec.lockedUntil - Date.now()) / 60_000)
+        const unit = remaining === 1 ? 'minute' : 'minutes'
+        set({
+          isLoading: false,
+          error: `Account locked — too many failed attempts. Try again in ${String(remaining)} ${unit}.`,
+        })
+        return
+      }
+
       // 1. Look up user — case-insensitive
-      const user = await db.users.where('username').equals(username.toLowerCase().trim()).first()
+      const user = await db.users.where('username').equals(normalizedUsername).first()
 
       // Return the same error for "not found" and "wrong password"
       // to avoid leaking which field failed
       if (!user?.isActive) {
+        recordFailure(normalizedUsername)
         set({ isLoading: false, error: 'Invalid username or password' })
         return
       }
@@ -85,7 +138,14 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
       // 2. Verify PBKDF2 hash
       const valid = await verifyPassword(password, user.passwordHash, user.passwordSalt)
       if (!valid) {
-        set({ isLoading: false, error: 'Invalid username or password' })
+        recordFailure(normalizedUsername)
+        const rec = getAttemptRecord(normalizedUsername)
+        const remaining = MAX_FAILURES - rec.failures
+        const msg =
+          remaining > 0
+            ? `Invalid username or password (${String(remaining)} attempt${remaining === 1 ? '' : 's'} left)`
+            : 'Account locked — too many failed attempts. Try again in 15 minutes.'
+        set({ isLoading: false, error: msg })
         return
       }
 
@@ -108,7 +168,10 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
       const encryptedToken = await encrypt(JSON.stringify(payload), masterKey)
       localStorage.setItem(LS_SESSION, encryptedToken)
 
-      // 5. Append-only audit log
+      // 5. Clear failed-attempt counter on successful login
+      clearAttempts(normalizedUsername)
+
+      // 6. Append-only audit log
       await writeAuditLog({
         eventType: 'user.login',
         actorId: user.id,
@@ -258,7 +321,7 @@ export async function seedDefaultAdmin(): Promise<void> {
       passwordSalt: salt,
       role: account.role,
       isActive: true,
-      isTemporaryPassword: false,
+      isTemporaryPassword: true, // force password change on first login
       createdAt: now,
       updatedAt: now,
       createdBy: 'system',

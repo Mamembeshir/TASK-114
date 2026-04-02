@@ -50,7 +50,7 @@ function validate(form: FormState) {
     errors.email = 'Enter a valid email address'
 
   if (!form.password) errors.password = 'Password is required'
-  else if (form.password.length < 8) errors.password = 'At least 8 characters required'
+  else if (form.password.length < 12) errors.password = 'At least 12 characters required'
 
   if (!form.confirm) errors.confirm = 'Please confirm your password'
   else if (form.confirm !== form.password) errors.confirm = 'Passwords do not match'
@@ -260,7 +260,7 @@ export function RegisterPage({ onBackToLogin }: Props) {
                   id="reg-password"
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="new-password"
-                  placeholder="Min. 8 characters"
+                  placeholder="Min. 12 characters"
                   {...field('password')}
                   className={[inputClass('password'), 'pr-10'].join(' ')}
                 />

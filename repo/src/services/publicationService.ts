@@ -13,6 +13,7 @@ import { db } from '@/db'
 import { generateId } from '@/crypto'
 import { writeAuditLog } from '@/utils/audit'
 import { moderateContent } from '@/utils/moderation'
+import { requirePermission } from '@/utils/permissions'
 import { createNotification, createNotificationForMany } from './notificationService'
 import type { Publication, PublicationType, WorkflowStatus } from '@/types'
 
@@ -64,6 +65,7 @@ export async function createPublication(
   actorId: string,
   actorName: string,
 ): Promise<Publication> {
+  requirePermission('createPublication')
   const moderationFlags = await moderateContent([input.title, input.body])
   const id = generateId()
   const now = Date.now()

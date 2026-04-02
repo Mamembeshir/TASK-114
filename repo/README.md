@@ -6,7 +6,35 @@ A 100% offline, browser-based enterprise portal for internal auctions, controlle
 
 ## How to Run
 
-### Prerequisites
+### Option A — Local Node.js (no Docker required)
+
+**Prerequisites:** Node.js ≥ 20 and [pnpm](https://pnpm.io/installation) ≥ 9.
+
+```bash
+# Install dependencies
+pnpm install
+
+# Development server with hot-reload (http://localhost:5173)
+pnpm dev
+
+# Production build
+pnpm build
+
+# Serve the production build locally (http://localhost:4173)
+pnpm preview
+
+# Run the test suite once
+pnpm test
+
+# Run with coverage report
+pnpm test --coverage
+```
+
+---
+
+### Option B — Docker (no local Node/pnpm required)
+
+#### Prerequisites
 
 - [Docker](https://docs.docker.com/get-docker/) ≥ 24
 - [Docker Compose](https://docs.docker.com/compose/) ≥ 2.20 (bundled with Docker Desktop)

@@ -7,6 +7,7 @@ import { startAuctionLifecycleTimer } from '@/services/auctionLifecycle'
 import { startNotificationSync, useNotificationStore } from '@/store/notificationStore'
 import { LoginPage } from '@/pages/LoginPage'
 import { RegisterPage } from '@/pages/RegisterPage'
+import { ForcePasswordChangePage } from '@/pages/ForcePasswordChangePage'
 import { AppShell } from '@/components/layout/AppShell'
 
 export default function App() {
@@ -77,6 +78,16 @@ export default function App() {
             }}
           />
         )}
+      </>
+    )
+  }
+
+  // ── Force password change before entering the app ────────────────────────
+  if (currentUser.isTemporaryPassword) {
+    return (
+      <>
+        <Toaster position="top-right" richColors />
+        <ForcePasswordChangePage />
       </>
     )
   }

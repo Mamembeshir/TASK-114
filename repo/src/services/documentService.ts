@@ -11,6 +11,7 @@ import { db } from '@/db'
 import { generateId } from '@/crypto'
 import { writeAuditLog } from '@/utils/audit'
 import { moderateContent } from '@/utils/moderation'
+import { requirePermission } from '@/utils/permissions'
 import { createNotification, createNotificationForMany } from './notificationService'
 import { Role } from '@/types'
 import type { Document } from '@/types'
@@ -19,7 +20,7 @@ import type { Document } from '@/types'
 
 export function generateWatermark(userId: string, displayName: string): string {
   const date = new Date().toLocaleDateString('en-CA') // YYYY-MM-DD
-  return `CONFIDENTIAL · ${displayName} (${userId.slice(-4)}) · ${date}`
+  return `CONFIDENTIAL – INTERNAL USE · ${displayName} (${userId.slice(-4)}) · ${date}`
 }
 
 // ── Document numbering ────────────────────────────────────────────────────────
@@ -68,6 +69,7 @@ export async function createDocument(
   actorId: string,
   actorName: string,
 ): Promise<Document> {
+  requirePermission('createDocument')
   const moderationFlags = await moderateContent([input.title, input.body])
   const doc: Document = {
     id: generateId(),

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Archive, Bell, FileText, Gavel, Package, PlusCircle, Settings, Upload } from 'lucide-react'
 import { db } from '@/db'
 import { useAuthStore } from '@/store/authStore'
+import { useTabStore } from '@/store/tabStore'
 import { usePermission } from '@/hooks/usePermission'
 import { Role } from '@/types'
 import { Badge, Card, CardHeader, Skeleton } from '@/components/ui'
@@ -74,6 +75,7 @@ interface DashStats {
 
 export function DashboardPage() {
   const currentUser = useAuthStore((s) => s.currentUser)
+  const openTab = useTabStore((s) => s.openTab)
   const [stats, setStats] = useState<DashStats | null>(null)
 
   // Permissions for conditional rendering
@@ -190,7 +192,7 @@ export function DashboardPage() {
               label="New Auction"
               icon={PlusCircle}
               onClick={() => {
-                /* wired in Phase 3 */
+                openTab({ id: 'auctions-new', title: 'New Auction', path: '/auctions/new' })
               }}
             />
           )}
@@ -199,7 +201,7 @@ export function DashboardPage() {
               label="Add Catalog Item"
               icon={Package}
               onClick={() => {
-                /* wired in Phase 4 */
+                openTab({ id: 'catalog-new', title: 'New Item', path: '/catalog/new' })
               }}
             />
           )}
@@ -208,7 +210,7 @@ export function DashboardPage() {
               label="Upload Document"
               icon={Upload}
               onClick={() => {
-                /* wired in Phase 6 */
+                openTab({ id: 'documents-new', title: 'New Document', path: '/documents/new' })
               }}
             />
           )}
@@ -217,7 +219,11 @@ export function DashboardPage() {
               label="Review Queue"
               icon={FileText}
               onClick={() => {
-                /* wired in Phase 5 */
+                openTab({
+                  id: 'publishing-review-queue',
+                  title: 'Review Queue',
+                  path: '/publishing/review-queue',
+                })
               }}
             />
           )}
@@ -226,7 +232,7 @@ export function DashboardPage() {
               label="Messages"
               icon={Bell}
               onClick={() => {
-                /* wired in Phase 7 */
+                openTab({ id: 'notifications', title: 'Notifications', path: '/notifications' })
               }}
             />
           )}
@@ -235,7 +241,7 @@ export function DashboardPage() {
               label="Admin Panel"
               icon={Settings}
               onClick={() => {
-                /* wired in Phase 8 */
+                openTab({ id: 'admin-users', title: 'Users', path: '/admin/users' })
               }}
             />
           )}

@@ -83,6 +83,7 @@ const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     Permission.viewAuctions,
     Permission.createAuction,
     Permission.manageAuctions,
+    Permission.placeBid,
     Permission.manageWallets,
 
     Permission.viewCatalog,

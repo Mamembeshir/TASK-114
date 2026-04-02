@@ -76,7 +76,7 @@ export function UserManagementPage() {
     if (!form.displayName.trim()) e.displayName = 'Display name is required'
     if (!isEdit) {
       if (!form.username.trim()) e.username = 'Username is required'
-      if (form.password.length < 8) e.password = 'Password must be at least 8 characters'
+      if (form.password.length < 12) e.password = 'Password must be at least 12 characters'
       if (form.password !== form.confirmPassword) e.confirmPassword = 'Passwords do not match'
     }
     setErrors(e)

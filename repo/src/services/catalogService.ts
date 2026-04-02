@@ -11,6 +11,7 @@ import { db } from '@/db'
 import { generateId } from '@/crypto'
 import { writeAuditLog } from '@/utils/audit'
 import { moderateContent } from '@/utils/moderation'
+import { requirePermission } from '@/utils/permissions'
 import type { CatalogItem } from '@/types'
 
 export interface CatalogItemInput {
@@ -28,6 +29,7 @@ export async function createCatalogItem(
   actorId: string,
   actorName: string,
 ): Promise<CatalogItem> {
+  requirePermission('createCatalogItem')
   const moderationFlags = await moderateContent([input.title, input.description, ...input.tags])
   const item: CatalogItem = {
     id: generateId(),

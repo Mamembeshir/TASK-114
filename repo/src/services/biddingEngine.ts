@@ -12,6 +12,7 @@
 import { db } from '@/db'
 import { generateId } from '@/crypto'
 import { writeAuditLog } from '@/utils/audit'
+import { requirePermission } from '@/utils/permissions'
 import { reserveForAuction } from './walletService'
 import { broadcast } from './bidChannel'
 import { createNotification } from './notificationService'
@@ -97,6 +98,7 @@ export async function placeBid(
   depositAmount: number,
   previousDepositHeld: number,
 ): Promise<PlaceBidResult> {
+  requirePermission('placeBid')
   // Collect outbid info outside the transaction to avoid accessing db.notifications
   // inside a transaction that doesn't list it (IndexedDB constraint).
   let outbidUserId: string | undefined

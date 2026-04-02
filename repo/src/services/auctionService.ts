@@ -6,6 +6,7 @@
 import { db } from '@/db'
 import { generateId } from '@/crypto'
 import { writeAuditLog } from '@/utils/audit'
+import { requirePermission } from '@/utils/permissions'
 import type { Auction, AuctionStatus } from '@/types'
 
 export interface CreateAuctionInput {
@@ -27,6 +28,7 @@ export async function createAuction(
   actorId: string,
   actorName: string,
 ): Promise<Auction> {
+  requirePermission('createAuction')
   const now = Date.now()
   const auction: Auction = {
     id: generateId(),
