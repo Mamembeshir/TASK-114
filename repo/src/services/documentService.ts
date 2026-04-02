@@ -5,16 +5,92 @@
  *   - Exclusive checkout: only one user can edit at a time
  *   - Document number assigned ONLY on Draft → Approved (to avoid numbering gaps)
  *   - Two-step destruction: Reviewer approves → Administrator confirms
+ *
+ * Security: Document `title` and `body` (and DocumentVersion equivalents) are
+ * encrypted with AES-GCM-256 before every IndexedDB write, and decrypted after
+ * every read.  Use the public `getDocumentById` / `listDocuments` helpers so
+ * callers always receive plaintext values.
  */
 
 import { db } from '@/db'
 import { generateId } from '@/crypto'
+import { encrypt, decrypt } from '@/crypto/encryption'
+import { getAppKey } from '@/crypto/appKey'
 import { writeAuditLog } from '@/utils/audit'
 import { moderateContent } from '@/utils/moderation'
 import { requirePermission } from '@/utils/permissions'
 import { createNotification, createNotificationForMany } from './notificationService'
 import { Role } from '@/types'
-import type { Document } from '@/types'
+import type { Document, DocumentVersion } from '@/types'
+
+// ── Field-level encryption helpers ────────────────────────────────────────────
+
+async function encStr(value: string): Promise<string> {
+  return encrypt(value, await getAppKey())
+}
+
+async function decStr(cipher: string): Promise<string> {
+  return decrypt(cipher, await getAppKey())
+}
+
+/**
+ * Return a copy of `doc` with `title` and `body` encrypted for DB storage.
+ * Other fields are left unchanged.
+ */
+async function encryptDocFields<T extends { title: string; body: string }>(doc: T): Promise<T> {
+  return {
+    ...doc,
+    title: await encStr(doc.title),
+    body: await encStr(doc.body),
+  }
+}
+
+/**
+ * Return a copy of `doc` with `title` and `body` decrypted from DB ciphertext.
+ */
+async function decryptDocFields<T extends { title: string; body: string }>(doc: T): Promise<T> {
+  return {
+    ...doc,
+    title: await decStr(doc.title),
+    body: await decStr(doc.body),
+  }
+}
+
+// ── Private DB read helpers ───────────────────────────────────────────────────
+
+/** Read a document by id and decrypt its sensitive fields. Returns null if not found. */
+async function readDoc(id: string): Promise<Document | null> {
+  const raw = await db.documents.get(id)
+  return raw ? decryptDocFields(raw) : null
+}
+
+// ── Public read helpers ───────────────────────────────────────────────────────
+
+/** Return a decrypted document by id, or null if not found. */
+export async function getDocumentById(id: string): Promise<Document | null> {
+  return readDoc(id)
+}
+
+/** Return all documents with sensitive fields decrypted, newest-first. */
+export async function listDocuments(): Promise<Document[]> {
+  const raws = await db.documents.orderBy('updatedAt').reverse().toArray()
+  return Promise.all(raws.map(decryptDocFields))
+}
+
+/** Return all versions for a specific document with sensitive fields decrypted. */
+export async function listDocumentVersions(documentId: string): Promise<DocumentVersion[]> {
+  const raws = await db.documentVersions
+    .where('documentId')
+    .equals(documentId)
+    .sortBy('versionNumber')
+  return Promise.all(raws.map(decryptDocFields))
+}
+
+/** Return ALL document versions across all documents with sensitive fields decrypted. */
+export async function listAllDocumentVersions(): Promise<DocumentVersion[]> {
+  const raws = await db.documentVersions.toArray()
+  return Promise.all(raws.map(decryptDocFields))
+}
 
 // ── Watermark ─────────────────────────────────────────────────────────────────
 
@@ -80,7 +156,8 @@ export async function createDocument(
     createdAt: Date.now(),
     updatedAt: Date.now(),
   }
-  await db.documents.add(doc)
+  // Store encrypted — callers always receive the plaintext `doc` returned here
+  await db.documents.add(await encryptDocFields(doc))
   await writeAuditLog({
     eventType: 'document.created',
     actorId,
@@ -98,7 +175,7 @@ export async function updateDocument(
   actorId: string,
   actorName: string,
 ): Promise<void> {
-  const doc = await db.documents.get(id)
+  const doc = await readDoc(id)
   if (!doc) throw new Error('Document not found')
   if (doc.checkedOutBy && doc.checkedOutBy !== actorId)
     throw new Error('Document is checked out by another user')
@@ -108,7 +185,16 @@ export async function updateDocument(
   const textsToCheck = [updates.title ?? doc.title, updates.body ?? doc.body]
   const moderationFlags = await moderateContent(textsToCheck)
 
-  await db.documents.update(id, { ...updates, moderationFlags, updatedAt: Date.now() })
+  // Only encrypt the text fields that are actually being updated
+  const encUpdates: Partial<DocumentInput> & { moderationFlags: string[]; updatedAt: number } = {
+    ...updates,
+    moderationFlags,
+    updatedAt: Date.now(),
+  }
+  if (updates.title !== undefined) encUpdates.title = await encStr(updates.title)
+  if (updates.body !== undefined) encUpdates.body = await encStr(updates.body)
+
+  await db.documents.update(id, encUpdates)
   await writeAuditLog({
     eventType: 'document.updated',
     actorId,
@@ -128,7 +214,7 @@ export async function checkoutDocument(
   actorId: string,
   actorName: string,
 ): Promise<void> {
-  const doc = await db.documents.get(id)
+  const doc = await readDoc(id)
   if (!doc) throw new Error('Document not found')
 
   // Auto-release if expired checkout exists
@@ -145,7 +231,7 @@ export async function checkoutDocument(
     })
   }
 
-  const fresh = await db.documents.get(id)
+  const fresh = await readDoc(id)
   if (!fresh) throw new Error('Document not found')
   if (fresh.checkedOutBy) throw new Error(`Document is checked out by another user`)
 
@@ -180,7 +266,7 @@ export async function checkinDocument(
   actorId: string,
   actorName: string,
 ): Promise<void> {
-  const doc = await db.documents.get(id)
+  const doc = await readDoc(id)
   if (!doc) throw new Error('Document not found')
   if (doc.checkedOutBy !== actorId)
     throw new Error('You do not hold the checkout lock for this document')
@@ -188,19 +274,21 @@ export async function checkinDocument(
   const now = Date.now()
   const watermark = generateWatermark(actorId, actorName)
 
-  // Save a version snapshot on check-in
+  // Save a version snapshot on check-in (title/body encrypted at rest)
   const versionNumber = (await db.documentVersions.where('documentId').equals(id).count()) + 1
-  await db.documentVersions.add({
-    id: generateId(),
-    documentId: id,
-    versionNumber,
-    title: doc.title,
-    body: doc.body,
-    status: doc.status,
-    watermark,
-    createdBy: actorId,
-    createdAt: now,
-  })
+  await db.documentVersions.add(
+    await encryptDocFields({
+      id: generateId(),
+      documentId: id,
+      versionNumber,
+      title: doc.title,
+      body: doc.body,
+      status: doc.status,
+      watermark,
+      createdBy: actorId,
+      createdAt: now,
+    }),
+  )
 
   await db.checkoutRecords
     .where('documentId')
@@ -230,7 +318,7 @@ export async function releaseCheckout(
   actorId: string,
   actorName: string,
 ): Promise<void> {
-  const doc = await db.documents.get(id)
+  const doc = await readDoc(id)
   if (!doc) throw new Error('Document not found')
 
   await db.checkoutRecords
@@ -263,7 +351,7 @@ export async function submitDocumentForReview(
   actorId: string,
   actorName: string,
 ): Promise<void> {
-  const doc = await db.documents.get(id)
+  const doc = await readDoc(id)
   if (!doc) throw new Error('Document not found')
   if (!['Draft', 'Rejected'].includes(doc.status))
     throw new Error('Only Draft or Rejected documents can be submitted for review')
@@ -291,7 +379,7 @@ export async function approveDocument(
   actorName: string,
   comment?: string,
 ): Promise<void> {
-  const doc = await db.documents.get(id)
+  const doc = await readDoc(id)
   if (!doc) throw new Error('Document not found')
   if (doc.status !== 'InReview') throw new Error('Document is not in review')
 
@@ -301,20 +389,22 @@ export async function approveDocument(
 
   const versionNumber = (await db.documentVersions.where('documentId').equals(id).count()) + 1
   const watermark = generateWatermark(actorId, actorName)
-  await db.documentVersions.add({
-    id: generateId(),
-    documentId: id,
-    versionNumber,
-    title: doc.title,
-    body: doc.body,
-    status: 'Approved',
-    reviewComment: comment,
-    reviewedBy: actorId,
-    reviewedAt: now,
-    watermark,
-    createdBy: actorId,
-    createdAt: now,
-  })
+  await db.documentVersions.add(
+    await encryptDocFields({
+      id: generateId(),
+      documentId: id,
+      versionNumber,
+      title: doc.title,
+      body: doc.body,
+      status: 'Approved' as const,
+      reviewComment: comment,
+      reviewedBy: actorId,
+      reviewedAt: now,
+      watermark,
+      createdBy: actorId,
+      createdAt: now,
+    }),
+  )
 
   await db.documents.update(id, {
     status: 'Approved',
@@ -348,7 +438,7 @@ export async function rejectDocument(
   actorName: string,
   comment: string,
 ): Promise<void> {
-  const doc = await db.documents.get(id)
+  const doc = await readDoc(id)
   if (!doc) throw new Error('Document not found')
   if (doc.status !== 'InReview') throw new Error('Document is not in review')
 
@@ -380,7 +470,7 @@ export async function requestDestruction(
   actorId: string,
   actorName: string,
 ): Promise<void> {
-  const doc = await db.documents.get(id)
+  const doc = await readDoc(id)
   if (!doc) throw new Error('Document not found')
   if (!['Approved', 'Archived'].includes(doc.status))
     throw new Error('Only Approved or Archived documents can be flagged for destruction')
@@ -460,7 +550,7 @@ export async function adminApproveDestruction(
 
   await db.documents.update(approval.documentId, { status: 'Destroyed', updatedAt: now })
 
-  const doc = await db.documents.get(approval.documentId)
+  const doc = await readDoc(approval.documentId)
   await writeAuditLog({
     eventType: 'document.destroyed',
     actorId,

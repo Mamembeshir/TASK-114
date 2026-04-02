@@ -4,7 +4,8 @@
  * Search is client-side: loads all Active items, then filters in memory with a debounced query.
  * Facets: category, brand, price range, tags.
  * Sort: newest, price asc/desc, top sellers.
- * Extras: recent search history (localStorage, 7-day), trending keywords (salesCount-weighted tags).
+ * Extras: recent search history (localStorage, 7-day TTL), trending keywords (frequency of
+ * search events recorded over the past 7 days — top 7 by query count).
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Clock, Search, TrendingUp, X, Package } from 'lucide-react'
@@ -14,10 +15,12 @@ import type { CatalogItem, Category } from '@/types'
 
 type SortOption = 'newest' | 'price_asc' | 'price_desc' | 'top_sellers'
 
-// ── Recent search persistence (localStorage) ──────────────────────────────────
+// ── Search persistence helpers (localStorage) ─────────────────────────────────
 
 const RECENT_KEY = 'meridian:catalog:recent-searches'
+const EVENTS_KEY = 'meridian:catalog:search-events'
 const MAX_RECENT = 7
+const MAX_EVENTS = 500 // rolling cap to bound storage
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000
 
 interface SearchEntry {
@@ -38,16 +41,61 @@ function loadRecent(): SearchEntry[] {
   }
 }
 
+/**
+ * Persist a search event for trending analytics.
+ * Also updates the deduplicated recent-search list shown in the dropdown.
+ */
 function recordSearch(term: string): void {
   const trimmed = term.trim()
   if (trimmed.length < 2) return
+
+  // Update deduped recent list (max 7, user-facing)
   const existing = loadRecent().filter((e) => e.term !== trimmed)
-  const updated = [{ term: trimmed, timestamp: Date.now() }, ...existing].slice(0, MAX_RECENT)
-  localStorage.setItem(RECENT_KEY, JSON.stringify(updated))
+  const updatedRecent = [{ term: trimmed, timestamp: Date.now() }, ...existing].slice(0, MAX_RECENT)
+  localStorage.setItem(RECENT_KEY, JSON.stringify(updatedRecent))
+
+  // Append to raw event log for trending (all occurrences, 7-day window, max 500)
+  try {
+    const raw = localStorage.getItem(EVENTS_KEY)
+    const events: SearchEntry[] = raw ? (JSON.parse(raw) as SearchEntry[]) : []
+    const cutoff = Date.now() - SEVEN_DAYS_MS
+    const trimmed7d = events.filter((e) => e.timestamp > cutoff)
+    trimmed7d.push({ term: trimmed, timestamp: Date.now() })
+    localStorage.setItem(EVENTS_KEY, JSON.stringify(trimmed7d.slice(-MAX_EVENTS)))
+  } catch {
+    // ignore storage errors
+  }
 }
 
 function clearRecent(): void {
   localStorage.removeItem(RECENT_KEY)
+}
+
+/**
+ * Compute trending keywords: the top 7 distinct search queries that appear
+ * most frequently in the search-events log over the last 7 days.
+ * Falls back to an empty list if no events have been recorded yet.
+ */
+function computeTrendingKeywords(): string[] {
+  try {
+    const raw = localStorage.getItem(EVENTS_KEY)
+    if (!raw) return []
+    const events = JSON.parse(raw) as SearchEntry[]
+    const cutoff = Date.now() - SEVEN_DAYS_MS
+    const freq = new Map<string, number>()
+    for (const e of events) {
+      if (e.timestamp > cutoff) {
+        const t = e.term.toLowerCase().trim()
+        if (t.length >= 2) freq.set(t, (freq.get(t) ?? 0) + 1)
+      }
+    }
+    return [...freq.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 7)
+      .map(([term]) => term)
+  } catch {
+    return []
+  }
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -69,6 +117,9 @@ export function CatalogBrowsePage() {
 
   // Recent searches UI
   const [recentSearches, setRecentSearches] = useState<SearchEntry[]>(() => loadRecent())
+  const [trendingKeywords, setTrendingKeywords] = useState<string[]>(() =>
+    computeTrendingKeywords(),
+  )
   const [showSuggestions, setShowSuggestions] = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
 
@@ -82,6 +133,7 @@ export function CatalogBrowsePage() {
       if (value.trim().length >= 2) {
         recordSearch(value.trim())
         setRecentSearches(loadRecent())
+        setTrendingKeywords(computeTrendingKeywords())
       }
     }, 300)
   }
@@ -123,20 +175,6 @@ export function CatalogBrowsePage() {
       if (item.brand) s.add(item.brand)
     })
     return [...s].sort()
-  }, [items])
-
-  // Trending keywords: tags weighted by salesCount across active items, top 7
-  const trendingKeywords = useMemo(() => {
-    const freq = new Map<string, number>()
-    items.forEach((item) => {
-      item.tags.forEach((tag) => {
-        freq.set(tag, (freq.get(tag) ?? 0) + item.salesCount + 1)
-      })
-    })
-    return [...freq.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 7)
-      .map(([tag]) => tag)
   }, [items])
 
   const filtered = useMemo(() => {

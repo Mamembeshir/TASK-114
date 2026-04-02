@@ -142,5 +142,43 @@ export class MeridianDB extends Dexie {
       trainingCourses: 'id, isActive, createdAt',
       trainingProgress: 'id, userId, courseId, status, updatedAt',
     })
+
+    // Version 3: encrypt wallet balances and document content at rest.
+    // The schema string for wallets is unchanged (same indexed fields) but the
+    // upgrade callback re-encrypts all existing rows so no wallet or document
+    // record retains plaintext balance/reservedAmount after the migration.
+    // Note: the upgrade runs async; Dexie awaits the returned Promise.
+    this.version(3)
+      .stores({
+        // Schema unchanged — index list is the same as version 1.
+        // Repeating it here is required by Dexie when an upgrade() is added.
+        wallets: 'id, &userId',
+      })
+      .upgrade(async (tx) => {
+        // Lazily import to avoid circular-dependency during DB construction.
+        const { getAppKey } = await import('@/crypto/appKey')
+        const { encrypt } = await import('@/crypto/encryption')
+        const key = await getAppKey()
+
+        // Migrate every existing wallet: encrypt plaintext numeric fields.
+        // Old shape: { balance: number, reservedAmount: number }
+        // New shape: { encBalance: string, encReservedAmount: string }
+        await tx
+          .table('wallets')
+          .toCollection()
+          .modify(async (row: Record<string, unknown>) => {
+            // Skip rows that are already migrated (encBalance already present).
+            if (typeof row.encBalance === 'string') return
+
+            const bal = typeof row.balance === 'number' ? row.balance : 0
+            const res = typeof row.reservedAmount === 'number' ? row.reservedAmount : 0
+
+            row.encBalance = await encrypt(String(bal), key)
+            row.encReservedAmount = await encrypt(String(res), key)
+            // Remove plaintext fields from the record.
+            delete row.balance
+            delete row.reservedAmount
+          })
+      })
   }
 }

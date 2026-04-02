@@ -18,6 +18,7 @@ import {
   adminApproveDestruction,
   rejectDestruction,
   generateWatermark,
+  getDocumentById,
 } from '@/services/documentService'
 import { sanitizeHtml } from '@/utils/sanitize'
 import { Badge, Button, Card, CardHeader, Modal, Spinner, Textarea } from '@/components/ui'
@@ -58,7 +59,7 @@ export function DocumentDetailPage({ documentId }: Props) {
 
   const load = useCallback(async () => {
     const [d, approvals] = await Promise.all([
-      db.documents.get(documentId),
+      getDocumentById(documentId),
       db.destructionApprovals
         .where('documentId')
         .equals(documentId)

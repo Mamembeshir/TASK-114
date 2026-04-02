@@ -7,6 +7,7 @@ import { Download } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/store/authStore'
 import { db } from '@/db'
+import { listDocuments, listAllDocumentVersions } from '@/services/documentService'
 import { Button, Card, CardHeader } from '@/components/ui'
 
 type Module =
@@ -59,8 +60,8 @@ async function gatherData(module: Module): Promise<Record<string, unknown[]>> {
         publications: await db.publications.toArray(),
         publicationVersions: await db.publicationVersions.toArray(),
         viewEvents: await db.viewEvents.toArray(),
-        documents: await db.documents.toArray(),
-        documentVersions: await db.documentVersions.toArray(),
+        documents: await listDocuments(),
+        documentVersions: await listAllDocumentVersions(),
         checkoutRecords: await db.checkoutRecords.toArray(),
         destructionApprovals: await db.destructionApprovals.toArray(),
         notifications: await db.notifications.toArray(),
@@ -92,8 +93,8 @@ async function gatherData(module: Module): Promise<Record<string, unknown[]>> {
       }
     case 'documents':
       return {
-        documents: await db.documents.toArray(),
-        documentVersions: await db.documentVersions.toArray(),
+        documents: await listDocuments(),
+        documentVersions: await listAllDocumentVersions(),
         checkoutRecords: await db.checkoutRecords.toArray(),
         destructionApprovals: await db.destructionApprovals.toArray(),
       }

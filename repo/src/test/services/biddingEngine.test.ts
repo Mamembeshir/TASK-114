@@ -8,6 +8,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { db } from '@/db'
 import { placeBid, setProxyBid } from '@/services/biddingEngine'
+import { ensureWallet, creditWallet } from '@/services/walletService'
 import type { Auction } from '@/types'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -41,13 +42,8 @@ async function seedAuction(overrides: Partial<Auction> = {}): Promise<Auction> {
 }
 
 async function seedWallet(userId: string): Promise<void> {
-  await db.wallets.put({
-    id: `wallet-${userId}`,
-    userId,
-    balance: 10_000,
-    reservedAmount: 0,
-    updatedAt: Date.now(),
-  })
+  await ensureWallet(userId)
+  await creditWallet(userId, 10_000, 'Test seed', 'system')
 }
 
 // ── Setup ─────────────────────────────────────────────────────────────────────

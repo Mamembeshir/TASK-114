@@ -4,7 +4,12 @@
 
 import { describe, it, expect, beforeEach } from 'vitest'
 import { db } from '@/db'
-import { createDocument, checkoutDocument, checkinDocument } from '@/services/documentService'
+import {
+  createDocument,
+  checkoutDocument,
+  checkinDocument,
+  listDocumentVersions,
+} from '@/services/documentService'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -82,7 +87,7 @@ describe('document check-in', () => {
     await checkoutDocument(doc.id, 'user-1', 'User One')
     await checkinDocument(doc.id, 'user-1', 'User One')
 
-    const versions = await db.documentVersions.where('documentId').equals(doc.id).toArray()
+    const versions = await listDocumentVersions(doc.id)
     expect(versions.length).toBeGreaterThanOrEqual(1)
     // Snapshot captures the document's body at check-in time
     const sorted = versions.sort((a, b) => b.createdAt - a.createdAt)

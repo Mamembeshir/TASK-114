@@ -13,7 +13,8 @@ import { db } from '@/db'
 import { generateId } from '@/crypto'
 import { writeAuditLog } from '@/utils/audit'
 import { requirePermission } from '@/utils/permissions'
-import { reserveForAuction } from './walletService'
+import { prepareReservation, applyReservationInTx } from './walletService'
+import type { PreparedReservation } from './walletService'
 import { broadcast } from './bidChannel'
 import { createNotification } from './notificationService'
 import type { Bid } from '@/types'
@@ -99,6 +100,30 @@ export async function placeBid(
   previousDepositHeld: number,
 ): Promise<PlaceBidResult> {
   requirePermission('placeBid')
+
+  // Pre-flight: validate auction before doing expensive wallet crypto work.
+  // This also avoids throwing "Wallet not found" on tests that only seed a wallet
+  // for valid auction scenarios — the more useful error is "Auction not found".
+  const preCheck = await db.auctions.get(auctionId)
+  if (!preCheck) return { success: false, newPrice: 0, message: 'Auction not found', extended: false }
+  if (preCheck.status !== 'Active' && preCheck.status !== 'Extended') {
+    return {
+      success: false,
+      newPrice: preCheck.currentPrice,
+      message: 'Auction is not accepting bids',
+      extended: false,
+    }
+  }
+
+  // Pre-compute the encrypted wallet reservation outside the transaction so that
+  // Web Crypto `await` calls don't escape Dexie's microtask zone (PrematureCommitError).
+  const walletReservation = await prepareReservation(
+    bidderId,
+    auctionId,
+    depositAmount,
+    previousDepositHeld,
+  )
+
   // Collect outbid info outside the transaction to avoid accessing db.notifications
   // inside a transaction that doesn't list it (IndexedDB constraint).
   let outbidUserId: string | undefined
@@ -194,8 +219,8 @@ export async function placeBid(
           : {}),
       })
 
-      // Reserve deposit in wallet (updates/replaces previous hold)
-      await reserveForAuction(bidderId, auctionId, depositAmount, previousDepositHeld)
+      // Apply pre-computed wallet reservation (pure DB writes — no crypto inside tx)
+      await applyReservationInTx(walletReservation)
 
       await writeAuditLog({
         eventType: 'bid.placed',
@@ -267,6 +292,14 @@ export async function setProxyBid(
     }
   }
 
+  // Pre-compute wallet reservation outside the transaction (Web Crypto compat)
+  const proxyReservation: PreparedReservation = await prepareReservation(
+    bidderId,
+    auctionId,
+    depositAmount,
+    previousDepositHeld,
+  )
+
   await db.transaction('rw', db.proxyBids, db.wallets, db.walletTransactions, async () => {
     // Deactivate existing proxy for this bidder on this auction
     const existing = await db.proxyBids
@@ -289,7 +322,7 @@ export async function setProxyBid(
       updatedAt: Date.now(),
     })
 
-    await reserveForAuction(bidderId, auctionId, depositAmount, previousDepositHeld)
+    await applyReservationInTx(proxyReservation)
   })
 
   await writeAuditLog({

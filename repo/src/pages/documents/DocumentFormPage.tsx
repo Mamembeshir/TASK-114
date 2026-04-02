@@ -14,6 +14,7 @@ import {
   submitDocumentForReview,
   checkoutDocument,
   checkinDocument,
+  getDocumentById,
 } from '@/services/documentService'
 import { Button, Card, CardHeader, Input, RichTextEditor, Select, Spinner } from '@/components/ui'
 import type { Category, Document } from '@/types'
@@ -58,7 +59,7 @@ export function DocumentFormPage({ editId, tabId }: Props) {
   useEffect(() => {
     if (!editId || !currentUser) return
     const load = async () => {
-      const d = await db.documents.get(editId)
+      const d = await getDocumentById(editId)
       if (!d) {
         setIsLoadingDoc(false)
         return
@@ -118,7 +119,7 @@ export function DocumentFormPage({ editId, tabId }: Props) {
           currentUser.id,
           currentUser.displayName,
         )
-        const fresh = await db.documents.get(currentIdRef.current)
+        const fresh = await getDocumentById(currentIdRef.current)
         if (fresh) setModerationFlags(fresh.moderationFlags)
         toast.success('Document saved')
       } else {

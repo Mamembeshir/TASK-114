@@ -585,6 +585,16 @@
 
 ---
 
+## Second Audit Finding Resolutions
+
+| #   | Severity | Finding                                                                            | Resolution                                                                                                                                                                                                                                                                                                                                                              |
+| --- | -------- | ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | High     | Wallet balances and document title/body stored as plaintext in IndexedDB           | ✅ **Encrypted at rest.** `Wallet` now stores `encBalance` / `encReservedAmount` (AES-GCM-256 ciphertext). All `walletService` reads decrypt; all writes encrypt. `Document.title` and `.body` (+ `DocumentVersion` equivalents) encrypted before every `db.documents.add/update` and decrypted via `getDocumentById` / `listDocuments` service helpers. Shared `getAppKey()` module provides the device-scoped master key. Dexie v3 migration auto-upgrades existing wallet rows. |
+| 2   | High     | Anti-sniping extends once per auction; prompt implies repeated extension           | ✅ **Formally accepted as intentional design.** CLAUDE.md §4 explicitly caps extensions at one per auction to prevent perpetual-auction edge cases. Rationale is documented in `biddingEngine.ts` comments and in this plan. No code change required; the cap is the correct product behaviour.                                                                         |
+| 3   | Medium   | "Trending keywords" was salesCount-weighted tag frequency, not search-event-based  | ✅ **Replaced with 7-day search-event trending.** `CatalogBrowsePage` now records every search query to a rolling `meridian:catalog:search-events` localStorage log (capped at 500 entries, 7-day TTL). `computeTrendingKeywords()` counts per-query frequency in that window and returns the top 7 — matching the "trending over the last 7 days" requirement.         |
+
+---
+
 ## Progress Summary
 
 | Phase                     | Status          | Completed / Total |

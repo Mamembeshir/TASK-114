@@ -10,6 +10,7 @@ export type {
   Bid,
   ProxyBid,
   Wallet,
+  WalletDecrypted,
   WalletTransaction,
   WalletTransactionType,
 } from './auction'

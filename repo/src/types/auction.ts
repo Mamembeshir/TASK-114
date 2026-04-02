@@ -58,12 +58,29 @@ export interface ProxyBid {
   updatedAt: number
 }
 
+/**
+ * Wallet — IndexedDB storage shape.
+ * `balance` and `reservedAmount` are encrypted with the device AES-GCM key
+ * so the raw IndexedDB files do not expose financial data in plaintext.
+ * Use `WalletDecrypted` (returned by `walletService.getWallet`) everywhere
+ * arithmetic or display is needed.
+ */
 export interface Wallet {
   /** Primary key equals userId for O(1) lookup */
   id: string
   userId: string
+  /** AES-GCM-256 ciphertext — plaintext is the balance number serialised to string */
+  encBalance: string
+  /** AES-GCM-256 ciphertext — plaintext is the reservedAmount number serialised to string */
+  encReservedAmount: string
+  updatedAt: number
+}
+
+/** In-memory, plaintext representation of a wallet — returned by service reads. */
+export interface WalletDecrypted {
+  id: string
+  userId: string
   balance: number
-  /** Amount held while user has active bids — not yet deducted */
   reservedAmount: number
   updatedAt: number
 }

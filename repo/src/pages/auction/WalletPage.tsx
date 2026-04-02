@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Wallet as WalletIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { db } from '@/db'
-import { creditWallet, debitWallet, ensureWallet } from '@/services/walletService'
+import { creditWallet, debitWallet, ensureWallet, getWallet } from '@/services/walletService'
 import { useAuthStore } from '@/store/authStore'
 import { usePermission } from '@/hooks/usePermission'
 import {
@@ -17,13 +17,13 @@ import {
   Table,
 } from '@/components/ui'
 import type { ColumnDef } from '@/components/ui'
-import type { Wallet, WalletTransaction } from '@/types'
+import type { WalletDecrypted, WalletTransaction } from '@/types'
 
 export function WalletPage() {
   const currentUser = useAuthStore((s) => s.currentUser)
   const canManageWallets = usePermission('manageWallets')
 
-  const [wallet, setWallet] = useState<Wallet | null>(null)
+  const [wallet, setWallet] = useState<WalletDecrypted | null>(null)
   const [transactions, setTransactions] = useState<WalletTransaction[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
@@ -38,10 +38,10 @@ export function WalletPage() {
   const load = async (userId: string) => {
     await ensureWallet(userId)
     const [w, txns] = await Promise.all([
-      db.wallets.where('userId').equals(userId).first(),
+      getWallet(userId),
       db.walletTransactions.where('userId').equals(userId).sortBy('createdAt'),
     ])
-    setWallet(w ?? null)
+    setWallet(w)
     setTransactions(txns.reverse())
     setIsLoading(false)
   }

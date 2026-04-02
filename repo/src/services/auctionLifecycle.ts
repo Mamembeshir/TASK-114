@@ -55,74 +55,69 @@ export async function closeAuction(auction: Auction): Promise<void> {
   const winning = sorted[0] as (typeof sorted)[number] | undefined
   if (!winning) return // guard — should not happen since bids.length > 0
 
-  await db.transaction(
-    'rw',
-    [db.auctions, db.proxyBids, db.wallets, db.walletTransactions, db.notifications, db.auditLogs],
-    async () => {
-      await db.auctions.update(auction.id, {
-        status: 'Awarded',
-        winnerId: winning.bidderId,
-        winningBidId: winning.id,
-        updatedAt: Date.now(),
-      })
+  const loserIds = [...new Set(bids.map((b) => b.bidderId))].filter(
+    (id) => id !== winning.bidderId,
+  )
 
-      // Deactivate all proxy bids
-      const proxies = await db.proxyBids.where('auctionId').equals(auction.id).toArray()
-      await Promise.all(
-        proxies.map((p) => db.proxyBids.update(p.id, { isActive: false, updatedAt: Date.now() })),
-      )
+  // Update auction status and deactivate proxies — no crypto needed here.
+  await db.transaction('rw', [db.auctions, db.proxyBids], async () => {
+    await db.auctions.update(auction.id, {
+      status: 'Awarded',
+      winnerId: winning.bidderId,
+      winningBidId: winning.id,
+      updatedAt: Date.now(),
+    })
 
-      // Deduct deposit from winner
-      await deductDeposit(winning.bidderId, auction.id, auction.depositAmount)
+    const proxies = await db.proxyBids.where('auctionId').equals(auction.id).toArray()
+    await Promise.all(
+      proxies.map((p) => db.proxyBids.update(p.id, { isActive: false, updatedAt: Date.now() })),
+    )
+  })
 
-      // Release hold for all losing bidders
-      const loserIds = [...new Set(bids.map((b) => b.bidderId))].filter(
-        (id) => id !== winning.bidderId,
-      )
-      await Promise.all(
-        loserIds.map((loserId) => releaseReservation(loserId, auction.id, auction.depositAmount)),
-      )
+  // Wallet operations use Web Crypto (encrypt/decrypt) and MUST run outside any
+  // Dexie transaction to avoid PrematureCommitError (see walletService comments).
+  await deductDeposit(winning.bidderId, auction.id, auction.depositAmount)
+  await Promise.all(
+    loserIds.map((loserId) => releaseReservation(loserId, auction.id, auction.depositAmount)),
+  )
 
-      // Notify winner
-      await db.notifications.add({
+  // Notifications and audit log — simple IndexedDB writes, no crypto.
+  await db.notifications.add({
+    id: generateId(),
+    userId: winning.bidderId,
+    type: 'AuctionWon',
+    title: 'You Won the Auction!',
+    message: `Congratulations! Your bid of ${String(winning.amount)} won "${auction.title}". A deposit of ${String(auction.depositAmount)} has been deducted from your wallet.`,
+    isRead: false,
+    relatedEntityType: 'Auction',
+    relatedEntityId: auction.id,
+    createdAt: Date.now(),
+  })
+
+  await Promise.all(
+    loserIds.map((loserId) =>
+      db.notifications.add({
         id: generateId(),
-        userId: winning.bidderId,
-        type: 'AuctionWon',
-        title: 'You Won the Auction!',
-        message: `Congratulations! Your bid of ${String(winning.amount)} won "${auction.title}". A deposit of ${String(auction.depositAmount)} has been deducted from your wallet.`,
+        userId: loserId,
+        type: 'BidOutbid',
+        title: 'Auction Ended',
+        message: `The auction "${auction.title}" has ended. Your deposit hold has been released.`,
         isRead: false,
         relatedEntityType: 'Auction',
         relatedEntityId: auction.id,
         createdAt: Date.now(),
-      })
-
-      // Notify losers
-      await Promise.all(
-        loserIds.map((loserId) =>
-          db.notifications.add({
-            id: generateId(),
-            userId: loserId,
-            type: 'BidOutbid',
-            title: 'Auction Ended',
-            message: `The auction "${auction.title}" has ended. Your deposit hold has been released.`,
-            isRead: false,
-            relatedEntityType: 'Auction',
-            relatedEntityId: auction.id,
-            createdAt: Date.now(),
-          }),
-        ),
-      )
-
-      await writeAuditLog({
-        eventType: 'auction.closed',
-        actorId: 'system',
-        actorName: 'System',
-        entityType: 'Auction',
-        entityId: auction.id,
-        description: `Auction "${auction.title}" awarded to ${winning.bidderId} at ${String(winning.amount)}`,
-      })
-    },
+      }),
+    ),
   )
+
+  await writeAuditLog({
+    eventType: 'auction.closed',
+    actorId: 'system',
+    actorName: 'System',
+    entityType: 'Auction',
+    entityId: auction.id,
+    description: `Auction "${auction.title}" awarded to ${winning.bidderId} at ${String(winning.amount)}`,
+  })
 
   broadcast({ type: 'AUCTION_CLOSED', auctionId: auction.id })
 }

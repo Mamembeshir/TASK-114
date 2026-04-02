@@ -8,6 +8,7 @@ import { db } from '@/db'
 import { createAuction, publishAuction, cancelAuction } from '@/services/auctionService'
 import { closeAuction } from '@/services/auctionLifecycle' // used via endAndClose helper
 import { placeBid } from '@/services/biddingEngine'
+import { ensureWallet, creditWallet, getWallet } from '@/services/walletService'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -19,13 +20,8 @@ async function endAndClose(auctionId: string): Promise<void> {
 }
 
 async function seedWallet(userId: string, balance = 10_000): Promise<void> {
-  await db.wallets.put({
-    id: `wallet-${userId}`,
-    userId,
-    balance,
-    reservedAmount: 0,
-    updatedAt: Date.now(),
-  })
+  await ensureWallet(userId)
+  if (balance > 0) await creditWallet(userId, balance, 'Test seed', 'system')
 }
 
 function auctionPayload(overrides = {}) {
@@ -111,7 +107,7 @@ describe('auction lifecycle — closeAuction with bids → Awarded', () => {
     await placeBid(auction.id, 'bidder-1', 'Alice', 110, 'k1', 200, 0)
     await endAndClose(auction.id)
 
-    const wallet = await db.wallets.get(`wallet-bidder-1`)
+    const wallet = await getWallet('bidder-1')
     // Balance reduced by deposit amount (200)
     expect(wallet?.balance).toBe(10_000 - 200)
   })
@@ -127,7 +123,7 @@ describe('auction lifecycle — closeAuction with bids → Awarded', () => {
     await endAndClose(auction.id)
 
     // Loser (bidder-1) should have reservedAmount = 0
-    const loserWallet = await db.wallets.get(`wallet-bidder-1`)
+    const loserWallet = await getWallet('bidder-1')
     expect(loserWallet?.reservedAmount).toBe(0)
   })
 

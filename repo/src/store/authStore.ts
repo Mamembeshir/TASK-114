@@ -1,15 +1,7 @@
 import { create } from 'zustand'
 import { db } from '@/db'
-import {
-  hashPassword,
-  verifyPassword,
-  generateEncryptionKey,
-  exportKey,
-  importKey,
-  encrypt,
-  decrypt,
-  generateId,
-} from '@/crypto'
+import { hashPassword, verifyPassword, encrypt, decrypt, generateId } from '@/crypto'
+import { getAppKey } from '@/crypto/appKey'
 import { Role } from '@/types'
 import type { User } from '@/types'
 import { writeAuditLog } from '@/utils/audit'
@@ -17,7 +9,6 @@ import { useTabStore } from '@/store/tabStore'
 import { useNotificationStore } from '@/store/notificationStore'
 
 // ── LocalStorage keys ─────────────────────────────────────────────────────────
-const LS_ENC_KEY = 'meridian_enc_key'
 const LS_SESSION = 'meridian_session'
 const LS_LOCKOUT_PREFIX = 'meridian_lockout_'
 
@@ -88,15 +79,6 @@ interface AuthActions {
 
 // ── Internal helpers ──────────────────────────────────────────────────────────
 
-/** Return the master AES-GCM key, creating and persisting it on first call. */
-async function getOrCreateMasterKey(): Promise<CryptoKey> {
-  const stored = localStorage.getItem(LS_ENC_KEY)
-  if (stored) return importKey(stored)
-  const key = await generateEncryptionKey()
-  localStorage.setItem(LS_ENC_KEY, await exportKey(key))
-  return key
-}
-
 // ── Store ─────────────────────────────────────────────────────────────────────
 export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
   currentUser: null,
@@ -165,7 +147,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
       })
 
       // 4. Encrypt session token → LocalStorage
-      const masterKey = await getOrCreateMasterKey()
+      const masterKey = await getAppKey()
       const payload: SessionToken = { sessionId, userId: user.id, expiresAt }
       const encryptedToken = await encrypt(JSON.stringify(payload), masterKey)
       localStorage.setItem(LS_SESSION, encryptedToken)
@@ -218,15 +200,14 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
   restoreSession: async () => {
     set({ isLoading: true })
     try {
-      const storedKey = localStorage.getItem(LS_ENC_KEY)
       const storedSession = localStorage.getItem(LS_SESSION)
 
-      if (!storedKey || !storedSession) {
+      if (!storedSession) {
         set({ isLoading: false })
         return
       }
 
-      const masterKey = await importKey(storedKey)
+      const masterKey = await getAppKey()
       const tokenJson = await decrypt(storedSession, masterKey)
       const token = JSON.parse(tokenJson) as SessionToken
 

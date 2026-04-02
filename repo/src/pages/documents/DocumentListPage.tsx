@@ -7,6 +7,7 @@ import { useAuthStore } from '@/store/authStore'
 import { useTabStore } from '@/store/tabStore'
 import { usePermission } from '@/hooks/usePermission'
 import { db } from '@/db'
+import { listDocuments } from '@/services/documentService'
 import { Badge, Button, Card, EmptyState, Table } from '@/components/ui'
 import type { ColumnDef } from '@/components/ui'
 import type { Document, DocumentStatus } from '@/types'
@@ -52,10 +53,7 @@ export function DocumentListPage() {
   useEffect(() => {
     const load = async () => {
       setIsLoading(true)
-      const [docs, cats] = await Promise.all([
-        db.documents.orderBy('updatedAt').reverse().toArray(),
-        db.categories.toArray(),
-      ])
+      const [docs, cats] = await Promise.all([listDocuments(), db.categories.toArray()])
       const catMap = new Map(cats.map((c) => [c.id, c.name]))
       setRows(docs.map((doc) => ({ doc, categoryName: catMap.get(doc.categoryId) ?? '—' })))
       setIsLoading(false)
