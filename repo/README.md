@@ -151,19 +151,19 @@ docker compose --profile test up --exit-code-from test test
 
 ## Tech Stack
 
-| Layer             | Technology               |
-| ----------------- | ------------------------ |
-| UI Framework      | React 19 + TypeScript    |
-| Build Tool        | Vite 6                   |
-| Styling           | Tailwind CSS 3           |
-| Persistence       | IndexedDB via Dexie.js 4 |
-| Global State      | Zustand 5                |
-| Icons             | Lucide React             |
-| Notifications     | Sonner                   |
+| Layer             | Technology                            |
+| ----------------- | ------------------------------------- |
+| UI Framework      | React 19 + TypeScript                 |
+| Build Tool        | Vite 6                                |
+| Styling           | Tailwind CSS 3                        |
+| Persistence       | IndexedDB via Dexie.js 4              |
+| Global State      | Zustand 5                             |
+| Icons             | Lucide React                          |
+| Notifications     | Sonner                                |
 | Routing           | Tab-store path matching (no URL sync) |
-| Testing           | Vitest + Testing Library |
-| Package Manager   | pnpm                     |
-| Container Runtime | Docker + Docker Compose  |
+| Testing           | Vitest + Testing Library              |
+| Package Manager   | pnpm                                  |
+| Container Runtime | Docker + Docker Compose               |
 
 ---
 
@@ -235,30 +235,30 @@ src/
 
 All 22 tables are declared in version 1 of the Dexie schema. Prefix `&` = unique index, `*` = multi-entry index.
 
-| Table                 | Key Indexes                                                  |
-| --------------------- | ------------------------------------------------------------ |
-| `users`               | `&username`, `role`, `isActive`                              |
-| `sessions`            | `userId`, `expiresAt`                                        |
-| `auditLogs`           | `actorId`, `entityType`, `entityId`, `createdAt`             |
-| `auctions`            | `status`, `createdBy`, `endTime`, `[status+endTime]`         |
-| `bids`                | `auctionId`, `bidderId`, `&idempotencyKey`, `createdAt`      |
-| `proxyBids`           | `auctionId`, `bidderId`, `isActive`, `[auctionId+isActive]`  |
-| `wallets`             | `userId`                                                     |
-| `walletTransactions`  | `walletId`, `userId`, `type`, `relatedAuctionId`             |
-| `catalogItems`        | `status`, `categoryId`, `*tags`, `createdBy`                 |
-| `categories`          | `&slug`, `parentId`                                          |
-| `tags`                | `&slug`                                                      |
-| `publications`        | `status`, `createdBy`, `publishedAt`                         |
-| `publicationVersions` | `publicationId`, `createdAt`                                 |
-| `viewEvents`          | `entityId`, `userId`, `openedAt`                             |
-| `documents`           | `status`, `documentNumber`, `categoryId`, `createdBy`, `retentionDueDate` |
-| `documentVersions`    | `documentId`, `createdAt`                                    |
-| `checkoutRecords`     | `documentId`, `userId`, `isActive`                           |
-| `retentionPolicies`   | `documentType`                                               |
-| `destructionApprovals`| `documentId`, `status`                                       |
-| `notifications`       | `userId`, `isRead`, `createdAt`                              |
-| `outboundQueue`       | `status`, `recipientType`, `createdAt`                       |
-| `sensitiveWords`      | `&word`                                                      |
+| Table                  | Key Indexes                                                               |
+| ---------------------- | ------------------------------------------------------------------------- |
+| `users`                | `&username`, `role`, `isActive`                                           |
+| `sessions`             | `userId`, `expiresAt`                                                     |
+| `auditLogs`            | `actorId`, `entityType`, `entityId`, `createdAt`                          |
+| `auctions`             | `status`, `createdBy`, `endTime`, `[status+endTime]`                      |
+| `bids`                 | `auctionId`, `bidderId`, `&idempotencyKey`, `createdAt`                   |
+| `proxyBids`            | `auctionId`, `bidderId`, `isActive`, `[auctionId+isActive]`               |
+| `wallets`              | `userId`                                                                  |
+| `walletTransactions`   | `walletId`, `userId`, `type`, `relatedAuctionId`                          |
+| `catalogItems`         | `status`, `categoryId`, `*tags`, `createdBy`                              |
+| `categories`           | `&slug`, `parentId`                                                       |
+| `tags`                 | `&slug`                                                                   |
+| `publications`         | `status`, `createdBy`, `publishedAt`                                      |
+| `publicationVersions`  | `publicationId`, `createdAt`                                              |
+| `viewEvents`           | `entityId`, `userId`, `openedAt`                                          |
+| `documents`            | `status`, `documentNumber`, `categoryId`, `createdBy`, `retentionDueDate` |
+| `documentVersions`     | `documentId`, `createdAt`                                                 |
+| `checkoutRecords`      | `documentId`, `userId`, `isActive`                                        |
+| `retentionPolicies`    | `documentType`                                                            |
+| `destructionApprovals` | `documentId`, `status`                                                    |
+| `notifications`        | `userId`, `isRead`, `createdAt`                                           |
+| `outboundQueue`        | `status`, `recipientType`, `createdAt`                                    |
+| `sensitiveWords`       | `&word`                                                                   |
 
 ---
 
@@ -266,29 +266,29 @@ All 22 tables are declared in version 1 of the Dexie schema. Prefix `&` = unique
 
 | Permission          | Admin | Editor | Reviewer | Participant |
 | ------------------- | :---: | :----: | :------: | :---------: |
-| manageUsers         |  ✓   |        |          |             |
-| manageSystem        |  ✓   |        |          |             |
-| manageWallets       |  ✓   |        |          |             |
-| viewAuditLog        |  ✓   |        |   ✓      |             |
-| exportData          |  ✓   |        |          |             |
-| createAuction       |  ✓   |   ✓    |          |             |
-| editAuction         |  ✓   |   ✓    |          |             |
-| publishAuction      |  ✓   |   ✓    |          |             |
-| placeBid            |  ✓   |        |          |   ✓         |
-| createCatalogItem   |  ✓   |   ✓    |          |             |
-| editCatalogItem     |  ✓   |   ✓    |          |             |
-| publishCatalogItem  |  ✓   |   ✓    |          |             |
-| moderateCatalog     |  ✓   |        |   ✓      |             |
-| createPublication   |  ✓   |   ✓    |          |             |
-| editPublication     |  ✓   |   ✓    |          |             |
-| approvePublication  |  ✓   |        |   ✓      |             |
-| publishPublication  |  ✓   |        |   ✓      |             |
-| createDocument      |  ✓   |   ✓    |          |             |
-| editDocument        |  ✓   |   ✓    |          |             |
-| approveDocument     |  ✓   |        |   ✓      |             |
-| requestDestruction  |  ✓   |   ✓    |   ✓      |             |
-| approveDestruction  |  ✓   |        |   ✓      |             |
-| manageNotifications |  ✓   |        |          |             |
+| manageUsers         |   ✓   |        |          |             |
+| manageSystem        |   ✓   |        |          |             |
+| manageWallets       |   ✓   |        |          |             |
+| viewAuditLog        |   ✓   |        |    ✓     |             |
+| exportData          |   ✓   |        |          |             |
+| createAuction       |   ✓   |   ✓    |          |             |
+| editAuction         |   ✓   |   ✓    |          |             |
+| publishAuction      |   ✓   |   ✓    |          |             |
+| placeBid            |   ✓   |        |          |      ✓      |
+| createCatalogItem   |   ✓   |   ✓    |          |             |
+| editCatalogItem     |   ✓   |   ✓    |          |             |
+| publishCatalogItem  |   ✓   |   ✓    |          |             |
+| moderateCatalog     |   ✓   |        |    ✓     |             |
+| createPublication   |   ✓   |   ✓    |          |             |
+| editPublication     |   ✓   |   ✓    |          |             |
+| approvePublication  |   ✓   |        |    ✓     |             |
+| publishPublication  |   ✓   |        |    ✓     |             |
+| createDocument      |   ✓   |   ✓    |          |             |
+| editDocument        |   ✓   |   ✓    |          |             |
+| approveDocument     |   ✓   |        |    ✓     |             |
+| requestDestruction  |   ✓   |   ✓    |    ✓     |             |
+| approveDestruction  |   ✓   |        |    ✓     |             |
+| manageNotifications |   ✓   |        |          |             |
 
 Full implementation: `src/auth/permissions.ts`
 
@@ -296,15 +296,15 @@ Full implementation: `src/auth/permissions.ts`
 
 ## Security
 
-| Concern         | Implementation                                                      |
-| --------------- | ------------------------------------------------------------------- |
-| Passwords       | PBKDF2-HMAC-SHA-256, 310,000 iterations, 16-byte salt, 256-bit key  |
-| Session tokens  | AES-GCM-256 encrypted in LocalStorage; per-device master key        |
-| Rich text XSS   | DOMPurify sanitization before every `dangerouslySetInnerHTML` call  |
-| Audit log       | Append-only — zero delete/update code paths exist in the codebase   |
-| Duplicate bids  | Unique `idempotencyKey` index + Dexie `rw` transaction + BroadcastChannel |
-| Moderation      | Sensitive-word scan on every save and submit-for-review             |
-| Page-level RBAC | `PermissionGuard` in `TabContent` blocks rendering of restricted pages even if a tab is opened programmatically |
+| Concern         | Implementation                                                                                                                            |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Passwords       | PBKDF2-HMAC-SHA-256, 310,000 iterations, 16-byte salt, 256-bit key                                                                        |
+| Session tokens  | AES-GCM-256 encrypted in LocalStorage; per-device master key                                                                              |
+| Rich text XSS   | DOMPurify sanitization before every `dangerouslySetInnerHTML` call                                                                        |
+| Audit log       | Append-only — zero delete/update code paths exist in the codebase                                                                         |
+| Duplicate bids  | Unique `idempotencyKey` index + Dexie `rw` transaction + BroadcastChannel                                                                 |
+| Moderation      | Sensitive-word scan on every save and submit-for-review                                                                                   |
+| Page-level RBAC | `PermissionGuard` in `TabContent` blocks rendering of restricted pages even if a tab is opened programmatically                           |
 | User data       | `UserManagementPage` maps DB records to DTOs before storing in React state — `passwordHash`/`passwordSalt` never held in component memory |
 
 ### Anti-sniping rule
@@ -317,24 +317,24 @@ When a valid bid lands in the **final 30 seconds** of an auction, the end time i
 
 191 tests across 16 test files (Vitest + fake-indexeddb + Testing Library):
 
-| File                            | Tests | What it covers                                              |
-| ------------------------------- | :---: | ----------------------------------------------------------- |
-| `crypto/password.test.ts`       |   5   | PBKDF2 format, uniqueness, verify, wrong password/salt      |
-| `crypto/encryption.test.ts`     |   6   | AES-GCM round-trip, unique IVs, tamper rejection            |
-| `crypto/ids.test.ts`            |   2   | UUID format, 100-sample collision check                     |
-| `utils/moderation.test.ts`      |   8   | Empty list, case-insensitive, whole-word, multi-text, dedup |
-| `services/biddingEngine.test.ts`|  11   | Min increment, state guards, idempotency, anti-sniping, proxy |
-| `services/documentNumbering.test.ts` | 4 | No number on Draft, ORG-YYYY-NNNNNN on Approved, sequential, retention date |
-| `services/auctionLifecycle.test.ts`  |10 | Draft→Active, Awarded (deposit/release/notifications), NoSale |
-| `services/publicationWorkflow.test.ts`|11| Draft→Published workflow, moderation block, notifications   |
-| `services/documentCheckout.test.ts`  | 7 | Lock/block/checkin/version snapshot/expired auto-release    |
-| `app.test.tsx`                  |   1   | App renders without crashing                                |
-| `auth/rbac.test.ts`             |  45   | Permission matrix allow/deny for all roles; requirePermission guard |
-| `auth/loginPage.test.tsx`       |  10   | Form rendering, validation, lockout error display, register nav |
-| `auth/registerPage.test.tsx`    |  13   | All field rules (username regex, 12-char min, optional email, confirm) |
-| `auth/forcePasswordChange.test.tsx`| 9  | Renders for temp-password users; all 4 validation rules     |
-| `pages/dashboardPage.test.tsx`  |  20   | Role-based Quick Action visibility; tab opens correct path  |
-| `layout/tabContentPermissions.test.tsx` | 22 | PermissionGuard blocks all 6 guarded routes for unauthorized roles; allows authorized roles; unauthenticated denial |
+| File                                    | Tests | What it covers                                                                                                      |
+| --------------------------------------- | :---: | ------------------------------------------------------------------------------------------------------------------- |
+| `crypto/password.test.ts`               |   5   | PBKDF2 format, uniqueness, verify, wrong password/salt                                                              |
+| `crypto/encryption.test.ts`             |   6   | AES-GCM round-trip, unique IVs, tamper rejection                                                                    |
+| `crypto/ids.test.ts`                    |   2   | UUID format, 100-sample collision check                                                                             |
+| `utils/moderation.test.ts`              |   8   | Empty list, case-insensitive, whole-word, multi-text, dedup                                                         |
+| `services/biddingEngine.test.ts`        |  11   | Min increment, state guards, idempotency, anti-sniping, proxy                                                       |
+| `services/documentNumbering.test.ts`    |   4   | No number on Draft, ORG-YYYY-NNNNNN on Approved, sequential, retention date                                         |
+| `services/auctionLifecycle.test.ts`     |  10   | Draft→Active, Awarded (deposit/release/notifications), NoSale                                                       |
+| `services/publicationWorkflow.test.ts`  |  11   | Draft→Published workflow, moderation block, notifications                                                           |
+| `services/documentCheckout.test.ts`     |   7   | Lock/block/checkin/version snapshot/expired auto-release                                                            |
+| `app.test.tsx`                          |   1   | App renders without crashing                                                                                        |
+| `auth/rbac.test.ts`                     |  45   | Permission matrix allow/deny for all roles; requirePermission guard                                                 |
+| `auth/loginPage.test.tsx`               |  10   | Form rendering, validation, lockout error display, register nav                                                     |
+| `auth/registerPage.test.tsx`            |  13   | All field rules (username regex, 12-char min, optional email, confirm)                                              |
+| `auth/forcePasswordChange.test.tsx`     |   9   | Renders for temp-password users; all 4 validation rules                                                             |
+| `pages/dashboardPage.test.tsx`          |  20   | Role-based Quick Action visibility; tab opens correct path                                                          |
+| `layout/tabContentPermissions.test.tsx` |  22   | PermissionGuard blocks all 6 guarded routes for unauthorized roles; allows authorized roles; unauthenticated denial |
 
 ---
 
@@ -342,11 +342,11 @@ When a valid bid lands in the **final 30 seconds** of an auction, the end time i
 
 On first launch the app seeds **three ready-to-use staff accounts**. Buyer (Participant) accounts are created via the self-registration form on the login screen.
 
-| Username   | Password        | Role               | What you can do                                                      |
-| ---------- | --------------- | ------------------ | -------------------------------------------------------------------- |
-| `admin`    | `adminPass1!`   | Administrator      | Everything: user management, system settings, wallet management, full audit log, data export |
-| `editor`   | `editorPass1!`  | Content Editor     | Create & publish auctions, catalog items, publications, and documents |
-| `reviewer` | `reviewerPass1!`| ReviewerApprover   | Approve / reject publications and documents; view audit log; approve destruction requests |
+| Username   | Password         | Role             | What you can do                                                                              |
+| ---------- | ---------------- | ---------------- | -------------------------------------------------------------------------------------------- |
+| `admin`    | `adminPass1!`    | Administrator    | Everything: user management, system settings, wallet management, full audit log, data export |
+| `editor`   | `editorPass1!`   | Content Editor   | Create & publish auctions, catalog items, publications, and documents                        |
+| `reviewer` | `reviewerPass1!` | ReviewerApprover | Approve / reject publications and documents; view audit log; approve destruction requests    |
 
 ### Registering as a Buyer
 

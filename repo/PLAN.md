@@ -244,6 +244,7 @@
   - `src/pages/auction/MyBidsPage.tsx` — shows highest bid, leading/won status
 
 **Also added:**
+
 - `src/db/seeds.ts` — `seedDefaultCategories()` seeds 8 default categories on first launch
 - `src/components/auction/CountdownTimer.tsx` — live countdown, pulses red under 1 minute
 - `src/components/layout/TabContent.tsx` — tab-based content router mapping paths to page components
@@ -301,6 +302,7 @@
 - [ ] Build sensitive-word list management UI (Admin configures list — covered in Phase 8 Admin Panel)
 
 **Also added:**
+
 - `src/services/catalogService.ts` — createCatalogItem, updateCatalogItem, publishCatalogItem, archiveCatalogItem, restoreCatalogItem
 - `TabContent.tsx` updated with `/catalog`, `/catalog/new`, `/catalog/:id/edit`, `/catalog/browse` routes
 
@@ -356,6 +358,7 @@
 - [ ] Build Readership Analytics Panel — covered in Phase 8 Admin Panel
 
 **Also added:**
+
 - `src/services/publicationService.ts` — full publication lifecycle service
 - `src/pages/publishing/PublicationListPage.tsx` — management view with status filters
 - `TabContent.tsx` updated with all `/publishing/*` routes
@@ -415,6 +418,7 @@
 - [x] `DocumentListPage` filterable by all statuses including Archived
 
 **Also added:**
+
 - `src/services/documentService.ts` — full document lifecycle service
 - `TabContent.tsx` updated with all `/documents/*` routes
 
@@ -460,6 +464,7 @@
 - [x] Notify Admin when a document enters retention queue (on destruction request)
 
 **Also added:**
+
 - `NotificationBell` wired into `TabBar` (right-side slot)
 - `startNotificationSync` called in `App.tsx` on auth
 - Routes `/notifications` → `NotificationCenterPage`, `/outbound-queue` → `OutboundQueuePage`
@@ -503,6 +508,7 @@
   - `src/pages/auction/WalletPage.tsx` — manual credit/debit modal gated by `manageWallets`
 
 **Also added:**
+
 - `user.activated` added to `AuditEventType` union
 - NavDrawer updated with admin section items (Users, Settings, Sensitive Words, Audit Log, Export)
 - TabContent updated with `/admin/*` routes
@@ -564,18 +570,18 @@
 
 ## Audit Finding Resolutions (Post-Phase-9 Review)
 
-| # | Severity | Finding | Resolution |
-|---|----------|---------|------------|
-| 1 | High | Message Center: missing retry scheduling, templates, read receipts, subscriptions | ✅ Retry ladder (1/5/15 min), `processRetryQueue` timer, `NotificationTemplate`, `NotificationSubscription`, `MessageReadReceipt` types + DB tables + service methods |
-| 2 | High | Training module absent | ✅ `TrainingCourse` + `TrainingProgress` types, `trainingService`, `TrainingPage` with section-level completion tracking, `viewTraining` permission for all roles, nav item |
-| 3 | High | Anti-sniping "once per auction" divergence | ✅ **Formally documented as intentional scope decision** — CLAUDE.md §4 explicitly states "Extend by 2 minutes, **once per auction**". `antiSnipingTriggered` boolean enforces this; bid timeline now shows the extension event row with timestamp |
-| 4 | Medium | Catalog search: brand/spec filters, recent searches, trending keywords | ✅ Brand facet panel, brand included in full-text search, recent searches (localStorage, 7-day, max 7), trending keywords (salesCount-weighted tags) |
-| 5 | Medium | Deposit policy default (10% of start price, min $50) not enforced | ✅ Auto-compute default in `AuctionFormPage` with `depositUserEdited` guard |
-| 6 | Medium | Inconsistent page-level RBAC | ✅ All routes in `TabContent` wrapped in `PermissionGuard`; 22 privilege-escalation tests added |
-| 7 | Medium | `ProtectedRoute` + react-router-dom not integrated | ✅ `ProtectedRoute.tsx` deleted; react-router-dom removed; `PermissionGuard` is the correct tab-aware replacement |
-| 8 | Medium | E2E tests absent | ⚠️ **Formally descoped** — app is a pure offline SPA with no URL routing; Playwright requires real URLs. Tab-store integration tests in `tabContentPermissions.test.tsx` cover the routing contract instead |
-| 9 | Low/Medium | Bid timeline missing extension event rows | ✅ Synthetic anti-sniping extension row inserted in bid history at the triggering bid's chronological position |
-| 10 | Low | react-router-dom unused dependency | ✅ Removed from `package.json` |
+| #   | Severity   | Finding                                                                           | Resolution                                                                                                                                                                                                                                         |
+| --- | ---------- | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | High       | Message Center: missing retry scheduling, templates, read receipts, subscriptions | ✅ Retry ladder (1/5/15 min), `processRetryQueue` timer, `NotificationTemplate`, `NotificationSubscription`, `MessageReadReceipt` types + DB tables + service methods                                                                              |
+| 2   | High       | Training module absent                                                            | ✅ `TrainingCourse` + `TrainingProgress` types, `trainingService`, `TrainingPage` with section-level completion tracking, `viewTraining` permission for all roles, nav item                                                                        |
+| 3   | High       | Anti-sniping "once per auction" divergence                                        | ✅ **Formally documented as intentional scope decision** — CLAUDE.md §4 explicitly states "Extend by 2 minutes, **once per auction**". `antiSnipingTriggered` boolean enforces this; bid timeline now shows the extension event row with timestamp |
+| 4   | Medium     | Catalog search: brand/spec filters, recent searches, trending keywords            | ✅ Brand facet panel, brand included in full-text search, recent searches (localStorage, 7-day, max 7), trending keywords (salesCount-weighted tags)                                                                                               |
+| 5   | Medium     | Deposit policy default (10% of start price, min $50) not enforced                 | ✅ Auto-compute default in `AuctionFormPage` with `depositUserEdited` guard                                                                                                                                                                        |
+| 6   | Medium     | Inconsistent page-level RBAC                                                      | ✅ All routes in `TabContent` wrapped in `PermissionGuard`; 22 privilege-escalation tests added                                                                                                                                                    |
+| 7   | Medium     | `ProtectedRoute` + react-router-dom not integrated                                | ✅ `ProtectedRoute.tsx` deleted; react-router-dom removed; `PermissionGuard` is the correct tab-aware replacement                                                                                                                                  |
+| 8   | Medium     | E2E tests absent                                                                  | ⚠️ **Formally descoped** — app is a pure offline SPA with no URL routing; Playwright requires real URLs. Tab-store integration tests in `tabContentPermissions.test.tsx` cover the routing contract instead                                        |
+| 9   | Low/Medium | Bid timeline missing extension event rows                                         | ✅ Synthetic anti-sniping extension row inserted in bid history at the triggering bid's chronological position                                                                                                                                     |
+| 10  | Low        | react-router-dom unused dependency                                                | ✅ Removed from `package.json`                                                                                                                                                                                                                     |
 
 ---
 

@@ -1,87 +1,81 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
-# run_tests.sh — CI test runner for Meridian Portal
+# run_tests.sh — full test suite for Meridian Portal
 #
 # Usage:
-#   ./run_tests.sh              # run tests (builds image if needed)
-#   ./run_tests.sh --coverage   # run tests + generate coverage report
-#   ./run_tests.sh --watch      # run tests in watch mode (dev only)
-#   ./run_tests.sh --clean      # remove test container + image before running
+#   ./run_tests.sh              # lint + type-check + unit tests + build
+#   ./run_tests.sh --coverage   # same + generate coverage report
+#   ./run_tests.sh --tests-only # unit tests only (skip lint/type-check/build)
 # ─────────────────────────────────────────────────────────────────────────────
 
 set -euo pipefail
 
-IMAGE="meridian-portal:test"
-CONTAINER="meridian-test"
-COMPOSE_FILE="docker-compose.yml"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$ROOT"
 
-MODE="run"       # run | coverage | watch
-CLEAN=false
+MODE="full"   # full | coverage | tests-only
 
-# ── Parse args ────────────────────────────────────────────────────────────────
 for arg in "$@"; do
   case $arg in
-    --coverage) MODE="coverage" ;;
-    --watch)    MODE="watch" ;;
-    --clean)    CLEAN=true ;;
+    --coverage)   MODE="coverage" ;;
+    --tests-only) MODE="tests-only" ;;
     *)
       echo "Unknown argument: $arg"
-      echo "Usage: $0 [--coverage] [--watch] [--clean]"
+      echo "Usage: $0 [--coverage] [--tests-only]"
       exit 1
       ;;
   esac
 done
 
-# ── Clean up previous run ─────────────────────────────────────────────────────
-if [ "$CLEAN" = true ]; then
-  echo "→ Removing previous test container and image..."
-  docker rm -f "$CONTAINER" 2>/dev/null || true
-  docker rmi -f "$IMAGE"    2>/dev/null || true
-fi
+PASS=0
+FAIL=0
 
-# ── Select pnpm script based on mode ─────────────────────────────────────────
-case $MODE in
-  coverage) CMD="pnpm test:coverage" ;;
-  watch)    CMD="pnpm test:watch" ;;
-  *)        CMD="pnpm test" ;;
-esac
-
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "  Meridian Portal — Test Runner"
-echo "  Mode    : $MODE"
-echo "  Command : $CMD"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-
-# ── Build the test image ──────────────────────────────────────────────────────
-echo "→ Building test image..."
-docker build \
-  --file Dockerfile.test \
-  --tag "$IMAGE" \
-  .
-
-# ── Run the tests ─────────────────────────────────────────────────────────────
-echo "→ Running tests..."
-docker run \
-  --rm \
-  --name "$CONTAINER" \
-  --env CI=true \
-  --env NODE_ENV=test \
-  --volume "$(pwd)/coverage:/app/coverage" \
-  "$IMAGE" \
-  sh -c "$CMD"
-
-EXIT_CODE=$?
-
-# ── Result summary ────────────────────────────────────────────────────────────
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-if [ $EXIT_CODE -eq 0 ]; then
-  echo "  ✓ All tests passed"
-  if [ "$MODE" = "coverage" ]; then
-    echo "  Coverage report: ./coverage/index.html"
+run_step() {
+  local label="$1"
+  shift
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "  $label"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  if "$@"; then
+    echo "  ✓ $label passed"
+    PASS=$((PASS + 1))
+  else
+    echo "  ✗ $label FAILED"
+    FAIL=$((FAIL + 1))
   fi
-else
-  echo "  ✗ Tests failed (exit code: $EXIT_CODE)"
-fi
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+}
 
-exit $EXIT_CODE
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  Meridian Portal — Test Suite  (mode: $MODE)"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+if [ "$MODE" = "full" ] || [ "$MODE" = "coverage" ]; then
+  run_step "Lint (ESLint)"           pnpm lint
+  run_step "Format check (Prettier)" pnpm format:check
+  run_step "Type check (tsc)"        pnpm exec tsc --noEmit
+fi
+
+if [ "$MODE" = "coverage" ]; then
+  run_step "Unit tests + coverage (Vitest)" pnpm test:coverage
+else
+  run_step "Unit tests (Vitest)" pnpm test --run
+fi
+
+if [ "$MODE" = "full" ] || [ "$MODE" = "coverage" ]; then
+  run_step "Production build" pnpm build
+fi
+
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  Results: $PASS passed, $FAIL failed"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+if [ "$MODE" = "coverage" ] && [ "$FAIL" -eq 0 ]; then
+  echo "  Coverage report: ./coverage/index.html"
+  echo ""
+fi
+
+[ "$FAIL" -eq 0 ]
