@@ -25,6 +25,8 @@ interface TabActions {
   closeTab: (tabId: string) => void
   activateTab: (tabId: string) => void
   markDirty: (tabId: string, dirty: boolean) => void
+  /** Clear all user-opened tabs and return to the Dashboard home tab. Call on logout. */
+  reset: () => void
 }
 
 // Dashboard is the permanent home tab — it cannot be closed.
@@ -84,5 +86,10 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
     set((s) => ({
       tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, isDirty: dirty } : t)),
     }))
+  },
+
+  // ── reset ───────────────────────────────────────────────────────────────────
+  reset: () => {
+    set({ tabs: [HOME_TAB], activeTabId: HOME_TAB.id })
   },
 }))

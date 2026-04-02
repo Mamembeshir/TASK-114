@@ -20,6 +20,8 @@ interface NotificationState {
   refresh: (userId: string) => Promise<void>
   markRead: (id: string, userId: string) => Promise<void>
   markAllRead: (userId: string) => Promise<void>
+  /** Clear in-memory notification state. Call on logout to prevent data leaking to the next user. */
+  reset: () => void
 }
 
 export const useNotificationStore = create<NotificationState>((set, get) => ({
@@ -47,6 +49,10 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     await markAllNotificationsRead(userId)
     await get().refresh(userId)
     broadcastRefresh()
+  },
+
+  reset: () => {
+    set({ notifications: [], unreadCount: 0, isLoading: false })
   },
 }))
 

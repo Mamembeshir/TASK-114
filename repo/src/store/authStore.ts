@@ -13,6 +13,8 @@ import {
 import { Role } from '@/types'
 import type { User } from '@/types'
 import { writeAuditLog } from '@/utils/audit'
+import { useTabStore } from '@/store/tabStore'
+import { useNotificationStore } from '@/store/notificationStore'
 
 // ── LocalStorage keys ─────────────────────────────────────────────────────────
 const LS_ENC_KEY = 'meridian_enc_key'
@@ -207,6 +209,9 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
     }
     localStorage.removeItem(LS_SESSION)
     set({ currentUser: null, sessionId: null, isLoading: false, error: null })
+    // Clear per-user in-memory state so the next user starts clean
+    useTabStore.getState().reset()
+    useNotificationStore.getState().reset()
   },
 
   // ── restoreSession ─────────────────────────────────────────────────────────
