@@ -24,11 +24,20 @@ export default function App() {
       // hashes for demo accounts can take ~1-2 s and must finish before login.
       useAuthStore.setState({ isLoading: true })
       try {
-        await seedDefaultAdmin()
+        // Gate demo account seeding: skip in production builds unless explicitly enabled.
+        // Set VITE_SEED_DEMO=true at build time to include demo accounts.
+        if (import.meta.env.DEV || import.meta.env.VITE_SEED_DEMO === 'true') {
+          await seedDefaultAdmin()
+        }
         await seedDefaultCategories()
         await useAuthStore.getState().restoreSession()
       } catch (err) {
-        console.error('[Meridian] Initialization error:', err)
+        // Log message only — never log the raw error object in case it contains
+        // crypto or DB internals (stack traces, key material references, etc.)
+        console.error(
+          '[Meridian] Initialization error:',
+          err instanceof Error ? err.message : String(err),
+        )
         useAuthStore.setState({ isLoading: false })
       }
     }
