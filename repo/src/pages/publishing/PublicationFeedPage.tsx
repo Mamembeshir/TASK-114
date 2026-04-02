@@ -8,6 +8,7 @@ import { useAuthStore } from '@/store/authStore'
 import { db } from '@/db'
 import { generateId } from '@/crypto'
 import { Badge, Card, EmptyState, Spinner } from '@/components/ui'
+import { sanitizeHtml } from '@/utils/sanitize'
 import type { Publication, PublicationType } from '@/types'
 
 const TYPE_VARIANTS: Record<PublicationType, 'info' | 'warning' | 'primary'> = {
@@ -155,7 +156,7 @@ export function PublicationFeedPage() {
                   <div className="mt-4 pt-4 border-t border-surface-800">
                     <div
                       className="prose prose-invert prose-sm max-w-none text-surface-300"
-                      dangerouslySetInnerHTML={{ __html: pub.body }}
+                      dangerouslySetInnerHTML={{ __html: sanitizeHtml(pub.body) }}
                     />
                     {pub.attachmentUrls.length > 0 && pub.attachmentUrls[0] && (
                       <div className="mt-4">

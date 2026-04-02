@@ -54,7 +54,12 @@ describe('publication workflow — Draft → InReview', () => {
   })
 
   it('blocks submission if body contains flagged words', async () => {
-    await db.sensitiveWords.add({ id: 'sw-1', word: 'forbidden', createdBy: 'admin', createdAt: Date.now() })
+    await db.sensitiveWords.add({
+      id: 'sw-1',
+      word: 'forbidden',
+      createdBy: 'admin',
+      createdAt: Date.now(),
+    })
     const pub = await createPublication(
       pubPayload({ body: '<p>This is forbidden content</p>' }),
       'editor-1',

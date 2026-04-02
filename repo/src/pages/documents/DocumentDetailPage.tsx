@@ -19,6 +19,7 @@ import {
   rejectDestruction,
   generateWatermark,
 } from '@/services/documentService'
+import { sanitizeHtml } from '@/utils/sanitize'
 import { Badge, Button, Card, CardHeader, Modal, Spinner, Textarea } from '@/components/ui'
 import type { DestructionApproval, Document, DocumentStatus } from '@/types'
 
@@ -240,7 +241,7 @@ export function DocumentDetailPage({ documentId }: Props) {
         <div className="relative">
           <div
             className="prose prose-invert prose-sm max-w-none text-surface-300"
-            dangerouslySetInnerHTML={{ __html: doc.body }}
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(doc.body) }}
           />
           {/* Watermark overlay */}
           <div

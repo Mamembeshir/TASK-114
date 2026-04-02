@@ -530,7 +530,7 @@
 
 ### 9.3 Offline Robustness
 
-- [ ] Register a Service Worker to cache the app shell and all static assets
+- [x] Register a Service Worker to cache the app shell and all static assets
 - [ ] Test full reload and navigation in DevTools offline mode
 - [ ] Verify BroadcastChannel sync works correctly across 3+ tabs
 - [ ] Validate IndexedDB transaction isolation under concurrent bid simulation
@@ -574,5 +574,5 @@
 | Phase 6: Documents        | ✅ Complete     | 22 / 22           |
 | Phase 7: Messages         | ✅ Complete     | 20 / 20           |
 | Phase 8: Admin & Export   | ✅ Complete     | 19 / 19           |
-| Phase 9: Polish & Testing | In Progress     | 20 / 23           |
-| **Total**                 | **In Progress** | **158 / 198**     |
+| Phase 9: Polish & Testing | In Progress     | 21 / 23           |
+| **Total**                 | **In Progress** | **159 / 198**     |

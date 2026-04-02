@@ -16,6 +16,7 @@ import {
   rollbackToVersion,
 } from '@/services/publicationService'
 import { Badge, Button, Card, CardHeader, Modal, Spinner, Textarea } from '@/components/ui'
+import { sanitizeHtml } from '@/utils/sanitize'
 import type { Publication, PublicationVersion, WorkflowStatus } from '@/types'
 
 const STATUS_VARIANTS: Record<
@@ -152,7 +153,7 @@ export function ReviewDetailPage({ publicationId }: Props) {
             <CardHeader title="Content" />
             <div
               className="prose prose-invert prose-sm max-w-none text-surface-300"
-              dangerouslySetInnerHTML={{ __html: pub.body }}
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(pub.body) }}
             />
           </Card>
 

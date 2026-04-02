@@ -6,11 +6,17 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { db } from '@/db'
 import { createAuction, publishAuction, cancelAuction } from '@/services/auctionService'
-import { closeAuction } from '@/services/auctionLifecycle'
+import { closeAuction } from '@/services/auctionLifecycle' // used via endAndClose helper
 import { placeBid } from '@/services/biddingEngine'
-import type { Auction } from '@/types'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+
+async function endAndClose(auctionId: string): Promise<void> {
+  await db.auctions.update(auctionId, { status: 'Ended' })
+  const ended = await db.auctions.get(auctionId)
+  if (!ended) throw new Error('Auction not found')
+  await closeAuction(ended)
+}
 
 async function seedWallet(userId: string, balance = 10_000): Promise<void> {
   await db.wallets.put({
@@ -90,11 +96,7 @@ describe('auction lifecycle — closeAuction with bids → Awarded', () => {
 
     await placeBid(auction.id, 'bidder-1', 'Alice', 110, 'k1', 50, 0)
     await placeBid(auction.id, 'bidder-2', 'Bob', 130, 'k2', 50, 0)
-
-    // Move to Ended status first (simulating timer)
-    await db.auctions.update(auction.id, { status: 'Ended' })
-    const ended = await db.auctions.get(auction.id)
-    await closeAuction(ended as Auction)
+    await endAndClose(auction.id)
 
     const closed = await db.auctions.get(auction.id)
     expect(closed?.status).toBe('Awarded')
@@ -102,19 +104,12 @@ describe('auction lifecycle — closeAuction with bids → Awarded', () => {
   })
 
   it('deducts deposit from winner wallet on close', async () => {
-    const auction = await createAuction(
-      auctionPayload({ depositAmount: 200 }),
-      'admin-1',
-      'Admin',
-    )
+    const auction = await createAuction(auctionPayload({ depositAmount: 200 }), 'admin-1', 'Admin')
     await publishAuction(auction.id, 'admin-1', 'Admin')
     await seedWallet('bidder-1', 10_000)
 
     await placeBid(auction.id, 'bidder-1', 'Alice', 110, 'k1', 200, 0)
-
-    await db.auctions.update(auction.id, { status: 'Ended' })
-    const ended = await db.auctions.get(auction.id)
-    await closeAuction(ended as Auction)
+    await endAndClose(auction.id)
 
     const wallet = await db.wallets.get(`wallet-bidder-1`)
     // Balance reduced by deposit amount (200)
@@ -122,21 +117,14 @@ describe('auction lifecycle — closeAuction with bids → Awarded', () => {
   })
 
   it('releases deposit hold for losing bidders', async () => {
-    const auction = await createAuction(
-      auctionPayload({ depositAmount: 100 }),
-      'admin-1',
-      'Admin',
-    )
+    const auction = await createAuction(auctionPayload({ depositAmount: 100 }), 'admin-1', 'Admin')
     await publishAuction(auction.id, 'admin-1', 'Admin')
     await seedWallet('bidder-1', 5_000)
     await seedWallet('bidder-2', 5_000)
 
     await placeBid(auction.id, 'bidder-1', 'Alice', 110, 'k1', 100, 0)
     await placeBid(auction.id, 'bidder-2', 'Bob', 130, 'k2', 100, 0)
-
-    await db.auctions.update(auction.id, { status: 'Ended' })
-    const ended = await db.auctions.get(auction.id)
-    await closeAuction(ended as Auction)
+    await endAndClose(auction.id)
 
     // Loser (bidder-1) should have reservedAmount = 0
     const loserWallet = await db.wallets.get(`wallet-bidder-1`)
@@ -151,10 +139,7 @@ describe('auction lifecycle — closeAuction with bids → Awarded', () => {
 
     await placeBid(auction.id, 'bidder-1', 'Alice', 110, 'k1', 50, 0)
     await placeBid(auction.id, 'bidder-2', 'Bob', 130, 'k2', 50, 0)
-
-    await db.auctions.update(auction.id, { status: 'Ended' })
-    const ended = await db.auctions.get(auction.id)
-    await closeAuction(ended as Auction)
+    await endAndClose(auction.id)
 
     const winnerNotif = await db.notifications
       .where('userId')
@@ -176,9 +161,7 @@ describe('auction lifecycle — closeAuction with no bids → NoSale', () => {
   it('marks auction as NoSale when no bids', async () => {
     const auction = await createAuction(auctionPayload(), 'admin-1', 'Admin')
     await publishAuction(auction.id, 'admin-1', 'Admin')
-    await db.auctions.update(auction.id, { status: 'Ended' })
-    const ended = await db.auctions.get(auction.id)
-    await closeAuction(ended as Auction)
+    await endAndClose(auction.id)
 
     const closed = await db.auctions.get(auction.id)
     expect(closed?.status).toBe('NoSale')
@@ -187,9 +170,7 @@ describe('auction lifecycle — closeAuction with no bids → NoSale', () => {
   it('notifies seller on NoSale', async () => {
     const auction = await createAuction(auctionPayload(), 'admin-1', 'Admin')
     await publishAuction(auction.id, 'admin-1', 'Admin')
-    await db.auctions.update(auction.id, { status: 'Ended' })
-    const ended = await db.auctions.get(auction.id)
-    await closeAuction(ended as Auction)
+    await endAndClose(auction.id)
 
     const notif = await db.notifications
       .where('userId')

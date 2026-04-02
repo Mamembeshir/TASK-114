@@ -63,7 +63,14 @@ describe('document numbering', () => {
   it('assigns sequential document numbers', async () => {
     const createAndApprove = async (title: string): Promise<string> => {
       const doc = await createDocument(
-        { title, type: 'Policy', categoryId: 'c', body: 'b', attachmentUrls: [], retentionYears: 7 },
+        {
+          title,
+          type: 'Policy',
+          categoryId: 'c',
+          body: 'b',
+          attachmentUrls: [],
+          retentionYears: 7,
+        },
         'u1',
         'User',
       )

@@ -4,11 +4,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest'
 import { db } from '@/db'
-import {
-  createDocument,
-  checkoutDocument,
-  checkinDocument,
-} from '@/services/documentService'
+import { createDocument, checkoutDocument, checkinDocument } from '@/services/documentService'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -89,8 +85,9 @@ describe('document check-in', () => {
     const versions = await db.documentVersions.where('documentId').equals(doc.id).toArray()
     expect(versions.length).toBeGreaterThanOrEqual(1)
     // Snapshot captures the document's body at check-in time
-    const latest = versions.sort((a, b) => b.createdAt - a.createdAt)[0]
-    expect(latest?.body).toBe(docPayload().body)
+    const sorted = versions.sort((a, b) => b.createdAt - a.createdAt)
+    expect(sorted.length).toBeGreaterThan(0)
+    expect(sorted[0]?.body).toBe(docPayload().body)
   })
 
   it('allows a different user to check out after check-in', async () => {
