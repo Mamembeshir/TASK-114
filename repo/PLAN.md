@@ -287,12 +287,18 @@
 
 ### 4.4 Content Moderation
 
-- [ ] Build sensitive-word list management (Admin configures list)
-- [ ] Implement `moderateContent(text)` utility that scans against sensitive-word list
-- [ ] Run moderation on save and on submit for review
-- [ ] Show inline moderation warnings in editor UI
-- [ ] Block publish action until all moderation flags are resolved
-- [ ] Add `ModerationQueuePage` for Reviewer role
+- [x] Implement `moderateContent(texts)` utility that scans against sensitive-word list
+  - `src/utils/moderation.ts` — whole-word regex matching, case-insensitive, deduped results
+- [x] Run moderation on save and on publish
+  - `catalogService.ts` — `createCatalogItem` and `updateCatalogItem` run moderation and persist flags
+  - `publishCatalogItem` throws if `moderationFlags.length > 0`
+- [x] Show inline moderation warnings in editor UI
+  - Red alert banner in `CatalogItemFormPage` when flags are detected
+- [x] Block publish action until all moderation flags are resolved
+  - Publish button disabled when `moderationFlags.length > 0`
+- [x] Add `ModerationQueuePage` for Reviewer role
+  - `src/pages/catalog/ModerationQueuePage.tsx` — lists all non-Archived items with flags; `/catalog/moderation` route
+- [ ] Build sensitive-word list management UI (Admin configures list — covered in Phase 8 Admin Panel)
 
 **Also added:**
 - `src/services/catalogService.ts` — createCatalogItem, updateCatalogItem, publishCatalogItem, archiveCatalogItem, restoreCatalogItem

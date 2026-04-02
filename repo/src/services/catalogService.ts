@@ -10,6 +10,7 @@
 import { db } from '@/db'
 import { generateId } from '@/crypto'
 import { writeAuditLog } from '@/utils/audit'
+import { moderateContent } from '@/utils/moderation'
 import type { CatalogItem } from '@/types'
 
 export interface CatalogItemInput {
@@ -27,11 +28,12 @@ export async function createCatalogItem(
   actorId: string,
   actorName: string,
 ): Promise<CatalogItem> {
+  const moderationFlags = await moderateContent([input.title, input.description, ...input.tags])
   const item: CatalogItem = {
     id: generateId(),
     ...input,
     status: 'Draft',
-    moderationFlags: [],
+    moderationFlags,
     createdBy: actorId,
     createdAt: Date.now(),
     updatedAt: Date.now(),
@@ -57,7 +59,13 @@ export async function updateCatalogItem(
   const item = await db.catalogItems.get(id)
   if (!item) throw new Error('Catalog item not found')
   if (item.status === 'Archived') throw new Error('Cannot edit an archived item')
-  await db.catalogItems.update(id, { ...updates, updatedAt: Date.now() })
+  const textsToCheck = [
+    updates.title ?? item.title,
+    updates.description ?? item.description,
+    ...(updates.tags ?? item.tags),
+  ]
+  const moderationFlags = await moderateContent(textsToCheck)
+  await db.catalogItems.update(id, { ...updates, moderationFlags, updatedAt: Date.now() })
   await writeAuditLog({
     eventType: 'catalog.updated',
     actorId,
@@ -76,6 +84,10 @@ export async function publishCatalogItem(
   const item = await db.catalogItems.get(id)
   if (!item) throw new Error('Catalog item not found')
   if (item.status !== 'Draft') throw new Error('Only Draft items can be published')
+  if (item.moderationFlags.length > 0)
+    throw new Error(
+      `Cannot publish: item has moderation flags — ${item.moderationFlags.join(', ')}`,
+    )
   await db.catalogItems.update(id, { status: 'Active', updatedAt: Date.now() })
   await writeAuditLog({
     eventType: 'catalog.published',

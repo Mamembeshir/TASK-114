@@ -2,7 +2,7 @@
  * CatalogItemFormPage — create a new catalog item or edit an existing Draft.
  */
 import { useEffect, useRef, useState } from 'react'
-import { X } from 'lucide-react'
+import { AlertTriangle, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/store/authStore'
 import { useTabStore } from '@/store/tabStore'
@@ -32,6 +32,7 @@ export function CatalogItemFormPage({ editId, tabId }: Props) {
   const [tagInput, setTagInput] = useState('')
   const [imageUrls, setImageUrls] = useState([''])
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [moderationFlags, setModerationFlags] = useState<string[]>([])
 
   const isDirty = useRef(false)
   const setDirty = (v: boolean) => {
@@ -54,6 +55,7 @@ export function CatalogItemFormPage({ editId, tabId }: Props) {
       setStock(String(item.stock))
       setTags(item.tags)
       setImageUrls(item.imageUrls.length ? item.imageUrls : [''])
+      setModerationFlags(item.moderationFlags)
     })
   }, [editId])
 
@@ -82,16 +84,27 @@ export function CatalogItemFormPage({ editId, tabId }: Props) {
     imageUrls: imageUrls.filter((u) => u.trim()),
   })
 
+  const refreshFlags = async (id: string) => {
+    const fresh = await db.catalogItems.get(id)
+    if (fresh) setModerationFlags(fresh.moderationFlags)
+  }
+
   const handleSaveDraft = async () => {
     if (!validate()) return
     setIsLoading(true)
     try {
       if (editId) {
         await updateCatalogItem(editId, buildInput(), currentUser.id, currentUser.displayName)
+        await refreshFlags(editId)
         toast.success('Item updated')
       } else {
         const item = await createCatalogItem(buildInput(), currentUser.id, currentUser.displayName)
-        toast.success('Draft saved')
+        setModerationFlags(item.moderationFlags)
+        if (item.moderationFlags.length > 0) {
+          toast.warning('Draft saved with moderation flags — resolve before publishing')
+        } else {
+          toast.success('Draft saved')
+        }
         setDirty(false)
         if (tabId) closeTab(tabId)
         // Reopen as edit tab
@@ -166,6 +179,19 @@ export function CatalogItemFormPage({ editId, tabId }: Props) {
       <h1 className="text-xl font-bold text-surface-50">
         {editId ? 'Edit Catalog Item' : 'New Catalog Item'}
       </h1>
+
+      {moderationFlags.length > 0 && (
+        <div className="flex items-start gap-3 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-red-400 text-sm">
+          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-medium">Moderation flags detected — publishing is blocked</p>
+            <p className="mt-1 text-red-400/80">
+              Remove or replace the following flagged words:{' '}
+              <span className="font-mono">{moderationFlags.join(', ')}</span>
+            </p>
+          </div>
+        </div>
+      )}
 
       <Card>
         <CardHeader title="Item Details" />
@@ -319,7 +345,12 @@ export function CatalogItemFormPage({ editId, tabId }: Props) {
         <Button variant="secondary" onClick={() => void handleSaveDraft()} isLoading={isLoading}>
           Save Draft
         </Button>
-        <Button variant="primary" onClick={() => void handlePublish()} isLoading={isLoading}>
+        <Button
+          variant="primary"
+          onClick={() => void handlePublish()}
+          isLoading={isLoading}
+          disabled={moderationFlags.length > 0}
+        >
           {editId ? 'Save & Publish' : 'Create & Publish'}
         </Button>
       </div>

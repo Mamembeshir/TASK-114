@@ -27,6 +27,7 @@ import { MyBidsPage } from '@/pages/auction/MyBidsPage'
 import { CatalogManagementPage } from '@/pages/catalog/CatalogManagementPage'
 import { CatalogItemFormPage } from '@/pages/catalog/CatalogItemFormPage'
 import { CatalogBrowsePage } from '@/pages/catalog/CatalogBrowsePage'
+import { ModerationQueuePage } from '@/pages/catalog/ModerationQueuePage'
 
 function matchRoute(path: string): React.ReactNode {
   if (path === '/') return <DashboardPage />
@@ -72,6 +73,9 @@ function matchRoute(path: string): React.ReactNode {
 
   // /catalog/browse
   if (path === '/catalog/browse') return <CatalogBrowsePage />
+
+  // /catalog/moderation
+  if (path === '/catalog/moderation') return <ModerationQueuePage />
 
   // /catalog (management)
   if (path === '/catalog') return <CatalogManagementPage />
