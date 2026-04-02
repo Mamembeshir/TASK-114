@@ -123,11 +123,18 @@
 
 ### 2.3 Tabbed Workspace
 
-- [ ] Build `TabBar` component supporting multiple open tabs
-- [ ] Implement tab open, close, and switch actions in `TabStore`
-- [ ] Support middle-click to close tabs
-- [ ] Preserve tab state across navigation (unsaved form warning on close)
-- [ ] Add keyboard shortcut support: Ctrl+W to close active tab
+- [x] Build `TabBar` component supporting multiple open tabs
+  - `src/components/layout/TabBar.tsx` — tab pills with dirty indicator dot and close button
+- [x] Implement tab open, close, and switch actions in `TabStore`
+  - `src/store/tabStore.ts` — `openTab` (deduplicates by path), `closeTab`, `activateTab`, `markDirty`
+  - Home/Dashboard tab is permanent and uncloseable
+  - On close: activates nearest left tab, falls back to home
+- [x] Support middle-click to close tabs
+  - `onAuxClick` with `button === 1` check
+- [x] Preserve tab state across navigation (unsaved form warning on close)
+  - `isDirty` flag + `window.confirm` guard in `confirmClose()`; amber dot on dirty tabs
+- [x] Add keyboard shortcut support: Ctrl+W to close active tab
+  - Global `keydown` listener with `e.ctrlKey || e.metaKey`; respects dirty guard
 
 ### 2.4 Global UI Primitives
 
