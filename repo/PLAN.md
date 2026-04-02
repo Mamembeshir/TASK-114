@@ -59,23 +59,42 @@
 
 ### 1.4 Auth Module
 
-- [ ] Build `AuthStore` (Zustand) with login, logout, and session state
-- [ ] Implement `login()` — lookup user in IndexedDB, verify PBKDF2 hash
-- [ ] Implement `logout()` — clear session from store and LocalStorage
-- [ ] Persist active session token to LocalStorage (encrypted)
-- [ ] Implement session restore on app load
-- [ ] Build `LoginPage` component with username/password form
-- [ ] Add form validation and error states to `LoginPage`
-- [ ] Add loading spinner during login verification
-- [ ] Seed default Administrator account on first launch if no users exist
-- [ ] Write append-only audit log entry on every login and logout
+- [x] Build `AuthStore` (Zustand) with login, logout, and session state (`src/store/authStore.ts`)
+  - [x] Arrow-function properties in interface to satisfy `@typescript-eslint/unbound-method`
+  - [x] 8-hour session duration
+- [x] Implement `login()` — lookup user in IndexedDB, verify PBKDF2 hash
+  - [x] Case-insensitive username lookup
+  - [x] Same error message for not-found and wrong-password (no field enumeration)
+- [x] Implement `logout()` — clear session from store and LocalStorage (best-effort DB write)
+- [x] Persist active session token to LocalStorage (AES-GCM encrypted)
+  - [x] Master key generated once, stored as base64 in LocalStorage (`meridian_enc_key`)
+  - [x] Session token JSON encrypted → `meridian_session`
+- [x] Implement session restore on app load — validates expiry + DB existence + user active status
+- [x] Build `LoginPage` component with username/password form (`src/pages/LoginPage.tsx`)
+  - [x] Clean dark enterprise UI: `surface-900` card, `primary-600` accent, no glassmorphism
+  - [x] Shield icon branding, offline-only footer note
+- [x] Add form validation and error states to `LoginPage`
+  - [x] Touch-based field validation (required messages shown on blur/submit)
+  - [x] Store errors surfaced as Sonner toasts
+- [x] Add loading spinner during login verification (`Loader2 animate-spin`)
+- [x] Seed default Administrator account on first launch (`seedDefaultAdmin()`)
+  - [x] Checks `db.users.count()` — only seeds when table is empty
+  - [x] `isTemporaryPassword: true` to prompt password change
+- [x] Write append-only audit log entry on every login and logout (`src/utils/audit.ts`)
+- [x] Add `fake-indexeddb/auto` polyfill to test setup for jsdom compatibility
+- [x] Wire session restore + seeding in `App.tsx` with conditional render (loading / login / shell)
 
 ### 1.5 Role & Permission System
 
-- [ ] Define `Role` enum: `Administrator`, `ContentEditor`, `ReviewerApprover`, `Participant`
-- [ ] Define explicit permission matrix as a typed constant map
-- [ ] Implement `usePermission(permission)` hook for guarded UI rendering
-- [ ] Implement `ProtectedRoute` component that redirects unauthorized users
+- [x] Define `Role` enum: `Administrator`, `ContentEditor`, `ReviewerApprover`, `Participant`
+  - Already defined in `src/types/auth.ts`
+- [x] Define explicit permission matrix as a typed constant map
+  - `src/auth/permissions.ts` — `Permission` const + union type + `ROLE_PERMISSIONS` matrix + `hasPermission(role, permission)`
+  - 23 granular permissions across Users, Auctions, Catalog, Publishing, Documents, Messages
+- [x] Implement `usePermission(permission)` hook for guarded UI rendering
+  - `src/hooks/usePermission.ts` — reads `currentUser.role` from auth store, delegates to `hasPermission`
+- [x] Implement `ProtectedRoute` component that redirects unauthorized users
+  - `src/components/auth/ProtectedRoute.tsx` — redirects to `/login` (unauthenticated) or `/unauthorized` (forbidden)
 
 ---
 
