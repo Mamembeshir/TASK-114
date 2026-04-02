@@ -1,0 +1,59 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Meridian Offline Commerce & Compliance Portal
+# Start : docker compose up
+# Dev   : docker compose --profile dev up
+# Test  : docker compose --profile test up --exit-code-from test
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  # ── Production preview (default, no profile needed) ──────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runner
+    image: meridian-portal:latest
+    container_name: meridian-app
+    ports:
+      - '4173:4173'
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:4173']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  # ── Development server with hot-reload (profile: dev) ─────────────────────
+  dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
+    image: meridian-portal:dev
+    container_name: meridian-dev
+    profiles: ['dev']
+    ports:
+      - '5173:5173'
+    volumes:
+      # Mount source for hot-reload; exclude node_modules
+      - .:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+    restart: unless-stopped
+
+  # ── Test runner (profile: test) ───────────────────────────────────────────
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    image: meridian-portal:test
+    container_name: meridian-test
+    profiles: ['test']
+    environment:
+      - CI=true
+      - NODE_ENV=test
+    volumes:
+      # Write coverage reports back to the host
+      - ./coverage:/app/coverage
