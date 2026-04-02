@@ -138,15 +138,24 @@
 
 ### 2.4 Global UI Primitives
 
-- [ ] Build `Button` component (variants: primary, secondary, ghost, danger)
-- [ ] Build `Input`, `Textarea`, `Select`, `Checkbox` form components
-- [ ] Build `Modal` / `Dialog` component
-- [ ] Build `Badge` component (for statuses, roles)
-- [ ] Build `Card` component
-- [ ] Build `Table` component with sortable columns and pagination
-- [ ] Build `EmptyState` component
-- [ ] Build `Spinner` / `Skeleton` loading components
-- [ ] Configure global toast notifications (top-right, auto-dismiss)
+- [x] Build `Button` component (variants: primary, secondary, ghost, danger)
+  - `src/components/ui/Button.tsx` — 4 variants × 3 sizes, isLoading spinner, leftIcon/rightIcon slots
+- [x] Build `Input`, `Textarea`, `Select`, `Checkbox` form components
+  - `src/components/ui/Input.tsx` — all share `FieldWrapper` (label, error, hint); `inputBase` util extracted to `inputBase.ts` to satisfy react-refresh/only-export-components
+- [x] Build `Modal` / `Dialog` component
+  - `src/components/ui/Modal.tsx` — accessible dialog with Escape close, backdrop click close, body scroll lock, 4 size presets
+- [x] Build `Badge` component (for statuses, roles)
+  - `src/components/ui/Badge.tsx` — 7 variants (default, primary, success, warning, danger, info, outline)
+- [x] Build `Card` component
+  - `src/components/ui/Card.tsx` — `Card` + `CardHeader` (title, description, actions slot)
+- [x] Build `Table` component with sortable columns and pagination
+  - `src/components/ui/Table.tsx` — generic `Table<T>`, sortable headers with sort icons, loading state, pagination
+- [x] Build `EmptyState` component
+  - `src/components/ui/EmptyState.tsx` — icon, title, description, optional action
+- [x] Build `Spinner` / `Skeleton` loading components
+  - `src/components/ui/Spinner.tsx` — `Spinner` (3 sizes), `Skeleton`, `SkeletonText`
+- [x] Configure global toast notifications (top-right, auto-dismiss)
+  - Already configured via Sonner `<Toaster position="top-right" richColors />` in `App.tsx`
 
 ### 2.5 Dashboard / Home
 
