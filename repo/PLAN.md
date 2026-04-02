@@ -548,9 +548,9 @@
 - [x] Write unit tests for PBKDF2 and Web Crypto utilities
 - [x] Write unit tests for moderation engine
 - [x] Write unit tests for document numbering and retention date calculation
-- [ ] Write integration tests for auction lifecycle (Draft → Active → Ended → Awarded)
-- [ ] Write integration tests for publication approval workflow
-- [ ] Write integration tests for document checkout/check-in locking
+- [x] Write integration tests for auction lifecycle (Draft → Active → Ended → Awarded)
+- [x] Write integration tests for publication approval workflow
+- [x] Write integration tests for document checkout/check-in locking
 - [ ] Manual smoke test: all four roles through their primary workflows
 
 ### 9.6 Documentation
@@ -574,5 +574,5 @@
 | Phase 6: Documents        | ✅ Complete     | 22 / 22           |
 | Phase 7: Messages         | ✅ Complete     | 20 / 20           |
 | Phase 8: Admin & Export   | ✅ Complete     | 19 / 19           |
-| Phase 9: Polish & Testing | In Progress     | 10 / 23           |
-| **Total**                 | **In Progress** | **148 / 198**     |
+| Phase 9: Polish & Testing | In Progress     | 17 / 23           |
+| **Total**                 | **In Progress** | **155 / 198**     |
