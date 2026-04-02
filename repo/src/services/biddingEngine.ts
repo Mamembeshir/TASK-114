@@ -97,7 +97,13 @@ export async function placeBid(
   depositAmount: number,
   previousDepositHeld: number,
 ): Promise<PlaceBidResult> {
-  return db.transaction(
+  // Collect outbid info outside the transaction to avoid accessing db.notifications
+  // inside a transaction that doesn't list it (IndexedDB constraint).
+  let outbidUserId: string | undefined
+  let outbidAuctionTitle: string | undefined
+  let outbidNewPrice: number | undefined
+
+  const result = await db.transaction(
     'rw',
     [db.auctions, db.bids, db.proxyBids, db.wallets, db.walletTransactions, db.auditLogs],
     async () => {
@@ -195,18 +201,11 @@ export async function placeBid(
 
       const userWon = winningBidderId === bidderId
 
-      // Notify previous leader that they were outbid (if there was a previous leader
-      // and they are not the current winner)
+      // Record outbid info to notify after the transaction
       if (previousLeaderId && previousLeaderId !== winningBidderId) {
-        const auction = await db.auctions.get(auctionId)
-        await createNotification({
-          userId: previousLeaderId,
-          type: 'BidOutbid',
-          title: 'You Were Outbid',
-          message: `Someone placed a higher bid on "${auction?.title ?? auctionId}". New price: ${String(winningAmount)}.`,
-          relatedEntityType: 'Auction',
-          relatedEntityId: auctionId,
-        })
+        outbidUserId = previousLeaderId
+        outbidAuctionTitle = auction.title
+        outbidNewPrice = winningAmount
       }
 
       return {
@@ -218,6 +217,20 @@ export async function placeBid(
       }
     },
   )
+
+  // Send outbid notification outside the transaction (db.notifications not in scope above)
+  if (outbidUserId !== undefined && outbidNewPrice !== undefined) {
+    await createNotification({
+      userId: outbidUserId,
+      type: 'BidOutbid',
+      title: 'You Were Outbid',
+      message: `Someone placed a higher bid on "${outbidAuctionTitle ?? auctionId}". New price: ${String(outbidNewPrice)}.`,
+      relatedEntityType: 'Auction',
+      relatedEntityId: auctionId,
+    })
+  }
+
+  return result
 }
 
 // ── setProxyBid ────────────────────────────────────────────────────────────────

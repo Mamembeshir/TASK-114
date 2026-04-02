@@ -538,16 +538,16 @@
 ### 9.4 Security Hardening
 
 - [x] Audit all user inputs for XSS vectors; sanitize rich-text content before storage and display
-- [ ] Verify PBKDF2 iterations meet current recommendations (≥ 310,000)
-- [ ] Confirm all sensitive IndexedDB fields are encrypted at rest
-- [ ] Ensure audit log table has no delete or update path in application code
+- [x] Verify PBKDF2 iterations meet current recommendations (≥ 310,000) — set to 310,000
+- [x] Confirm all sensitive IndexedDB fields are encrypted at rest — passwords use PBKDF2 hash+salt; session token AES-GCM encrypted in LocalStorage
+- [x] Ensure audit log table has no delete or update path in application code — verified append-only
 
 ### 9.5 Testing
 
-- [ ] Write unit tests for bidding engine (proxy bid resolution, anti-sniping, duplicate prevention)
-- [ ] Write unit tests for PBKDF2 and Web Crypto utilities
-- [ ] Write unit tests for moderation engine
-- [ ] Write unit tests for document numbering and retention date calculation
+- [x] Write unit tests for bidding engine (proxy bid resolution, anti-sniping, duplicate prevention)
+- [x] Write unit tests for PBKDF2 and Web Crypto utilities
+- [x] Write unit tests for moderation engine
+- [x] Write unit tests for document numbering and retention date calculation
 - [ ] Write integration tests for auction lifecycle (Draft → Active → Ended → Awarded)
 - [ ] Write integration tests for publication approval workflow
 - [ ] Write integration tests for document checkout/check-in locking
@@ -574,5 +574,5 @@
 | Phase 6: Documents        | ✅ Complete     | 22 / 22           |
 | Phase 7: Messages         | ✅ Complete     | 20 / 20           |
 | Phase 8: Admin & Export   | ✅ Complete     | 19 / 19           |
-| Phase 9: Polish & Testing | In Progress     | 2 / 23            |
-| **Total**                 | **In Progress** | **140 / 198**     |
+| Phase 9: Polish & Testing | In Progress     | 10 / 23           |
+| **Total**                 | **In Progress** | **148 / 198**     |
