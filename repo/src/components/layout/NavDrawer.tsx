@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { usePermission } from '@/hooks/usePermission'
+import { useTabStore } from '@/store/tabStore'
 import { Role } from '@/types'
 import type { Permission } from '@/auth/permissions'
 
@@ -101,24 +102,31 @@ interface NavItemRowProps {
 }
 
 function NavItemRow({ item, open, active }: NavItemRowProps) {
-  // usePermission returns true when permission is undefined (no restriction)
   const allowed = usePermission(item.permission)
+  const { openTab, activateTab, tabs } = useTabStore()
 
   if (!allowed) return null
 
   const Icon = item.icon
 
+  const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault()
+    // If a tab for this path already exists, activate it; otherwise open a new tab
+    const existing = tabs.find((t) => t.path === item.to)
+    if (existing) {
+      activateTab(existing.id)
+    } else {
+      openTab({ id: item.to, title: item.label, path: item.to })
+    }
+  }
+
   return (
-    <a
-      href={item.to}
-      onClick={(e) => {
-        e.preventDefault()
-        // Tab-based navigation wired in Phase 2.3 / 2.5
-      }}
+    <button
+      onClick={handleClick}
       title={!open ? item.label : undefined}
       aria-current={active ? 'page' : undefined}
       className={[
-        'flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors text-sm font-medium group',
+        'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors text-sm font-medium group',
         active
           ? 'bg-primary-600/15 text-primary-400'
           : 'text-surface-400 hover:bg-surface-800 hover:text-surface-200',
@@ -131,7 +139,7 @@ function NavItemRow({ item, open, active }: NavItemRowProps) {
         ].join(' ')}
       />
       {open && <span className="truncate">{item.label}</span>}
-    </a>
+    </button>
   )
 }
 
@@ -144,6 +152,9 @@ interface Props {
 
 export function NavDrawer({ open, onToggle }: Props) {
   const currentUser = useAuthStore((s) => s.currentUser)
+  const activeTabId = useTabStore((s) => s.activeTabId)
+  const tabs = useTabStore((s) => s.tabs)
+  const activePath = tabs.find((t) => t.id === activeTabId)?.path ?? '/'
 
   if (!currentUser) return null
 
@@ -170,7 +181,12 @@ export function NavDrawer({ open, onToggle }: Props) {
       {/* ── Nav items ──────────────────────────────────────────────────────── */}
       <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
         {NAV_ITEMS.map((item) => (
-          <NavItemRow key={item.to} item={item} open={open} active={item.to === '/'} />
+          <NavItemRow
+            key={item.to}
+            item={item}
+            open={open}
+            active={activePath === item.to || activePath.startsWith(item.to + '/')}
+          />
         ))}
       </nav>
 

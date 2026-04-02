@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { NavDrawer } from './NavDrawer'
 import { TabBar } from './TabBar'
+import { TabContent } from './TabContent'
 
 // ── LocalStorage key ───────────────────────────────────────────────────────────
 const LS_DRAWER_KEY = 'meridian_drawer_open'
@@ -18,7 +19,7 @@ function readDrawerPref(): boolean {
 }
 
 interface Props {
-  children: React.ReactNode
+  children?: React.ReactNode
 }
 
 /**
@@ -64,7 +65,10 @@ export function AppShell({ children }: Props) {
         style={{ marginLeft: open ? DRAWER_WIDTH : 64 }}
       >
         <TabBar />
-        <div className="flex-1 overflow-y-auto">{children}</div>
+        <div className="flex-1 overflow-y-auto">
+          <TabContent />
+          {children}
+        </div>
       </main>
     </div>
   )

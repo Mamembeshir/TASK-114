@@ -1,0 +1,77 @@
+/**
+ * TabContent — renders the correct page component for the currently active tab.
+ *
+ * Route matching rules (evaluated top-to-bottom, first match wins):
+ *  /                         → DashboardPage
+ *  /auctions/new             → AuctionFormPage (create)
+ *  /auctions/:id/edit        → AuctionFormPage (edit, id extracted)
+ *  /auctions/browse          → AuctionBrowsePage
+ *  /auctions/my-bids         → MyBidsPage
+ *  /auctions/wallet          → WalletPage
+ *  /auctions/:id             → AuctionDetailPage (id extracted)
+ *  /auctions                 → AuctionListPage
+ */
+
+import { useTabStore } from '@/store/tabStore'
+import { DashboardPage } from '@/pages/DashboardPage'
+import { AuctionListPage } from '@/pages/auction/AuctionListPage'
+import { AuctionFormPage } from '@/pages/auction/AuctionFormPage'
+import { AuctionDetailPage } from '@/pages/auction/AuctionDetailPage'
+import { AuctionBrowsePage } from '@/pages/auction/AuctionBrowsePage'
+import { WalletPage } from '@/pages/auction/WalletPage'
+import { MyBidsPage } from '@/pages/auction/MyBidsPage'
+
+function matchRoute(path: string): React.ReactNode {
+  if (path === '/') return <DashboardPage />
+
+  // /auctions/new
+  if (path === '/auctions/new') return <AuctionFormPage />
+
+  // /auctions/:id/edit
+  const editMatch = /^\/auctions\/([^/]+)\/edit$/.exec(path)
+  if (editMatch) {
+    const [, id] = editMatch
+    return <AuctionFormPage editId={id} tabId={id} />
+  }
+
+  // /auctions/browse
+  if (path === '/auctions/browse') return <AuctionBrowsePage />
+
+  // /auctions/my-bids
+  if (path === '/auctions/my-bids') return <MyBidsPage />
+
+  // /auctions/wallet
+  if (path === '/auctions/wallet') return <WalletPage />
+
+  // /auctions/:id (detail)
+  const detailMatch = /^\/auctions\/([^/]+)$/.exec(path)
+  if (detailMatch) {
+    const [, id] = detailMatch
+    return <AuctionDetailPage auctionId={id} />
+  }
+
+  // /auctions (list)
+  if (path === '/auctions') return <AuctionListPage />
+
+  // Fallback
+  return (
+    <div className="p-8 text-surface-500 text-sm">
+      Page not found: <code className="text-surface-400">{path}</code>
+    </div>
+  )
+}
+
+export function TabContent() {
+  const tabs = useTabStore((s) => s.tabs)
+  const activeTabId = useTabStore((s) => s.activeTabId)
+
+  return (
+    <div className="flex-1">
+      {tabs.map((tab) => (
+        <div key={tab.id} className={tab.id === activeTabId ? 'block' : 'hidden'} role="tabpanel">
+          {matchRoute(tab.path)}
+        </div>
+      ))}
+    </div>
+  )
+}

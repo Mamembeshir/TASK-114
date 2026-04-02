@@ -2,24 +2,29 @@ import { useEffect } from 'react'
 import { Toaster } from 'sonner'
 import { Loader2 } from 'lucide-react'
 import { useAuthStore, seedDefaultAdmin } from '@/store/authStore'
+import { seedDefaultCategories } from '@/db/seeds'
+import { startAuctionLifecycleTimer } from '@/services/auctionLifecycle'
 import { LoginPage } from '@/pages/LoginPage'
 import { AppShell } from '@/components/layout/AppShell'
-import { DashboardPage } from '@/pages/DashboardPage'
 
 export default function App() {
   const currentUser = useAuthStore((s) => s.currentUser)
   const isLoading = useAuthStore((s) => s.isLoading)
 
-  // On mount: seed default admin (no-op if users exist), then restore persisted session
+  // On mount: seed defaults, restore session, start auction timer
   useEffect(() => {
     const initialize = async () => {
       await seedDefaultAdmin()
+      await seedDefaultCategories()
       await useAuthStore.getState().restoreSession()
     }
     void initialize()
+
+    const stopTimer = startAuctionLifecycleTimer()
+    return stopTimer
   }, [])
 
-  // ── Full-screen loading (session restore in progress) ─────────────────────
+  // ── Full-screen loading ───────────────────────────────────────────────────
   if (isLoading && !currentUser) {
     return (
       <>
@@ -44,13 +49,11 @@ export default function App() {
     )
   }
 
-  // ── Authenticated — app shell ─────────────────────────────────────────────
+  // ── Authenticated — app shell with tab-based routing ─────────────────────
   return (
     <>
       <Toaster position="top-right" richColors />
-      <AppShell>
-        <DashboardPage />
-      </AppShell>
+      <AppShell />
     </>
   )
 }

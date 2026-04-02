@@ -174,50 +174,81 @@
 
 ### 3.1 Data Models
 
-- [ ] Define `Auction`, `Bid`, `ProxyBid`, `Wallet`, `WalletTransaction` TypeScript interfaces
-- [ ] Add Dexie tables and indexes for all auction-related models
+- [x] Define `Auction`, `Bid`, `ProxyBid`, `Wallet`, `WalletTransaction` TypeScript interfaces
+  - Already defined in Phase 1.2 (`src/types/auction.ts`)
+- [x] Add Dexie tables and indexes for all auction-related models
+  - Already in DB schema (`src/db/database.ts`)
 
 ### 3.2 Auction CRUD (Admin / Content Editor)
 
-- [ ] Build `CreateAuctionForm` with fields: title, description, start price, minimum increment, deposit amount, start time, end time, images
-- [ ] Build `AuctionListPage` with filterable/sortable table (status, date, category)
-- [ ] Build `AuctionDetailPage` for viewing full auction info
-- [ ] Implement edit and soft-delete for auctions in Draft status
-- [ ] Add audit log entries for auction create, edit, publish, cancel
+- [x] Build `CreateAuctionForm` with fields: title, description, start price, minimum increment, deposit amount, start time, end time, images
+  - `src/pages/auction/AuctionFormPage.tsx` — create + edit mode, dirty tracking, tab close on save
+- [x] Build `AuctionListPage` with filterable/sortable table (status, date, category)
+  - `src/pages/auction/AuctionListPage.tsx` — status filter, inline publish/cancel actions
+- [x] Build `AuctionDetailPage` for viewing full auction info
+  - `src/pages/auction/AuctionDetailPage.tsx` — price, countdown, bid history, bid form
+- [x] Implement edit and soft-delete for auctions in Draft status
+  - Edit opens existing Draft in AuctionFormPage; cancel in AuctionListPage
+- [x] Add audit log entries for auction create, edit, publish, cancel
+  - Via `writeAuditLog` in each `auctionService.ts` function
 
 ### 3.3 Bidding Engine (Core Logic)
 
-- [ ] Implement `placeBid(auctionId, userId, amount)` with IndexedDB transaction lock
-- [ ] Enforce minimum increment validation in `placeBid`
-- [ ] Implement proxy bid engine: `setProxyBid(auctionId, userId, maxAmount)`
-- [ ] Implement deterministic proxy resolution (timestamp + amount order)
-- [ ] Implement anti-sniping: detect bid in final 30s, extend end time by 2 minutes once
-- [ ] Implement idempotency key on each bid to prevent cross-tab duplicates
-- [ ] Broadcast bid updates to other tabs via BroadcastChannel
-- [ ] Write audit log entry for every bid placed
+- [x] Implement `placeBid(auctionId, userId, amount)` with IndexedDB transaction lock
+  - `src/services/biddingEngine.ts` — Dexie `rw` transaction across 6 tables
+- [x] Enforce minimum increment validation in `placeBid`
+- [x] Implement proxy bid engine: `setProxyBid(auctionId, userId, maxAmount)`
+  - `resolveProxies()` — highest maxAmount wins; ties broken by earliest createdAt
+- [x] Implement deterministic proxy resolution (timestamp + amount order)
+- [x] Implement anti-sniping: detect bid in final 30s, extend end time by 2 minutes once
+  - `antiSnipingTriggered` flag; SNIPE_WINDOW_MS = 30s, SNIPE_EXTENSION_MS = 2min
+- [x] Implement idempotency key on each bid to prevent cross-tab duplicates
+  - Unique index on `bids.idempotencyKey`; ConstraintError = already placed → treated as success
+- [x] Broadcast bid updates to other tabs via BroadcastChannel
+  - `src/services/bidChannel.ts` — shared `BroadcastChannel('meridian_bids')` singleton
+- [x] Write audit log entry for every bid placed
 
 ### 3.4 Deposit Wallet
 
-- [ ] Build `WalletService`: credit, debit, reserve, release functions
-- [ ] Deduct deposit only on auction win; hold reserved amount during active bidding
-- [ ] Build `WalletPage` showing balance, reserved amount, and transaction history
-- [ ] Admin can credit/debit participant wallets manually
+- [x] Build `WalletService`: credit, debit, reserve, release functions
+  - `src/services/walletService.ts` — `creditWallet`, `debitWallet`, `reserveForAuction`, `releaseReservation`, `deductDeposit`, `ensureWallet`
+- [x] Deduct deposit only on auction win; hold reserved amount during active bidding
+- [x] Build `WalletPage` showing balance, reserved amount, and transaction history
+  - `src/pages/auction/WalletPage.tsx` — 3 balance cards + transaction history table
+- [x] Admin can credit/debit participant wallets manually
+  - Modal in WalletPage gated by `manageWallets` permission
 
 ### 3.5 Auction Lifecycle
 
-- [ ] Implement auction status machine: `Draft → Active → Extended → Ended → Awarded | NoSale`
-- [ ] Implement `closeAuction()` — determine winner, deduct deposit, notify participants
-- [ ] Handle no-bid scenario: mark as `NoSale`, release any holds, notify seller
-- [ ] Build scheduled auction timer using `setInterval` + BroadcastChannel sync
+- [x] Implement auction status machine: `Draft → Active → Extended → Ended → Awarded | NoSale`
+  - Transitions enforced in `auctionService.ts` + `auctionLifecycle.ts`
+- [x] Implement `closeAuction()` — determine winner, deduct deposit, notify participants
+  - `src/services/auctionLifecycle.ts` — winner by highest bid, deposit deducted, losers released, all notified
+- [x] Handle no-bid scenario: mark as `NoSale`, release any holds, notify seller
+- [x] Build scheduled auction timer using `setInterval` + BroadcastChannel sync
+  - `startAuctionLifecycleTimer()` — polls every 15s; atomic status guard prevents double-processing
 
 ### 3.6 Participant Auction UI
 
-- [ ] Build `AuctionBrowsePage` with live bid display and countdown timer
-- [ ] Build `BidForm` with current price, minimum next bid, and proxy bid input
-- [ ] Show real-time bid history table
-- [ ] Highlight winning bid; show "You are winning" / "You were outbid" states
-- [ ] Show anti-sniping extension notice when triggered
-- [ ] Build `MyBidsPage` listing all auctions the participant has bid on
+- [x] Build `AuctionBrowsePage` with live bid display and countdown timer
+  - `src/pages/auction/AuctionBrowsePage.tsx` — card grid of active auctions, live via BroadcastChannel
+- [x] Build `BidForm` with current price, minimum next bid, and proxy bid input
+  - `src/components/auction/BidForm.tsx` — manual / proxy tab toggle
+- [x] Show real-time bid history table
+  - In `AuctionDetailPage` — reloads on every BroadcastChannel bid event
+- [x] Highlight winning bid; show "You are winning" / "You were outbid" states
+  - Leading bid highlighted in `BidForm` feedback; winner banner in `AuctionDetailPage`
+- [x] Show anti-sniping extension notice when triggered
+  - Amber alert in `AuctionDetailPage` when `antiSnipingTriggered` is true
+- [x] Build `MyBidsPage` listing all auctions the participant has bid on
+  - `src/pages/auction/MyBidsPage.tsx` — shows highest bid, leading/won status
+
+**Also added:**
+- `src/db/seeds.ts` — `seedDefaultCategories()` seeds 8 default categories on first launch
+- `src/components/auction/CountdownTimer.tsx` — live countdown, pulses red under 1 minute
+- `src/components/layout/TabContent.tsx` — tab-based content router mapping paths to page components
+- `NavDrawer` — nav items now call `openTab()` / `activateTab()`, active state derived from tab path
+- `App.tsx` — starts `startAuctionLifecycleTimer()` on mount, seeds categories
 
 ---
 
