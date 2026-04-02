@@ -29,6 +29,9 @@ import { CatalogItemFormPage } from '@/pages/catalog/CatalogItemFormPage'
 import { CatalogBrowsePage } from '@/pages/catalog/CatalogBrowsePage'
 import { ModerationQueuePage } from '@/pages/catalog/ModerationQueuePage'
 import { PublicationListPage } from '@/pages/publishing/PublicationListPage'
+import { DocumentListPage } from '@/pages/documents/DocumentListPage'
+import { DocumentFormPage } from '@/pages/documents/DocumentFormPage'
+import { DocumentDetailPage } from '@/pages/documents/DocumentDetailPage'
 import { PublicationFormPage } from '@/pages/publishing/PublicationFormPage'
 import { ReviewQueuePage } from '@/pages/publishing/ReviewQueuePage'
 import { ReviewDetailPage } from '@/pages/publishing/ReviewDetailPage'
@@ -110,6 +113,33 @@ function matchRoute(path: string): React.ReactNode {
 
   // /publishing (list)
   if (path === '/publishing') return <PublicationListPage />
+
+  // /documents/new
+  if (path === '/documents/new') return <DocumentFormPage />
+
+  // /documents/:id/edit
+  const docEditMatch = /^\/documents\/([^/]+)\/edit$/.exec(path)
+  if (docEditMatch) {
+    const [, id] = docEditMatch
+    return <DocumentFormPage editId={id} tabId={id} />
+  }
+
+  // /documents/:id/review  (same detail page, reviewer sees actions based on role)
+  const docReviewMatch = /^\/documents\/([^/]+)\/review$/.exec(path)
+  if (docReviewMatch) {
+    const [, id] = docReviewMatch
+    return <DocumentDetailPage documentId={id} />
+  }
+
+  // /documents/:id
+  const docDetailMatch = /^\/documents\/([^/]+)$/.exec(path)
+  if (docDetailMatch) {
+    const [, id] = docDetailMatch
+    return <DocumentDetailPage documentId={id} />
+  }
+
+  // /documents (list)
+  if (path === '/documents') return <DocumentListPage />
 
   // Fallback
   return (
