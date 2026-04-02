@@ -1,0 +1,29 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Build output
+dist
+dist-ssr
+
+# Test coverage
+coverage
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Editor
+.vscode
+.idea
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.env.*
+!.env.example
