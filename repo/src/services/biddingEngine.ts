@@ -168,7 +168,12 @@ export async function placeBid(
         auction.minimumIncrement,
       )
 
-      // Anti-sniping: extend once if bid lands in final 30 s
+      // Anti-sniping: extend ONCE per auction when a bid lands in the final 30 s.
+      // Design decision (CLAUDE.md §4): the extension is capped at one occurrence.
+      // Allowing unlimited extensions would create a "perpetual auction" edge case
+      // where two proxy bidders continuously push the end time indefinitely.
+      // The single extension balances fairness (late bidders get one more chance)
+      // with predictability (sellers and bidders can rely on a bounded end time).
       let extended = false
       let newEndTime = auction.endTime
       if (!auction.antiSnipingTriggered && auction.endTime - Date.now() <= SNIPE_WINDOW_MS) {

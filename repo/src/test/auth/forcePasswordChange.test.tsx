@@ -6,7 +6,7 @@
  * match), and the sign-out escape hatch.
  */
 
-import { render, screen, fireEvent } from '@testing-library/react'
+import { act, render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { ForcePasswordChangePage } from '@/pages/ForcePasswordChangePage'
@@ -38,33 +38,37 @@ function renderPage() {
 
 describe('ForcePasswordChangePage — rendering', () => {
   beforeEach(() => {
-    useAuthStore.setState({
-      currentUser: makeTemporaryUser(),
-      sessionId: 'test',
-      isLoading: false,
-      error: null,
+    act(() => {
+      useAuthStore.setState({
+        currentUser: makeTemporaryUser(),
+        sessionId: 'test',
+        isLoading: false,
+        error: null,
+      })
     })
   })
 
   afterEach(() => {
-    useAuthStore.setState({
-      currentUser: {
-        id: 'test-system-user',
-        username: 'system',
-        displayName: 'Test System',
-        email: 'system@test',
-        passwordHash: '',
-        passwordSalt: '',
-        role: Role.Administrator,
-        isActive: true,
-        isTemporaryPassword: false,
-        createdAt: 0,
-        updatedAt: 0,
-        createdBy: 'system',
-      },
-      sessionId: 'test-session',
-      isLoading: false,
-      error: null,
+    act(() => {
+      useAuthStore.setState({
+        currentUser: {
+          id: 'test-system-user',
+          username: 'system',
+          displayName: 'Test System',
+          email: 'system@test',
+          passwordHash: '',
+          passwordSalt: '',
+          role: Role.Administrator,
+          isActive: true,
+          isTemporaryPassword: false,
+          createdAt: 0,
+          updatedAt: 0,
+          createdBy: 'system',
+        },
+        sessionId: 'test-session',
+        isLoading: false,
+        error: null,
+      })
     })
   })
 
@@ -101,7 +105,9 @@ describe('ForcePasswordChangePage — rendering', () => {
 
 describe('ForcePasswordChangePage — validation', () => {
   beforeEach(() => {
-    useAuthStore.setState({ currentUser: makeTemporaryUser() })
+    act(() => {
+      useAuthStore.setState({ currentUser: makeTemporaryUser() })
+    })
   })
 
   it('requires current password', async () => {

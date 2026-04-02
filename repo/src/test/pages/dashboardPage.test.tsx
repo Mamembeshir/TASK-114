@@ -8,7 +8,7 @@
  *  - Clicking a Quick Action opens the correct tab via useTabStore.
  */
 
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { DashboardPage } from '@/pages/DashboardPage'
@@ -53,15 +53,31 @@ function setUser(role: Role) {
 }
 
 function resetTab() {
-  // Reset tab store to initial state between tests
   useTabStore.setState({
     tabs: [{ id: 'home', title: 'Dashboard', path: '/', isDirty: false }],
     activeTabId: 'home',
   })
 }
 
-beforeEach(resetTab)
-afterEach(resetTab)
+/** Render and flush async useEffect (DB stats queries) inside act so all
+ *  subsequent setState calls happen within act, suppressing act() warnings. */
+function renderPage() {
+  return act(() => {
+    render(<DashboardPage />)
+    return Promise.resolve()
+  })
+}
+
+beforeEach(() => {
+  act(() => {
+    resetTab()
+  })
+})
+afterEach(() => {
+  act(() => {
+    resetTab()
+  })
+})
 
 // ── Administrator ─────────────────────────────────────────────────────────────
 
@@ -70,13 +86,13 @@ describe('DashboardPage — Administrator', () => {
     setUser(Role.Administrator)
   })
 
-  it('shows the Administrator role badge', () => {
-    render(<DashboardPage />)
+  it('shows the Administrator role badge', async () => {
+    await renderPage()
     expect(screen.getByText('Administrator')).toBeInTheDocument()
   })
 
-  it('shows all six Quick Action buttons', () => {
-    render(<DashboardPage />)
+  it('shows all six Quick Action buttons', async () => {
+    await renderPage()
     expect(screen.getByRole('button', { name: /new auction/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /add catalog item/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /upload document/i })).toBeInTheDocument()
@@ -86,7 +102,7 @@ describe('DashboardPage — Administrator', () => {
   })
 
   it('opens the auctions/new tab when New Auction is clicked', async () => {
-    render(<DashboardPage />)
+    await renderPage()
     await userEvent.click(screen.getByRole('button', { name: /new auction/i }))
     await waitFor(() => {
       const tabs = useTabStore.getState().tabs
@@ -95,7 +111,7 @@ describe('DashboardPage — Administrator', () => {
   })
 
   it('opens the admin/users tab when Admin Panel is clicked', async () => {
-    render(<DashboardPage />)
+    await renderPage()
     await userEvent.click(screen.getByRole('button', { name: /admin panel/i }))
     await waitFor(() => {
       const tabs = useTabStore.getState().tabs
@@ -111,26 +127,26 @@ describe('DashboardPage — ContentEditor', () => {
     setUser(Role.ContentEditor)
   })
 
-  it('shows New Auction, Add Catalog Item, Upload Document, Messages', () => {
-    render(<DashboardPage />)
+  it('shows New Auction, Add Catalog Item, Upload Document, Messages', async () => {
+    await renderPage()
     expect(screen.getByRole('button', { name: /new auction/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /add catalog item/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /upload document/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /messages/i })).toBeInTheDocument()
   })
 
-  it('does NOT show Review Queue (approvePublication denied)', () => {
-    render(<DashboardPage />)
+  it('does NOT show Review Queue (approvePublication denied)', async () => {
+    await renderPage()
     expect(screen.queryByRole('button', { name: /review queue/i })).not.toBeInTheDocument()
   })
 
-  it('does NOT show Admin Panel (manageUsers denied)', () => {
-    render(<DashboardPage />)
+  it('does NOT show Admin Panel (manageUsers denied)', async () => {
+    await renderPage()
     expect(screen.queryByRole('button', { name: /admin panel/i })).not.toBeInTheDocument()
   })
 
   it('opens the catalog/new tab when Add Catalog Item is clicked', async () => {
-    render(<DashboardPage />)
+    await renderPage()
     await userEvent.click(screen.getByRole('button', { name: /add catalog item/i }))
     await waitFor(() => {
       const tabs = useTabStore.getState().tabs
@@ -146,29 +162,29 @@ describe('DashboardPage — ReviewerApprover', () => {
     setUser(Role.ReviewerApprover)
   })
 
-  it('shows Review Queue and Messages', () => {
-    render(<DashboardPage />)
+  it('shows Review Queue and Messages', async () => {
+    await renderPage()
     expect(screen.getByRole('button', { name: /review queue/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /messages/i })).toBeInTheDocument()
   })
 
-  it('does NOT show New Auction (createAuction denied)', () => {
-    render(<DashboardPage />)
+  it('does NOT show New Auction (createAuction denied)', async () => {
+    await renderPage()
     expect(screen.queryByRole('button', { name: /new auction/i })).not.toBeInTheDocument()
   })
 
-  it('does NOT show Upload Document (createDocument denied)', () => {
-    render(<DashboardPage />)
+  it('does NOT show Upload Document (createDocument denied)', async () => {
+    await renderPage()
     expect(screen.queryByRole('button', { name: /upload document/i })).not.toBeInTheDocument()
   })
 
-  it('does NOT show Admin Panel', () => {
-    render(<DashboardPage />)
+  it('does NOT show Admin Panel', async () => {
+    await renderPage()
     expect(screen.queryByRole('button', { name: /admin panel/i })).not.toBeInTheDocument()
   })
 
   it('opens the review queue tab when clicked', async () => {
-    render(<DashboardPage />)
+    await renderPage()
     await userEvent.click(screen.getByRole('button', { name: /review queue/i }))
     await waitFor(() => {
       const tabs = useTabStore.getState().tabs
@@ -184,38 +200,38 @@ describe('DashboardPage — Participant', () => {
     setUser(Role.Participant)
   })
 
-  it('shows only the Messages Quick Action', () => {
-    render(<DashboardPage />)
+  it('shows only the Messages Quick Action', async () => {
+    await renderPage()
     expect(screen.getByRole('button', { name: /messages/i })).toBeInTheDocument()
   })
 
-  it('does NOT show New Auction', () => {
-    render(<DashboardPage />)
+  it('does NOT show New Auction', async () => {
+    await renderPage()
     expect(screen.queryByRole('button', { name: /new auction/i })).not.toBeInTheDocument()
   })
 
-  it('does NOT show Add Catalog Item', () => {
-    render(<DashboardPage />)
+  it('does NOT show Add Catalog Item', async () => {
+    await renderPage()
     expect(screen.queryByRole('button', { name: /add catalog item/i })).not.toBeInTheDocument()
   })
 
-  it('does NOT show Upload Document', () => {
-    render(<DashboardPage />)
+  it('does NOT show Upload Document', async () => {
+    await renderPage()
     expect(screen.queryByRole('button', { name: /upload document/i })).not.toBeInTheDocument()
   })
 
-  it('does NOT show Review Queue', () => {
-    render(<DashboardPage />)
+  it('does NOT show Review Queue', async () => {
+    await renderPage()
     expect(screen.queryByRole('button', { name: /review queue/i })).not.toBeInTheDocument()
   })
 
-  it('does NOT show Admin Panel', () => {
-    render(<DashboardPage />)
+  it('does NOT show Admin Panel', async () => {
+    await renderPage()
     expect(screen.queryByRole('button', { name: /admin panel/i })).not.toBeInTheDocument()
   })
 
   it('opens the notifications tab when Messages is clicked', async () => {
-    render(<DashboardPage />)
+    await renderPage()
     await userEvent.click(screen.getByRole('button', { name: /messages/i }))
     await waitFor(() => {
       const tabs = useTabStore.getState().tabs

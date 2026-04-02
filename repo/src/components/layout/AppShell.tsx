@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { NavDrawer } from './NavDrawer'
 import { TabBar } from './TabBar'
 import { TabContent } from './TabContent'
+import { useUrlSync } from '@/hooks/useUrlSync'
 
 // ── LocalStorage key ───────────────────────────────────────────────────────────
 const LS_DRAWER_KEY = 'meridian_drawer_open'
@@ -34,6 +35,9 @@ interface Props {
 export function AppShell({ children }: Props) {
   const [open, setOpen] = useState<boolean>(readDrawerPref)
   const isFirstRender = useRef(true)
+
+  // Sync active tab path ↔ window.location.hash for deep links, refresh, back/forward
+  useUrlSync()
 
   // Persist preference whenever it changes (skip initial render to avoid
   // an unnecessary write on every app load)
