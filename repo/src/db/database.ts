@@ -1,0 +1,119 @@
+import Dexie, { type Table } from 'dexie'
+import type { User, Session } from '@/types/auth'
+import type { AuditLog } from '@/types/audit'
+import type { Auction, Bid, ProxyBid, Wallet, WalletTransaction } from '@/types/auction'
+import type { CatalogItem, Category, Tag } from '@/types/catalog'
+import type { Publication, PublicationVersion, ViewEvent } from '@/types/publication'
+import type {
+  Document,
+  DocumentVersion,
+  CheckoutRecord,
+  RetentionPolicy,
+  DestructionApproval,
+} from '@/types/document'
+import type { Notification, OutboundQueueItem } from '@/types/notification'
+import type { SystemConfig, SensitiveWord } from '@/types/system'
+
+/**
+ * MeridianDB — single Dexie database for the entire portal.
+ *
+ * Schema versioning strategy:
+ *   - Version 1 declares ALL tables up front to avoid incremental migrations
+ *     during early development (adding a new table requires a version bump in Dexie).
+ *   - Future breaking changes (renaming/removing indexes, data migrations) go in
+ *     version 2+ with an `upgrade()` function.
+ *   - Indexes listed here are for querying only; all fields are stored regardless.
+ *   - Dexie index syntax: `&field` = unique, `[a+b]` = compound, `*field` = multi-entry.
+ */
+export class MeridianDB extends Dexie {
+  // ── Auth ───────────────────────────────────────────────────────────────────
+  users!: Table<User>
+  sessions!: Table<Session>
+
+  // ── Audit (append-only) ────────────────────────────────────────────────────
+  auditLogs!: Table<AuditLog>
+
+  // ── Auction ────────────────────────────────────────────────────────────────
+  auctions!: Table<Auction>
+  bids!: Table<Bid>
+  proxyBids!: Table<ProxyBid>
+  wallets!: Table<Wallet>
+  walletTransactions!: Table<WalletTransaction>
+
+  // ── Catalog ────────────────────────────────────────────────────────────────
+  catalogItems!: Table<CatalogItem>
+  categories!: Table<Category>
+  tags!: Table<Tag>
+
+  // ── Publishing ─────────────────────────────────────────────────────────────
+  publications!: Table<Publication>
+  publicationVersions!: Table<PublicationVersion>
+  viewEvents!: Table<ViewEvent>
+
+  // ── Documents ──────────────────────────────────────────────────────────────
+  documents!: Table<Document>
+  documentVersions!: Table<DocumentVersion>
+  checkoutRecords!: Table<CheckoutRecord>
+  retentionPolicies!: Table<RetentionPolicy>
+  destructionApprovals!: Table<DestructionApproval>
+
+  // ── Notifications ──────────────────────────────────────────────────────────
+  notifications!: Table<Notification>
+  outboundQueue!: Table<OutboundQueueItem>
+
+  // ── System ─────────────────────────────────────────────────────────────────
+  systemConfig!: Table<SystemConfig>
+  sensitiveWords!: Table<SensitiveWord>
+
+  constructor() {
+    super('MeridianPortal')
+
+    this.version(1).stores({
+      // ── Auth ──────────────────────────────────────────────────────────────
+      // &username = unique index to prevent duplicate usernames
+      users: 'id, &username, role, isActive, createdAt',
+      sessions: 'id, userId, expiresAt',
+
+      // ── Audit ─────────────────────────────────────────────────────────────
+      // Indexed by actor, entity, and type for the audit log viewer filters
+      auditLogs: 'id, eventType, actorId, entityType, entityId, createdAt',
+
+      // ── Auction ───────────────────────────────────────────────────────────
+      auctions: 'id, status, categoryId, createdBy, startTime, endTime, createdAt',
+      // [auctionId+bidderId] compound + idempotencyKey unique prevent duplicate bids
+      bids: 'id, auctionId, bidderId, &idempotencyKey, createdAt',
+      proxyBids: 'id, auctionId, bidderId, isActive',
+      wallets: 'id, &userId',
+      walletTransactions: 'id, walletId, userId, type, relatedAuctionId, createdAt',
+
+      // ── Catalog ───────────────────────────────────────────────────────────
+      // *tags = multi-entry index so each tag value is indexed individually
+      catalogItems: 'id, status, categoryId, *tags, createdBy, createdAt',
+      categories: 'id, parentId',
+      tags: 'id, &name',
+
+      // ── Publishing ────────────────────────────────────────────────────────
+      publications: 'id, type, status, createdBy, createdAt, publishedAt',
+      publicationVersions: 'id, publicationId, versionNumber, createdAt',
+      // [entityType+entityId] compound for per-entity analytics queries
+      viewEvents: 'id, [entityType+entityId], userId, openedAt',
+
+      // ── Documents ─────────────────────────────────────────────────────────
+      // &documentNumber unique (sparse — undefined until approved)
+      documents:
+        'id, documentNumber, status, categoryId, checkedOutBy, retentionDueDate, createdBy, createdAt',
+      documentVersions: 'id, documentId, versionNumber, createdAt',
+      checkoutRecords: 'id, documentId, userId, isActive, checkedOutAt',
+      retentionPolicies: 'id, &categoryId',
+      destructionApprovals: 'id, documentId, status, requestedBy, requestedAt',
+
+      // ── Notifications ─────────────────────────────────────────────────────
+      notifications: 'id, userId, type, isRead, createdAt',
+      outboundQueue: 'id, recipientUserId, status, channel, queuedAt',
+
+      // ── System ────────────────────────────────────────────────────────────
+      systemConfig: 'id',
+      sensitiveWords: 'id, &word, createdAt',
+    })
+  }
+}

@@ -24,9 +24,21 @@
 
 ### 1.2 Database Schema
 
-- [ ] Define Dexie database class with all tables and indexes
-- [ ] Create TypeScript interfaces for all domain models: `User`, `Role`, `AuditLog`, `Session`
-- [ ] Implement DB migration versioning strategy
+- [x] Define Dexie database class with all tables and indexes
+- [x] Create TypeScript interfaces for all domain models: `User`, `Role`, `AuditLog`, `Session`
+  - [x] `src/types/auth.ts` — `User`, `Session`, `Role` enum
+  - [x] `src/types/audit.ts` — `AuditLog`, `AuditEventType`
+  - [x] `src/types/auction.ts` — `Auction`, `Bid`, `ProxyBid`, `Wallet`, `WalletTransaction`
+  - [x] `src/types/catalog.ts` — `CatalogItem`, `Category`, `Tag`
+  - [x] `src/types/publication.ts` — `Publication`, `PublicationVersion`, `ViewEvent`
+  - [x] `src/types/document.ts` — `Document`, `DocumentVersion`, `CheckoutRecord`, `RetentionPolicy`, `DestructionApproval`
+  - [x] `src/types/notification.ts` — `Notification`, `OutboundQueueItem`
+  - [x] `src/types/system.ts` — `SystemConfig`, `SensitiveWord`
+  - [x] `src/types/index.ts` — central re-export barrel
+- [x] Implement DB migration versioning strategy
+  - [x] All 22 tables declared in version 1 to avoid forced migrations during dev
+  - [x] `src/db/database.ts` — `MeridianDB extends Dexie` with full schema + index rationale
+  - [x] `src/db/index.ts` — singleton `db` export
 
 ### 1.3 Crypto & Security Utilities
 
@@ -398,7 +410,7 @@
 
 | Phase                     | Status          | Completed / Total |
 | ------------------------- | --------------- | ----------------- |
-| Phase 1: Setup & Auth     | In Progress     | 9 / 27            |
+| Phase 1: Setup & Auth     | In Progress     | 12 / 27           |
 | Phase 2: Layout & Shell   | Pending         | 0 / 22            |
 | Phase 3: Auction System   | Pending         | 0 / 28            |
 | Phase 4: Catalog & Search | Pending         | 0 / 18            |
@@ -407,4 +419,4 @@
 | Phase 7: Messages         | Pending         | 0 / 18            |
 | Phase 8: Admin & Export   | Pending         | 0 / 19            |
 | Phase 9: Polish & Testing | Pending         | 0 / 23            |
-| **Total**                 | **In Progress** | **9 / 198**       |
+| **Total**                 | **In Progress** | **12 / 198**      |
