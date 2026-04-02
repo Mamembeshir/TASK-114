@@ -1,5 +1,3 @@
-version: '3.9'
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Meridian Offline Commerce & Compliance Portal
 # Start : docker compose up

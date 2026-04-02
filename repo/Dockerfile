@@ -19,20 +19,19 @@ COPY . .
 RUN pnpm build
 
 # ── Stage 3: serve (production) ──────────────────────────────────────────────
+# Use a minimal static server — vite is a devDependency and not available
+# after --prod install. `serve` handles SPA fallback via --single flag.
 FROM node:22-alpine AS runner
 
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN npm install -g serve@14
 
 WORKDIR /app
-
-COPY package.json pnpm-lock.yaml* ./
-RUN pnpm install --frozen-lockfile --prod
 
 COPY --from=builder /app/dist ./dist
 
 EXPOSE 4173
 
-CMD ["pnpm", "preview"]
+CMD ["serve", "--single", "--listen", "4173", "dist"]
 
 # ── Stage: dev (used by docker-compose dev target) ───────────────────────────
 FROM deps AS dev
