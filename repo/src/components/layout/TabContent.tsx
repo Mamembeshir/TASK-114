@@ -36,6 +36,8 @@ import { PublicationFormPage } from '@/pages/publishing/PublicationFormPage'
 import { ReviewQueuePage } from '@/pages/publishing/ReviewQueuePage'
 import { ReviewDetailPage } from '@/pages/publishing/ReviewDetailPage'
 import { PublicationFeedPage } from '@/pages/publishing/PublicationFeedPage'
+import { NotificationCenterPage } from '@/pages/notifications/NotificationCenterPage'
+import { OutboundQueuePage } from '@/pages/notifications/OutboundQueuePage'
 
 function matchRoute(path: string): React.ReactNode {
   if (path === '/') return <DashboardPage />
@@ -140,6 +142,12 @@ function matchRoute(path: string): React.ReactNode {
 
   // /documents (list)
   if (path === '/documents') return <DocumentListPage />
+
+  // /notifications
+  if (path === '/notifications') return <NotificationCenterPage />
+
+  // /outbound-queue
+  if (path === '/outbound-queue') return <OutboundQueuePage />
 
   // Fallback
   return (

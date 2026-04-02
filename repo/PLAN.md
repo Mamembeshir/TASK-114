@@ -424,33 +424,45 @@
 
 ### 7.1 Data Models
 
-- [ ] Define `Notification`, `OutboundQueueItem`, `MessageThread` interfaces
-- [ ] Add Dexie tables with read/unread tracking
+- [x] Define `Notification`, `OutboundQueueItem` interfaces
+  - Already defined in Phase 1.2 (`src/types/notification.ts`)
+- [x] Dexie tables (`notifications`, `outboundQueue`) already in schema
 
 ### 7.2 In-App Notifications
 
-- [ ] Implement `NotificationService`: create, mark-read, mark-all-read, delete
-- [ ] Build `NotificationBell` in app header with unread badge count
-- [ ] Build `NotificationDropdown` with list of recent notifications
-- [ ] Build `NotificationCenterPage` with full notification history and filters
-- [ ] Broadcast new notifications to other tabs via BroadcastChannel
+- [x] Implement `NotificationService`: createNotification, createNotificationForMany, markRead, markAllRead, delete, getUnreadCount
+  - `src/services/notificationService.ts`
+- [x] Build `NotificationBell` in TabBar header with unread badge count + dropdown panel
+  - `src/components/layout/NotificationBell.tsx` — 20-item recent list, mark-read, delete, "View all" link
+- [x] Build `NotificationCenterPage` with full notification history, bulk select, and filters
+  - `src/pages/notifications/NotificationCenterPage.tsx`
+- [x] Broadcast notification refresh to other tabs via BroadcastChannel
+  - `src/store/notificationStore.ts` — `startNotificationSync` + `broadcastNewNotification`
 
 ### 7.3 Outbound Queue
 
-- [ ] Build `OutboundQueuePage` (Admin) listing all queued outbound messages
-- [ ] Support message types: Email, SMS (offline queue only — no actual send)
-- [ ] Implement export to CSV and JSON for manual processing
-- [ ] Implement bulk actions: mark-as-sent, delete, re-queue
+- [x] Build `OutboundQueuePage` (Admin) listing all queued outbound messages
+  - `src/pages/notifications/OutboundQueuePage.tsx` — status filter, bulk actions
+- [x] Support message types: Email, SMS (offline queue only — no actual send)
+- [x] Implement export to CSV and JSON for manual processing
+  - `exportCsv()` and `exportJson()` in `OutboundQueuePage`
+- [x] Implement bulk actions: mark-as-sent, delete, re-queue individual items
 
 ### 7.4 System-Triggered Notifications
 
-- [ ] Notify bid authors when outbid
+- [ ] Notify bid authors when outbid (wire into biddingEngine.ts)
 - [ ] Notify auction winner on auction close
 - [ ] Notify seller when auction ends with no sale
 - [ ] Notify publication author on review approval/rejection
 - [ ] Notify document checkout owner when auto-release is approaching
 - [ ] Notify all users when a new publication is published
 - [ ] Notify Admin when a document enters retention queue
+
+**Also added:**
+- `NotificationBell` wired into `TabBar` (right-side slot)
+- `startNotificationSync` called in `App.tsx` on auth
+- Routes `/notifications` → `NotificationCenterPage`, `/outbound-queue` → `OutboundQueuePage`
+- `ColumnDef.header` changed to `React.ReactNode` to support checkbox headers
 
 ---
 
@@ -553,7 +565,7 @@
 | Phase 4: Catalog & Search | ✅ Complete     | 18 / 18           |
 | Phase 5: Publishing       | ✅ Complete     | 21 / 21           |
 | Phase 6: Documents        | ✅ Complete     | 22 / 22           |
-| Phase 7: Messages         | Pending         | 0 / 18            |
+| Phase 7: Messages         | 🔄 In Progress  | 11 / 18           |
 | Phase 8: Admin & Export   | Pending         | 0 / 19            |
 | Phase 9: Polish & Testing | Pending         | 0 / 23            |
 | **Total**                 | **In Progress** | **138 / 198**     |

@@ -4,12 +4,14 @@ import { Loader2 } from 'lucide-react'
 import { useAuthStore, seedDefaultAdmin } from '@/store/authStore'
 import { seedDefaultCategories } from '@/db/seeds'
 import { startAuctionLifecycleTimer } from '@/services/auctionLifecycle'
+import { startNotificationSync, useNotificationStore } from '@/store/notificationStore'
 import { LoginPage } from '@/pages/LoginPage'
 import { AppShell } from '@/components/layout/AppShell'
 
 export default function App() {
   const currentUser = useAuthStore((s) => s.currentUser)
   const isLoading = useAuthStore((s) => s.isLoading)
+  const refreshNotifications = useNotificationStore((s) => s.refresh)
 
   // On mount: seed defaults, restore session, start auction timer
   useEffect(() => {
@@ -23,6 +25,14 @@ export default function App() {
     const stopTimer = startAuctionLifecycleTimer()
     return stopTimer
   }, [])
+
+  // Start notification sync when user is authenticated
+  useEffect(() => {
+    if (!currentUser) return
+    void refreshNotifications(currentUser.id)
+    const stopSync = startNotificationSync(currentUser.id)
+    return stopSync
+  }, [currentUser, refreshNotifications])
 
   // ── Full-screen loading ───────────────────────────────────────────────────
   if (isLoading && !currentUser) {

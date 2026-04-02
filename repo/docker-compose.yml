@@ -1,4 +1,4 @@
-version: "3.9"
+version: '3.9'
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Meridian Offline Commerce & Compliance Portal
@@ -8,7 +8,6 @@ version: "3.9"
 # ─────────────────────────────────────────────────────────────────────────────
 
 services:
-
   # ── Production preview (default, no profile needed) ──────────────────────
   app:
     build:
@@ -18,10 +17,10 @@ services:
     image: meridian-portal:latest
     container_name: meridian-app
     ports:
-      - "4173:4173"
+      - '4173:4173'
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:4173"]
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:4173']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -35,9 +34,9 @@ services:
       target: dev
     image: meridian-portal:dev
     container_name: meridian-dev
-    profiles: ["dev"]
+    profiles: ['dev']
     ports:
-      - "5173:5173"
+      - '5173:5173'
     volumes:
       # Mount source for hot-reload; exclude node_modules
       - .:/app
@@ -53,7 +52,7 @@ services:
       dockerfile: Dockerfile.test
     image: meridian-portal:test
     container_name: meridian-test
-    profiles: ["test"]
+    profiles: ['test']
     environment:
       - CI=true
       - NODE_ENV=test

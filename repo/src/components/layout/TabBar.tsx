@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { X } from 'lucide-react'
 import { useTabStore, type Tab } from '@/store/tabStore'
+import { NotificationBell } from './NotificationBell'
 
 // ── Close-tab guard ────────────────────────────────────────────────────────────
 
@@ -105,10 +106,15 @@ export function TabBar() {
   }, [])
 
   return (
-    <div className="flex items-center gap-1 px-3 py-2 bg-surface-900 border-b border-surface-800 overflow-x-auto scrollbar-none">
-      {tabs.map((tab) => (
-        <TabPill key={tab.id} tab={tab} isActive={tab.id === activeTabId} />
-      ))}
+    <div className="flex items-center bg-surface-900 border-b border-surface-800">
+      <div className="flex items-center gap-1 px-3 py-2 flex-1 overflow-x-auto scrollbar-none">
+        {tabs.map((tab) => (
+          <TabPill key={tab.id} tab={tab} isActive={tab.id === activeTabId} />
+        ))}
+      </div>
+      <div className="px-3 py-2 shrink-0 border-l border-surface-800">
+        <NotificationBell />
+      </div>
     </div>
   )
 }

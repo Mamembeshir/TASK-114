@@ -11,7 +11,7 @@ export interface SortState {
 
 export interface ColumnDef<T> {
   key: string
-  header: string
+  header: React.ReactNode
   /** Render function for a cell; receives the full row object */
   cell: (row: T) => React.ReactNode
   /** When true, clicking the header cycles asc → desc → asc */
