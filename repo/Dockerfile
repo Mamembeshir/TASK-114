@@ -1,8 +1,8 @@
 # ── Stage 1: deps ────────────────────────────────────────────────────────────
 FROM node:22-alpine AS deps
 
-# Install pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
+# Install pnpm (pinned; avoids corepack downloading from registry at build time)
+RUN npm install -g pnpm@10.23.0
 
 WORKDIR /app
 
