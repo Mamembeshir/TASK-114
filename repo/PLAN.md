@@ -159,9 +159,14 @@
 
 ### 2.5 Dashboard / Home
 
-- [ ] Build `DashboardPage` as the landing view after login
-- [ ] Show role-specific summary widgets (active auctions, pending approvals, unread messages)
-- [ ] Add quick-action buttons relevant to the user's role
+- [x] Build `DashboardPage` as the landing view after login
+  - `src/pages/DashboardPage.tsx` — rendered inside AppShell
+- [x] Show role-specific summary widgets (active auctions, pending approvals, unread messages)
+  - StatCard grid (active auctions, pending approvals, unread messages, documents, catalog count)
+  - Each stat is gated by `usePermission`; real counts loaded from IndexedDB on mount
+- [x] Add quick-action buttons relevant to the user's role
+  - QuickAction grid (New Auction, Add Catalog Item, Upload Document, Review Queue, Messages, Admin Panel)
+  - Each action gated by its respective create/manage permission
 
 ---
 

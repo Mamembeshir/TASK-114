@@ -1,9 +1,10 @@
 import { useEffect } from 'react'
 import { Toaster } from 'sonner'
-import { Loader2, Shield } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { useAuthStore, seedDefaultAdmin } from '@/store/authStore'
 import { LoginPage } from '@/pages/LoginPage'
 import { AppShell } from '@/components/layout/AppShell'
+import { DashboardPage } from '@/pages/DashboardPage'
 
 export default function App() {
   const currentUser = useAuthStore((s) => s.currentUser)
@@ -48,18 +49,7 @@ export default function App() {
     <>
       <Toaster position="top-right" richColors />
       <AppShell>
-        {/* Dashboard placeholder — replaced in task 2.5 */}
-        <div className="flex-1 flex items-center justify-center p-8">
-          <div className="text-center">
-            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary-600 mb-4">
-              <Shield className="w-7 h-7 text-white" />
-            </div>
-            <h1 className="text-2xl font-bold text-surface-50 mb-1">
-              Welcome, {currentUser.displayName}
-            </h1>
-            <p className="text-surface-600 text-xs mt-6">Dashboard coming in task 2.5</p>
-          </div>
-        </div>
+        <DashboardPage />
       </AppShell>
     </>
   )
