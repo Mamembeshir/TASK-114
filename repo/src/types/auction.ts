@@ -28,6 +28,8 @@ export interface Auction {
   winningBidId?: string
   /** True once anti-sniping extension has been applied — cannot extend again */
   antiSnipingTriggered: boolean
+  /** Timestamp (ms) when the anti-sniping extension was applied, if ever */
+  antiSnipingTriggeredAt?: number
   createdBy: string
   createdAt: number
   updatedAt: number

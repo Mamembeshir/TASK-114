@@ -180,7 +180,12 @@ export async function placeBid(
         currentPrice: winningAmount,
         updatedAt: Date.now(),
         ...(extended
-          ? { endTime: newEndTime, status: 'Extended', antiSnipingTriggered: true }
+          ? {
+              endTime: newEndTime,
+              status: 'Extended',
+              antiSnipingTriggered: true,
+              antiSnipingTriggeredAt: Date.now(),
+            }
           : {}),
       })
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { AlertTriangle, Trophy, User } from 'lucide-react'
+import { AlertTriangle, Clock, Trophy, User } from 'lucide-react'
 import { db } from '@/db'
 import { useAuthStore } from '@/store/authStore'
 import { usePermission } from '@/hooks/usePermission'
@@ -153,42 +153,62 @@ export function AuctionDetailPage({ auctionId }: Props) {
               <p className="text-sm text-surface-600 text-center py-4">No bids yet.</p>
             ) : (
               <div className="space-y-2">
-                {bids.map((bid, i) => (
-                  <div
-                    key={bid.id}
-                    className={[
-                      'flex items-center justify-between px-3 py-2 rounded-lg',
-                      i === 0
-                        ? 'bg-primary-600/10 border border-primary-600/20'
-                        : 'bg-surface-800/40',
-                    ].join(' ')}
-                  >
-                    <div className="flex items-center gap-2">
-                      <User className="w-3.5 h-3.5 text-surface-600 shrink-0" />
-                      <span className="text-xs text-surface-400">
-                        {bid.bidderId === currentUser?.id
-                          ? 'You'
-                          : `Bidder …${bid.bidderId.slice(-4)}`}
-                        {bid.isProxyResolved && (
-                          <span className="ml-1 text-surface-600">(proxy)</span>
-                        )}
-                      </span>
-                    </div>
-                    <div className="text-right">
-                      <span
+                {bids.map((bid, i) => {
+                  // Insert synthetic extension row after the bid that triggered anti-sniping
+                  const extensionTs = auction.antiSnipingTriggeredAt
+                  const showExtensionAfter =
+                    auction.antiSnipingTriggered &&
+                    extensionTs !== undefined &&
+                    bid.createdAt >= extensionTs &&
+                    (i === bids.length - 1 || bids[i + 1].createdAt < extensionTs)
+
+                  return (
+                    <div key={bid.id}>
+                      <div
                         className={[
-                          'font-mono text-sm font-semibold',
-                          i === 0 ? 'text-primary-400' : 'text-surface-300',
+                          'flex items-center justify-between px-3 py-2 rounded-lg',
+                          i === 0
+                            ? 'bg-primary-600/10 border border-primary-600/20'
+                            : 'bg-surface-800/40',
                         ].join(' ')}
                       >
-                        {bid.amount}
-                      </span>
-                      <span className="text-xs text-surface-600 ml-2">
-                        {new Date(bid.createdAt).toLocaleTimeString()}
-                      </span>
+                        <div className="flex items-center gap-2">
+                          <User className="w-3.5 h-3.5 text-surface-600 shrink-0" />
+                          <span className="text-xs text-surface-400">
+                            {bid.bidderId === currentUser?.id
+                              ? 'You'
+                              : `Bidder …${bid.bidderId.slice(-4)}`}
+                            {bid.isProxyResolved && (
+                              <span className="ml-1 text-surface-600">(proxy)</span>
+                            )}
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <span
+                            className={[
+                              'font-mono text-sm font-semibold',
+                              i === 0 ? 'text-primary-400' : 'text-surface-300',
+                            ].join(' ')}
+                          >
+                            {bid.amount}
+                          </span>
+                          <span className="text-xs text-surface-600 ml-2">
+                            {new Date(bid.createdAt).toLocaleTimeString()}
+                          </span>
+                        </div>
+                      </div>
+                      {showExtensionAfter && (
+                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/5 border border-amber-500/20 text-amber-400 text-xs mt-2">
+                          <Clock className="w-3.5 h-3.5 shrink-0" />
+                          <span>Auction extended +2 min (anti-sniping)</span>
+                          <span className="ml-auto text-amber-500/60">
+                            {new Date(extensionTs).toLocaleTimeString()}
+                          </span>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </Card>
