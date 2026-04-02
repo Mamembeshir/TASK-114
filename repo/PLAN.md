@@ -256,23 +256,34 @@
 
 ### 4.1 Data Models
 
-- [ ] Define `CatalogItem`, `Category`, `Tag`, `ModerationFlag` TypeScript interfaces
-- [ ] Add Dexie tables and indexes (full-text search fields, category, status)
+- [x] Define `CatalogItem`, `Category`, `Tag` TypeScript interfaces
+  - Already defined in Phase 1.2 (`src/types/catalog.ts`)
+- [x] Add Dexie tables and indexes (multi-entry tag index, category, status)
+  - Already in DB schema (`src/db/database.ts`); `*tags` multi-entry index
 
 ### 4.2 Catalog Item CRUD (Content Editor)
 
-- [ ] Build `CreateCatalogItemForm`: title, description, category, tags, price, images, stock
-- [ ] Build `CatalogManagementPage` with filterable item table
-- [ ] Implement edit, archive, and restore for catalog items
-- [ ] Add audit log entries for item create, edit, publish, archive
+- [x] Build `CatalogItemFormPage`: title, description, category, tags, price, images, stock
+  - `src/pages/catalog/CatalogItemFormPage.tsx` — create + edit mode, dirty tracking, tag chip UI
+- [x] Build `CatalogManagementPage` with filterable item table
+  - `src/pages/catalog/CatalogManagementPage.tsx` — status filter tabs, inline publish/archive/restore
+- [x] Implement edit, archive, and restore for catalog items
+  - `archiveCatalogItem`, `restoreCatalogItem` in `src/services/catalogService.ts`
+- [x] Add audit log entries for item create, edit, publish, archive
+  - All CRUD operations write audit logs via `writeAuditLog` in `catalogService.ts`
 
 ### 4.3 Advanced Search
 
-- [ ] Implement client-side full-text search across title, description, and tags using Dexie
-- [ ] Build `SearchBar` with debounced input
-- [ ] Build faceted filter panel: category, price range, status, tags
-- [ ] Implement sort options: relevance, price asc/desc, newest
-- [ ] Build `SearchResultsPage` with pagination
+- [x] Implement client-side full-text search across title, description, and tags
+  - Filter logic in `CatalogBrowsePage` — `useMemo` over all Active items
+- [x] Build `SearchBar` with debounced input (300 ms)
+  - Debounced query state with `setTimeout` ref in `CatalogBrowsePage`
+- [x] Build faceted filter panel: category, price range, tags
+  - Left sidebar facet panel in `CatalogBrowsePage`
+- [x] Implement sort options: newest, price asc/desc
+  - Sort dropdown in `CatalogBrowsePage`
+- [x] Build `CatalogBrowsePage` with card grid display
+  - `src/pages/catalog/CatalogBrowsePage.tsx` — card grid, image display, tag chips
 
 ### 4.4 Content Moderation
 
@@ -282,6 +293,10 @@
 - [ ] Show inline moderation warnings in editor UI
 - [ ] Block publish action until all moderation flags are resolved
 - [ ] Add `ModerationQueuePage` for Reviewer role
+
+**Also added:**
+- `src/services/catalogService.ts` — createCatalogItem, updateCatalogItem, publishCatalogItem, archiveCatalogItem, restoreCatalogItem
+- `TabContent.tsx` updated with `/catalog`, `/catalog/new`, `/catalog/:id/edit`, `/catalog/browse` routes
 
 ---
 

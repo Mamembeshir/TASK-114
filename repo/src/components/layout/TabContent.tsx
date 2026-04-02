@@ -10,6 +10,10 @@
  *  /auctions/wallet          → WalletPage
  *  /auctions/:id             → AuctionDetailPage (id extracted)
  *  /auctions                 → AuctionListPage
+ *  /catalog/new              → CatalogItemFormPage (create)
+ *  /catalog/:id/edit         → CatalogItemFormPage (edit, id extracted)
+ *  /catalog/browse           → CatalogBrowsePage
+ *  /catalog                  → CatalogManagementPage
  */
 
 import { useTabStore } from '@/store/tabStore'
@@ -20,6 +24,9 @@ import { AuctionDetailPage } from '@/pages/auction/AuctionDetailPage'
 import { AuctionBrowsePage } from '@/pages/auction/AuctionBrowsePage'
 import { WalletPage } from '@/pages/auction/WalletPage'
 import { MyBidsPage } from '@/pages/auction/MyBidsPage'
+import { CatalogManagementPage } from '@/pages/catalog/CatalogManagementPage'
+import { CatalogItemFormPage } from '@/pages/catalog/CatalogItemFormPage'
+import { CatalogBrowsePage } from '@/pages/catalog/CatalogBrowsePage'
 
 function matchRoute(path: string): React.ReactNode {
   if (path === '/') return <DashboardPage />
@@ -28,9 +35,9 @@ function matchRoute(path: string): React.ReactNode {
   if (path === '/auctions/new') return <AuctionFormPage />
 
   // /auctions/:id/edit
-  const editMatch = /^\/auctions\/([^/]+)\/edit$/.exec(path)
-  if (editMatch) {
-    const [, id] = editMatch
+  const auctionEditMatch = /^\/auctions\/([^/]+)\/edit$/.exec(path)
+  if (auctionEditMatch) {
+    const [, id] = auctionEditMatch
     return <AuctionFormPage editId={id} tabId={id} />
   }
 
@@ -52,6 +59,22 @@ function matchRoute(path: string): React.ReactNode {
 
   // /auctions (list)
   if (path === '/auctions') return <AuctionListPage />
+
+  // /catalog/new
+  if (path === '/catalog/new') return <CatalogItemFormPage />
+
+  // /catalog/:id/edit
+  const catalogEditMatch = /^\/catalog\/([^/]+)\/edit$/.exec(path)
+  if (catalogEditMatch) {
+    const [, id] = catalogEditMatch
+    return <CatalogItemFormPage editId={id} tabId={id} />
+  }
+
+  // /catalog/browse
+  if (path === '/catalog/browse') return <CatalogBrowsePage />
+
+  // /catalog (management)
+  if (path === '/catalog') return <CatalogManagementPage />
 
   // Fallback
   return (
