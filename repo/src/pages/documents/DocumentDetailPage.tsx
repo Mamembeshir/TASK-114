@@ -50,6 +50,7 @@ export function DocumentDetailPage({ documentId }: Props) {
 
   const [doc, setDoc] = useState<Document | null>(null)
   const [destructionApproval, setDestructionApproval] = useState<DestructionApproval | null>(null)
+  const [checkedOutByName, setCheckedOutByName] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isActing, setIsActing] = useState(false)
 
@@ -67,7 +68,15 @@ export function DocumentDetailPage({ documentId }: Props) {
         .filter((a) => a.status !== 'Rejected')
         .toArray(),
     ])
-    if (d) setDoc(d)
+    if (d) {
+      setDoc(d)
+      if (d.checkedOutBy) {
+        const editor = await db.users.get(d.checkedOutBy)
+        setCheckedOutByName(editor?.displayName ?? d.checkedOutBy)
+      } else {
+        setCheckedOutByName(null)
+      }
+    }
     const sorted = approvals.sort((a, b) => b.requestedAt - a.requestedAt)
     setDestructionApproval(sorted.length > 0 ? sorted[0] : null)
     setIsLoading(false)
@@ -209,9 +218,14 @@ export function DocumentDetailPage({ documentId }: Props) {
         </div>
         <div className="flex items-center gap-2">
           {doc.checkedOutBy && (
-            <div className="flex items-center gap-1 text-amber-400 text-xs">
-              <Lock className="w-3.5 h-3.5" />
-              <span>Checked out</span>
+            <div className="flex items-center gap-1.5 text-amber-400 text-xs">
+              <Lock className="w-3.5 h-3.5 shrink-0" />
+              <span>
+                Checked out
+                {checkedOutByName ? (
+                  <> by <span className="font-semibold">{checkedOutByName}</span></>
+                ) : null}
+              </span>
             </div>
           )}
           <Badge variant={STATUS_VARIANTS[doc.status]}>{doc.status}</Badge>

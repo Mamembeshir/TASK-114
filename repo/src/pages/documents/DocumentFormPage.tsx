@@ -37,6 +37,8 @@ export function DocumentFormPage({ editId, tabId }: Props) {
   const [isLoadingDoc, setIsLoadingDoc] = useState(!!editId)
   const [doc, setDoc] = useState<Document | null>(null)
   const [isCheckedOut, setIsCheckedOut] = useState(false)
+  /** Display name of whoever currently holds the checkout lock (if not the current user). */
+  const [checkedOutByName, setCheckedOutByName] = useState<string | null>(null)
 
   const [title, setTitle] = useState('')
   const [type, setType] = useState(DOCUMENT_TYPES[0] ?? 'Policy')
@@ -81,7 +83,12 @@ export function DocumentFormPage({ editId, tabId }: Props) {
       setMetadataRows(Object.entries(d.metadata ?? {}).map(([key, value]) => ({ key, value })))
       setTemplateId(d.templateId)
       setModerationFlags(d.moderationFlags)
-      setIsCheckedOut(d.checkedOutBy === currentUser.id)
+      const myCheckout = d.checkedOutBy === currentUser.id
+      setIsCheckedOut(myCheckout)
+      if (d.checkedOutBy && !myCheckout) {
+        const editor = await db.users.get(d.checkedOutBy)
+        setCheckedOutByName(editor?.displayName ?? d.checkedOutBy)
+      }
       setIsLoadingDoc(false)
     }
     void load()
@@ -264,7 +271,13 @@ export function DocumentFormPage({ editId, tabId }: Props) {
       {editId && doc?.checkedOutBy && !isCheckedOut && (
         <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-3 text-amber-400 text-sm">
           <Lock className="w-4 h-4 shrink-0" />
-          This document is currently checked out. Check it out to edit.
+          <span>
+            This document is currently checked out
+            {checkedOutByName ? (
+              <> by <span className="font-semibold">{checkedOutByName}</span></>
+            ) : null}
+            . You cannot edit it until it is checked in.
+          </span>
         </div>
       )}
 
