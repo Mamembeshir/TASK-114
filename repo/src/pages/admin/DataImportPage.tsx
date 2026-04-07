@@ -13,8 +13,10 @@
  *  - auditLogs table is always skipped — it is append-only; we only add any
  *    audit rows from the backup that don't already exist (same id check).
  *  - sessions table is never imported (contains auth tokens).
- *  - User rows from the backup never overwrite existing users (passwordHash /
- *    passwordSalt must not be clobbered by a foreign export).
+ *  - User rows: existing users are never overwritten (credentials must not be
+ *    clobbered). New user rows are only inserted when the backup row contains
+ *    both passwordHash and passwordSalt — rows without credentials are skipped
+ *    to prevent non-operable (unloggable) accounts being created.
  */
 
 import { useRef, useState } from 'react'
@@ -121,13 +123,16 @@ async function runImport(
       const record = row as Record<string, unknown>
       const id = record.id as string
 
-      // User rows: never overwrite — credential fields must not be clobbered
+      // User rows: only restore when the backup contains hashed credentials.
+      // Rows without passwordHash/passwordSalt (e.g. from a module-only export)
+      // are skipped — inserting credential-less accounts would make them
+      // permanently non-operable (login requires a valid PBKDF2 hash).
+      // Existing users are never overwritten to prevent credential clobbering.
       if (tableName === 'users') {
         const existing = await db.users.get(id)
         if (existing) { skipped++; continue }
-        // Strip credential fields from imported user rows before inserting
-        const { passwordHash: _h, passwordSalt: _s, ...safeUser } = record
-        await db.users.add(safeUser as Parameters<typeof db.users.add>[0])
+        if (!record.passwordHash || !record.passwordSalt) { skipped++; continue }
+        await db.users.add(record as Parameters<typeof db.users.add>[0])
         inserted++
         continue
       }
@@ -249,8 +254,9 @@ export function DataImportPage() {
       <div>
         <h1 className="text-lg font-semibold text-surface-100">Data Import / Restore</h1>
         <p className="text-sm text-surface-500 mt-0.5">
-          Restore data from a Meridian JSON backup. Sessions and password credentials are
-          never imported.
+          Restore data from a Meridian JSON backup. Sessions are never imported. User accounts
+          are only restored when the backup contains hashed credentials (Full Export); rows
+          without credentials are skipped to prevent non-operable accounts.
         </p>
       </div>
 

@@ -28,7 +28,7 @@ interface ExportModule {
 }
 
 const MODULES: ExportModule[] = [
-  { key: 'all', label: 'Full Export', description: 'All tables — complete backup' },
+  { key: 'all', label: 'Full Export', description: 'All tables — complete backup (includes hashed credentials; store securely)' },
   { key: 'users', label: 'Users', description: 'User accounts and roles' },
   { key: 'auctions', label: 'Auctions', description: 'Auctions, bids, proxy bids, wallets' },
   { key: 'catalog', label: 'Catalog', description: 'Catalog items, categories, tags' },
@@ -54,7 +54,9 @@ async function gatherData(module: Module): Promise<Record<string, unknown[]>> {
   switch (module) {
     case 'all':
       return {
-        users: (await db.users.toArray()).map(sanitizeUser),
+        // Full backup includes hashed credentials so users can be faithfully restored.
+        // The export file must be stored securely by the operator.
+        users: await db.users.toArray(),
         // sessions omitted — contain auth tokens that must not leave the system
         auctions: await db.auctions.toArray(),
         bids: await db.bids.toArray(),
@@ -160,7 +162,7 @@ export function DataExportPage() {
       <Card>
         <CardHeader
           title="Export Modules"
-          description="Data is exported as JSON with timestamps. Password hashes, salts, and session tokens are always stripped from exports."
+          description="Full Export includes PBKDF2 password hashes for faithful backup/restore — store that file securely. Module-specific exports (e.g. Users only) strip credentials. Session tokens are never exported."
         />
         <div className="space-y-2">
           {MODULES.map((m) => (
