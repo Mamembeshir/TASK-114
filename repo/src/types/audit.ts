@@ -57,6 +57,7 @@ export type AuditEventType =
   | 'system.config_updated'
   | 'system.sensitive_word_added'
   | 'system.sensitive_word_removed'
+  | 'system.data_imported'
 
 export interface AuditLog {
   id: string

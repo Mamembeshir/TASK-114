@@ -34,6 +34,7 @@
  *  /admin/sensitive-words    → SensitiveWordListPage
  *  /admin/audit-log          → AuditLogPage
  *  /admin/export             → DataExportPage
+ *  /admin/import             → DataImportPage
  */
 
 import { lazy, Suspense } from 'react'
@@ -138,6 +139,9 @@ const AuditLogPage = lazy(() =>
 )
 const DataExportPage = lazy(() =>
   import('@/pages/admin/DataExportPage').then((m) => ({ default: m.DataExportPage })),
+)
+const DataImportPage = lazy(() =>
+  import('@/pages/admin/DataImportPage').then((m) => ({ default: m.DataImportPage })),
 )
 
 // ── Loading fallback ───────────────────────────────────────────────────────────
@@ -453,6 +457,14 @@ function matchRoute(path: string): React.ReactNode {
     return (
       <PermissionGuard permission="manageSystem">
         <DataExportPage />
+      </PermissionGuard>
+    )
+
+  // /admin/import
+  if (path === '/admin/import')
+    return (
+      <PermissionGuard permission="manageSystem">
+        <DataImportPage />
       </PermissionGuard>
     )
 

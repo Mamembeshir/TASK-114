@@ -15,6 +15,7 @@ import {
   Settings,
   Shield,
   ShieldAlert,
+  Upload,
   Users,
 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
@@ -149,6 +150,12 @@ const NAV_ITEMS: NavItem[] = [
     label: 'Data Export',
     icon: Database,
     to: '/admin/export',
+    permission: 'manageSystem',
+  },
+  {
+    label: 'Data Import',
+    icon: Upload,
+    to: '/admin/import',
     permission: 'manageSystem',
   },
 ]
