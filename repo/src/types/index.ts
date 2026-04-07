@@ -15,7 +15,7 @@ export type {
   WalletTransactionType,
 } from './auction'
 
-export type { CatalogItem, CatalogItemStatus, Category, Tag } from './catalog'
+export type { CatalogItem, CatalogItemStatus, ModerationStatus, Category, Tag } from './catalog'
 
 export type {
   Publication,
@@ -27,6 +27,7 @@ export type {
 
 export type {
   Document,
+  DocumentTemplate,
   DocumentVersion,
   DocumentStatus,
   CheckoutRecord,

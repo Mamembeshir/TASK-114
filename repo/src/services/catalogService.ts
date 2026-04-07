@@ -36,6 +36,7 @@ export async function createCatalogItem(
     ...input,
     status: 'Draft',
     moderationFlags,
+    moderationStatus: 'Pending',
     salesCount: 0,
     ratingScore: 0,
     ratingCount: 0,
@@ -61,6 +62,7 @@ export async function updateCatalogItem(
   actorId: string,
   actorName: string,
 ): Promise<void> {
+  requirePermission('createCatalogItem')
   const item = await db.catalogItems.get(id)
   if (!item) throw new Error('Catalog item not found')
   if (item.status === 'Archived') throw new Error('Cannot edit an archived item')
@@ -70,7 +72,13 @@ export async function updateCatalogItem(
     ...(updates.tags ?? item.tags),
   ]
   const moderationFlags = await moderateContent(textsToCheck)
-  await db.catalogItems.update(id, { ...updates, moderationFlags, updatedAt: Date.now() })
+  // If the flag set changed (new flags or flags cleared), the prior reviewer
+  // decision is no longer valid — reset to Pending for a fresh review cycle.
+  const flagsChanged =
+    moderationFlags.length !== item.moderationFlags.length ||
+    moderationFlags.some((f) => !item.moderationFlags.includes(f))
+  const moderationStatus = flagsChanged ? 'Pending' : item.moderationStatus
+  await db.catalogItems.update(id, { ...updates, moderationFlags, moderationStatus, updatedAt: Date.now() })
   await writeAuditLog({
     eventType: 'catalog.updated',
     actorId,
@@ -86,12 +94,15 @@ export async function publishCatalogItem(
   actorId: string,
   actorName: string,
 ): Promise<void> {
+  requirePermission('moderateCatalogItem')
   const item = await db.catalogItems.get(id)
   if (!item) throw new Error('Catalog item not found')
   if (item.status !== 'Draft') throw new Error('Only Draft items can be published')
-  if (item.moderationFlags.length > 0)
+  if (item.moderationStatus === 'ReviewerRejected')
+    throw new Error('Cannot publish: item was rejected by a reviewer — edit the content to start a new review cycle')
+  if (item.moderationFlags.length > 0 && item.moderationStatus !== 'ReviewerApproved')
     throw new Error(
-      `Cannot publish: item has moderation flags — ${item.moderationFlags.join(', ')}`,
+      `Cannot publish: item has unreviewed moderation flags — ${item.moderationFlags.join(', ')}`,
     )
   await db.catalogItems.update(id, { status: 'Active', updatedAt: Date.now() })
   await writeAuditLog({
@@ -109,6 +120,7 @@ export async function archiveCatalogItem(
   actorId: string,
   actorName: string,
 ): Promise<void> {
+  requirePermission('manageCatalog')
   const item = await db.catalogItems.get(id)
   if (!item) throw new Error('Catalog item not found')
   if (item.status === 'Archived') return
@@ -128,6 +140,7 @@ export async function restoreCatalogItem(
   actorId: string,
   actorName: string,
 ): Promise<void> {
+  requirePermission('manageCatalog')
   const item = await db.catalogItems.get(id)
   if (!item) throw new Error('Catalog item not found')
   if (item.status !== 'Archived') throw new Error('Only Archived items can be restored')
@@ -139,5 +152,57 @@ export async function restoreCatalogItem(
     entityType: 'CatalogItem',
     entityId: id,
     description: `${actorName} restored catalog item "${item.title}" to Draft`,
+  })
+}
+
+/**
+ * Reviewer approves the moderation flags on a flagged catalog item.
+ * The item may then be published despite having flags.
+ */
+export async function approveModerationFlags(
+  id: string,
+  actorId: string,
+  actorName: string,
+): Promise<void> {
+  requirePermission('moderateCatalogItem')
+  const item = await db.catalogItems.get(id)
+  if (!item) throw new Error('Catalog item not found')
+  if (item.moderationFlags.length === 0) throw new Error('Item has no moderation flags to review')
+  if (item.status === 'Archived') throw new Error('Cannot review an archived item')
+  await db.catalogItems.update(id, { moderationStatus: 'ReviewerApproved', updatedAt: Date.now() })
+  await writeAuditLog({
+    eventType: 'catalog.moderation_approved',
+    actorId,
+    actorName,
+    entityType: 'CatalogItem',
+    entityId: id,
+    description: `${actorName} approved moderation flags on catalog item "${item.title}"`,
+    metadata: { flags: item.moderationFlags },
+  })
+}
+
+/**
+ * Reviewer rejects the flagged catalog item — publishing is blocked until the
+ * content is edited (which resets moderationStatus back to Pending).
+ */
+export async function rejectModerationFlags(
+  id: string,
+  actorId: string,
+  actorName: string,
+): Promise<void> {
+  requirePermission('moderateCatalogItem')
+  const item = await db.catalogItems.get(id)
+  if (!item) throw new Error('Catalog item not found')
+  if (item.moderationFlags.length === 0) throw new Error('Item has no moderation flags to review')
+  if (item.status === 'Archived') throw new Error('Cannot review an archived item')
+  await db.catalogItems.update(id, { moderationStatus: 'ReviewerRejected', updatedAt: Date.now() })
+  await writeAuditLog({
+    eventType: 'catalog.moderation_rejected',
+    actorId,
+    actorName,
+    entityType: 'CatalogItem',
+    entityId: id,
+    description: `${actorName} rejected moderation flags on catalog item "${item.title}"`,
+    metadata: { flags: item.moderationFlags },
   })
 }

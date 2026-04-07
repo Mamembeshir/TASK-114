@@ -147,11 +147,23 @@ export function CatalogManagementPage() {
               Edit
             </Button>
           )}
-          {r.item.status === 'Draft' && canCreate && (
-            <Button variant="ghost" size="sm" onClick={() => void handlePublish(r.item.id)}>
-              Publish
-            </Button>
+          {r.item.status === 'Draft' &&
+            canCreate &&
+            r.item.moderationStatus !== 'ReviewerRejected' &&
+            (r.item.moderationFlags.length === 0 ||
+              r.item.moderationStatus === 'ReviewerApproved') && (
+              <Button variant="ghost" size="sm" onClick={() => void handlePublish(r.item.id)}>
+                Publish
+              </Button>
+            )}
+          {r.item.status === 'Draft' && r.item.moderationStatus === 'ReviewerRejected' && (
+            <span className="text-xs text-danger-400 px-1">Rejected</span>
           )}
+          {r.item.status === 'Draft' &&
+            r.item.moderationFlags.length > 0 &&
+            r.item.moderationStatus === 'Pending' && (
+              <span className="text-xs text-warning-400 px-1">Awaiting review</span>
+            )}
           {r.item.status === 'Active' && canManage && (
             <Button variant="ghost" size="sm" onClick={() => void handleArchive(r.item.id)}>
               Archive

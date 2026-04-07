@@ -2,6 +2,17 @@
 
 export type CatalogItemStatus = 'Draft' | 'Active' | 'Archived'
 
+/**
+ * Reviewer disposition for flagged content.
+ * - Pending: flags present, awaiting reviewer decision (also the state when no
+ *   flags exist and no review has been done — publish is permitted flag-free).
+ * - ReviewerApproved: reviewer explicitly cleared the flags; publishing allowed
+ *   even while flag list is non-empty.
+ * - ReviewerRejected: reviewer blocked this item; must be edited to clear flags
+ *   before a new review cycle can proceed.
+ */
+export type ModerationStatus = 'Pending' | 'ReviewerApproved' | 'ReviewerRejected'
+
 export interface CatalogItem {
   id: string
   title: string
@@ -17,6 +28,8 @@ export interface CatalogItem {
   status: CatalogItemStatus
   /** Words flagged by the moderation engine */
   moderationFlags: string[]
+  /** Reviewer disposition for flagged content — see ModerationStatus */
+  moderationStatus: ModerationStatus
   /** Number of times this item has been sold (updated by auction/order service) */
   salesCount: number
   /** Cumulative rating score (sum of all ratings) — divide by ratingCount for average */

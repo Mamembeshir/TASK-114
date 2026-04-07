@@ -1,19 +1,32 @@
 /**
  * ModerationQueuePage — shows all catalog items with unresolved moderation flags.
+ * Reviewers can approve or reject each flagged item from here.
  * Visible to Reviewers and Administrators.
  */
 import { useEffect, useState } from 'react'
 import { ShieldAlert } from 'lucide-react'
+import { toast } from 'sonner'
+import { useAuthStore } from '@/store/authStore'
 import { useTabStore } from '@/store/tabStore'
 import { db } from '@/db'
-import { Badge, Card, EmptyState, Table } from '@/components/ui'
+import { approveModerationFlags, rejectModerationFlags } from '@/services/catalogService'
+import { Badge, Button, Card, EmptyState, Table } from '@/components/ui'
 import type { ColumnDef } from '@/components/ui'
-import type { CatalogItem, CatalogItemStatus } from '@/types'
+import type { CatalogItem, CatalogItemStatus, ModerationStatus } from '@/types'
 
 const STATUS_VARIANTS: Record<CatalogItemStatus, 'default' | 'success' | 'danger' | 'warning'> = {
   Draft: 'warning',
   Active: 'success',
   Archived: 'default',
+}
+
+const MODERATION_VARIANTS: Record<
+  ModerationStatus,
+  'default' | 'primary' | 'success' | 'warning' | 'danger' | 'info'
+> = {
+  Pending: 'warning',
+  ReviewerApproved: 'success',
+  ReviewerRejected: 'danger',
 }
 
 interface Row {
@@ -22,23 +35,55 @@ interface Row {
 }
 
 export function ModerationQueuePage() {
+  const currentUser = useAuthStore((s) => s.currentUser)
   const { openTab } = useTabStore()
   const [rows, setRows] = useState<Row[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [acting, setActing] = useState<string | null>(null)
+
+  const load = async () => {
+    setIsLoading(true)
+    const [items, cats] = await Promise.all([db.catalogItems.toArray(), db.categories.toArray()])
+    const catMap = new Map(cats.map((c) => [c.id, c.name]))
+    const flagged = items
+      .filter((item) => item.moderationFlags.length > 0 && item.status !== 'Archived')
+      .sort((a, b) => b.updatedAt - a.updatedAt)
+      .map((item) => ({ item, categoryName: catMap.get(item.categoryId) ?? '—' }))
+    setRows(flagged)
+    setIsLoading(false)
+  }
 
   useEffect(() => {
-    const load = async () => {
-      const [items, cats] = await Promise.all([db.catalogItems.toArray(), db.categories.toArray()])
-      const catMap = new Map(cats.map((c) => [c.id, c.name]))
-      const flagged = items
-        .filter((item) => item.moderationFlags.length > 0 && item.status !== 'Archived')
-        .sort((a, b) => b.updatedAt - a.updatedAt)
-        .map((item) => ({ item, categoryName: catMap.get(item.categoryId) ?? '—' }))
-      setRows(flagged)
-      setIsLoading(false)
-    }
     void load()
   }, [])
+
+  if (!currentUser) return null
+
+  const handleApprove = async (id: string) => {
+    setActing(id)
+    try {
+      await approveModerationFlags(id, currentUser.id, currentUser.displayName)
+      toast.success('Flags approved — item may now be published')
+      void load()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to approve')
+    } finally {
+      setActing(null)
+    }
+  }
+
+  const handleReject = async (id: string) => {
+    setActing(id)
+    try {
+      await rejectModerationFlags(id, currentUser.id, currentUser.displayName)
+      toast.success('Item rejected — editor must revise content')
+      void load()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to reject')
+    } finally {
+      setActing(null)
+    }
+  }
 
   const columns: ColumnDef<Row>[] = [
     {
@@ -66,6 +111,16 @@ export function ModerationQueuePage() {
       cell: (r) => <Badge variant={STATUS_VARIANTS[r.item.status]}>{r.item.status}</Badge>,
     },
     {
+      key: 'moderation',
+      header: 'Review',
+      width: 'w-36',
+      cell: (r) => (
+        <Badge variant={MODERATION_VARIANTS[r.item.moderationStatus]}>
+          {r.item.moderationStatus}
+        </Badge>
+      ),
+    },
+    {
       key: 'flags',
       header: 'Flagged Words',
       cell: (r) => (
@@ -88,13 +143,34 @@ export function ModerationQueuePage() {
       cell: (r) => <span className="text-surface-400 text-sm">{r.categoryName}</span>,
     },
     {
-      key: 'updated',
-      header: 'Last Updated',
-      width: 'w-36',
+      key: 'actions',
+      header: '',
+      width: 'w-44',
       cell: (r) => (
-        <span className="text-surface-500 text-xs">
-          {new Date(r.item.updatedAt).toLocaleString()}
-        </span>
+        <div className="flex items-center gap-1 justify-end">
+          {r.item.moderationStatus !== 'ReviewerApproved' && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => void handleApprove(r.item.id)}
+              isLoading={acting === r.item.id}
+              disabled={acting !== null}
+            >
+              Approve
+            </Button>
+          )}
+          {r.item.moderationStatus !== 'ReviewerRejected' && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => void handleReject(r.item.id)}
+              isLoading={acting === r.item.id}
+              disabled={acting !== null}
+            >
+              Reject
+            </Button>
+          )}
+        </div>
       ),
     },
   ]
@@ -104,7 +180,7 @@ export function ModerationQueuePage() {
       <div>
         <h1 className="text-lg font-semibold text-surface-100">Moderation Queue</h1>
         <p className="text-sm text-surface-500 mt-0.5">
-          Catalog items with unresolved content flags
+          Catalog items with content flags — approve to unblock publishing or reject to require edits
         </p>
       </div>
 
