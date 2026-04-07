@@ -36,6 +36,7 @@ export function PublicationFormPage({ editId, tabId }: Props) {
   const [body, setBody] = useState('')
   const [attachmentUrls, setAttachmentUrls] = useState([''])
   const [audienceRoles, setAudienceRoles] = useState<Role[]>([])
+  const [audienceOrgsInput, setAudienceOrgsInput] = useState('')
   const [audienceTagsInput, setAudienceTagsInput] = useState('')
   const [moderationFlags, setModerationFlags] = useState<string[]>([])
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
@@ -59,6 +60,7 @@ export function PublicationFormPage({ editId, tabId }: Props) {
       setBody(pub.body)
       setAttachmentUrls(pub.attachmentUrls.length ? pub.attachmentUrls : [''])
       setAudienceRoles(pub.audienceRoles ?? [])
+      setAudienceOrgsInput((pub.audienceOrgs ?? []).join(', '))
       setAudienceTagsInput((pub.audienceTags ?? []).join(', '))
       setModerationFlags(pub.moderationFlags)
     })
@@ -68,6 +70,10 @@ export function PublicationFormPage({ editId, tabId }: Props) {
     if (!currentUser || !title.trim()) return // Don't auto-save if no user or empty title
     setIsLoading(true)
     try {
+      const audienceOrgs = audienceOrgsInput
+        .split(',')
+        .map((o) => o.trim())
+        .filter(Boolean)
       const audienceTags = audienceTagsInput
         .split(',')
         .map((t) => t.trim())
@@ -78,6 +84,7 @@ export function PublicationFormPage({ editId, tabId }: Props) {
         body,
         attachmentUrls: attachmentUrls.filter((u) => u.trim()),
         audienceRoles,
+        audienceOrgs,
         audienceTags,
       }
       if (currentIdRef.current) {
@@ -109,7 +116,7 @@ export function PublicationFormPage({ editId, tabId }: Props) {
     } finally {
       setIsLoading(false)
     }
-  }, [title, type, body, attachmentUrls, audienceRoles, audienceTagsInput, currentUser, tabId, closeTab, markDirty])
+  }, [title, type, body, attachmentUrls, audienceRoles, audienceOrgsInput, audienceTagsInput, currentUser, tabId, closeTab, markDirty])
 
   // Auto-save every 30 seconds
   useEffect(() => {
@@ -273,7 +280,7 @@ export function PublicationFormPage({ editId, tabId }: Props) {
       <Card>
         <CardHeader
           title="Audience"
-          description="Restrict visibility by role. Leave all unchecked to broadcast to everyone."
+          description="Restrict visibility by role, organisation, or topic tag. Leave all fields empty to broadcast to everyone."
         />
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
@@ -293,6 +300,16 @@ export function PublicationFormPage({ editId, tabId }: Props) {
               />
             ))}
           </div>
+          <Input
+            label="Organisations (comma-separated)"
+            value={audienceOrgsInput}
+            onChange={(e) => {
+              setAudienceOrgsInput(e.target.value)
+              setDirty(true)
+            }}
+            placeholder="e.g. Finance, Engineering, HR"
+            hint="Leave blank to include all organisations"
+          />
           <Input
             label="Topic tags (comma-separated)"
             value={audienceTagsInput}

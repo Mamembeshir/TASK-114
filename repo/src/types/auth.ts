@@ -17,6 +17,8 @@ export interface User {
   /** Random salt stored as hex */
   passwordSalt: string
   role: Role
+  /** Optional organisational unit — used to scope publication targeting */
+  organization?: string
   isActive: boolean
   /** True when Admin issues a temporary password — user must change on next login */
   isTemporaryPassword: boolean

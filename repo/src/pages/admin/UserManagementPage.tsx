@@ -25,6 +25,7 @@ interface UserDTO {
   displayName: string
   email: string
   role: Role
+  organization?: string
   isActive: boolean
   isTemporaryPassword: boolean
   createdAt: number
@@ -38,6 +39,7 @@ function toDTO(u: User): UserDTO {
     displayName: u.displayName,
     email: u.email,
     role: u.role,
+    organization: u.organization,
     isActive: u.isActive,
     isTemporaryPassword: u.isTemporaryPassword,
     createdAt: u.createdAt,
@@ -62,6 +64,7 @@ interface UserFormState {
   username: string
   email: string
   role: Role
+  organization: string
   password: string
   confirmPassword: string
 }
@@ -71,6 +74,7 @@ const emptyForm = (): UserFormState => ({
   username: '',
   email: '',
   role: Role.Participant,
+  organization: '',
   password: '',
   confirmPassword: '',
 })
@@ -142,6 +146,7 @@ export function UserManagementPage() {
         passwordHash: hash,
         passwordSalt: salt,
         role: form.role,
+        organization: form.organization.trim() || undefined,
         isActive: true,
         isTemporaryPassword: true,
         createdAt: now,
@@ -177,6 +182,7 @@ export function UserManagementPage() {
         displayName: form.displayName.trim(),
         email: form.email.trim(),
         role: form.role,
+        organization: form.organization.trim() || undefined,
         updatedAt: Date.now(),
       })
       await writeAuditLog({
@@ -261,6 +267,7 @@ export function UserManagementPage() {
       displayName: user.displayName,
       email: user.email,
       role: user.role,
+      organization: user.organization ?? '',
     })
     setErrors({})
   }
@@ -287,6 +294,12 @@ export function UserManagementPage() {
       header: 'Role',
       width: 'w-40',
       cell: (u) => <Badge variant={ROLE_VARIANTS[u.role]}>{u.role}</Badge>,
+    },
+    {
+      key: 'org',
+      header: 'Org',
+      width: 'w-32',
+      cell: (u) => <span className="text-xs text-surface-400">{u.organization || '—'}</span>,
     },
     {
       key: 'status',
@@ -435,6 +448,15 @@ export function UserManagementPage() {
             ))}
           </Select>
           <Input
+            label="Organisation"
+            value={form.organization}
+            onChange={(e) => {
+              setForm((f) => ({ ...f, organization: e.target.value }))
+            }}
+            placeholder="e.g. Finance, Engineering, HR"
+            hint="Used for publication targeting. Leave blank if not applicable."
+          />
+          <Input
             label="Password"
             type="password"
             value={form.password}
@@ -508,6 +530,15 @@ export function UserManagementPage() {
               </option>
             ))}
           </Select>
+          <Input
+            label="Organisation"
+            value={form.organization}
+            onChange={(e) => {
+              setForm((f) => ({ ...f, organization: e.target.value }))
+            }}
+            placeholder="e.g. Finance, Engineering, HR"
+            hint="Used for publication targeting. Leave blank if not applicable."
+          />
           <div className="flex justify-end gap-3 pt-2">
             <Button
               variant="secondary"

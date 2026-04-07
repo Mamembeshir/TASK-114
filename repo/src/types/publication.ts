@@ -24,6 +24,11 @@ export interface Publication {
    */
   audienceRoles: Role[]
   /**
+   * Organisations that may see this publication.
+   * Empty array = visible to all organisations (global broadcast).
+   */
+  audienceOrgs: string[]
+  /**
    * Topic tags used for self-serve feed filtering by readers.
    * Also used to scope publications to tagged audiences.
    */

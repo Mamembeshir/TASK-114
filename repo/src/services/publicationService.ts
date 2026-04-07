@@ -76,6 +76,8 @@ export interface CreatePublicationInput {
   attachmentUrls: string[]
   /** Roles that may see this publication. Empty = global broadcast to all roles. */
   audienceRoles: Role[]
+  /** Organisations that may see this publication. Empty = global broadcast to all orgs. */
+  audienceOrgs: string[]
   /** Topic tags for feed filtering. */
   audienceTags: string[]
 }
@@ -110,6 +112,7 @@ export async function createPublication(
     moderationFlags,
     currentVersionId: versionId,
     audienceRoles: input.audienceRoles,
+    audienceOrgs: input.audienceOrgs,
     audienceTags: input.audienceTags,
     createdBy: actorId,
     createdAt: now,
@@ -296,8 +299,11 @@ export async function publishPublication(
   if (pub.status !== 'Approved') throw new Error('Only Approved publications can be published')
 
   const audienceRoles: Role[] = pub.audienceRoles ?? []
-  const audienceDesc =
-    audienceRoles.length > 0 ? `roles: ${audienceRoles.join(', ')}` : 'all roles'
+  const audienceOrgs: string[] = pub.audienceOrgs ?? []
+  const audienceParts: string[] = []
+  if (audienceRoles.length > 0) audienceParts.push(`roles: ${audienceRoles.join(', ')}`)
+  if (audienceOrgs.length > 0) audienceParts.push(`orgs: ${audienceOrgs.join(', ')}`)
+  const audienceDesc = audienceParts.length > 0 ? audienceParts.join(' | ') : 'all users'
 
   await db.publications.update(id, {
     status: 'Published',
@@ -314,10 +320,15 @@ export async function publishPublication(
     description: `${actorName} published "${pub.title}" — audience: ${audienceDesc}`,
   })
 
-  // Notify only users whose role is in the audience (or everyone if no restriction)
+  // Notify only users who match all active audience dimensions:
+  //   role: in audienceRoles (or audienceRoles empty → all roles pass)
+  //   org:  in audienceOrgs  (or audienceOrgs empty  → all orgs pass)
   const allUsers = await db.users.filter((u) => u.isActive).toArray()
   const recipients = allUsers.filter(
-    (u) => u.id !== actorId && (audienceRoles.length === 0 || audienceRoles.includes(u.role)),
+    (u) =>
+      u.id !== actorId &&
+      (audienceRoles.length === 0 || audienceRoles.includes(u.role)) &&
+      (audienceOrgs.length === 0 || (u.organization != null && audienceOrgs.includes(u.organization))),
   )
   await createNotificationForMany(
     recipients.map((u) => u.id),

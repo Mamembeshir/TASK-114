@@ -42,11 +42,18 @@ export function PublicationFeedPage() {
         .reverse()
         .sortBy('publishedAt')
 
-      // Filter by audience role: show pub if it targets all roles (empty array) or includes viewer's role
-      const visible = all.filter(
-        (pub) =>
-          !pub.audienceRoles?.length || (currentUser && pub.audienceRoles.includes(currentUser.role)),
-      )
+      // Filter by audience role + org: a publication is visible when both dimensions pass.
+      // Empty audience array = no restriction (global broadcast) for that dimension.
+      const visible = all.filter((pub) => {
+        const roleOk =
+          !pub.audienceRoles?.length ||
+          (currentUser != null && pub.audienceRoles.includes(currentUser.role))
+        const orgOk =
+          !pub.audienceOrgs?.length ||
+          (currentUser?.organization != null &&
+            pub.audienceOrgs.includes(currentUser.organization))
+        return roleOk && orgOk
+      })
       setPublications(visible)
       setIsLoading(false)
     }
