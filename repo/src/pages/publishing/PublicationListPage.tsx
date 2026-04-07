@@ -27,7 +27,8 @@ const STATUS_VARIANTS: Record<
 export function PublicationListPage() {
   const currentUser = useAuthStore((s) => s.currentUser)
   const { openTab } = useTabStore()
-  const canCreate = usePermission('createCatalogItem') // ContentEditor / Admin
+  const canCreate = usePermission('createPublication')
+  const canPublish = usePermission('managePublications')
   const canReview = usePermission('approvePublication')
 
   const [publications, setPublications] = useState<Publication[]>([])
@@ -138,7 +139,7 @@ export function PublicationListPage() {
               Review
             </Button>
           )}
-          {pub.status === 'Approved' && canCreate && (
+          {pub.status === 'Approved' && canPublish && (
             <Button variant="ghost" size="sm" onClick={() => void handlePublish(pub.id)}>
               Publish
             </Button>

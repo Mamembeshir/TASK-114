@@ -23,10 +23,23 @@ import type { Bid } from '@/types'
 export { subscribeToBidEvents } from './bidChannel'
 export type { BidEvent } from './bidChannel'
 
-// ── Constants ─────────────────────────────────────────────────────────────────
+// ── Constants (fallback defaults when no systemConfig row exists) ─────────────
 
-const SNIPE_WINDOW_MS = 30_000 // 30 seconds before end time
-const SNIPE_EXTENSION_MS = 2 * 60_000 // 2-minute extension
+const DEFAULT_SNIPE_WINDOW_MS = 30_000 // 30 seconds before end time
+const DEFAULT_SNIPE_EXTENSION_MS = 2 * 60_000 // 2-minute extension
+
+/** Read anti-sniping timing from admin-configured systemConfig, falling back to defaults. */
+async function getSnipeConfig(): Promise<{ windowMs: number; extensionMs: number }> {
+  const cfg = await db.systemConfig.get('singleton')
+  return {
+    windowMs: cfg?.antiSnipingWindowSeconds
+      ? cfg.antiSnipingWindowSeconds * 1000
+      : DEFAULT_SNIPE_WINDOW_MS,
+    extensionMs: cfg?.antiSnipingExtensionMinutes
+      ? cfg.antiSnipingExtensionMinutes * 60_000
+      : DEFAULT_SNIPE_EXTENSION_MS,
+  }
+}
 
 // ── Internal helpers ───────────────────────────────────────────────────────────
 
@@ -120,6 +133,9 @@ export async function placeBid(
     }
   }
 
+  // Read admin-configured anti-sniping settings outside the transaction.
+  const { windowMs: snipeWindowMs, extensionMs: snipeExtensionMs } = await getSnipeConfig()
+
   // Pre-compute the encrypted wallet reservation outside the transaction so that
   // Web Crypto `await` calls don't escape Dexie's microtask zone (PrematureCommitError).
   const walletReservation = await prepareReservation(
@@ -204,12 +220,13 @@ export async function placeBid(
         auction.incrementTiers,
       )
 
-      // Anti-sniping: every bid that lands in the final 30 s extends the end time
-      // by 2 minutes. Multiple extensions are allowed — each snipe resets the clock.
+      // Anti-sniping: every bid that lands within the configured window extends
+      // the end time by the configured amount (defaults: 30 s window / 2 min extension).
+      // Multiple extensions are allowed — each snipe resets the clock.
       let extended = false
       let newEndTime = auction.endTime
-      if (auction.endTime - Date.now() <= SNIPE_WINDOW_MS) {
-        newEndTime = auction.endTime + SNIPE_EXTENSION_MS
+      if (auction.endTime - Date.now() <= snipeWindowMs) {
+        newEndTime = auction.endTime + snipeExtensionMs
         extended = true
       }
 

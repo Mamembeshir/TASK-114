@@ -38,7 +38,7 @@ export function ReviewDetailPage({ publicationId }: Props) {
   const currentUser = useAuthStore((s) => s.currentUser)
   const { closeTab, tabs, activeTabId } = useTabStore()
   const canReview = usePermission('approvePublication')
-  const canPublish = usePermission('createCatalogItem') // ContentEditor / Admin
+  const canPublish = usePermission('managePublications')
 
   const [pub, setPub] = useState<Publication | null>(null)
   const [versions, setVersions] = useState<PublicationVersion[]>([])
