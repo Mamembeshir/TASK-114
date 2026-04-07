@@ -8,6 +8,7 @@
 
 import { create } from 'zustand'
 import { db } from '@/db'
+import { useAuthStore } from '@/store/authStore'
 import { recordReadReceipt } from '@/services/notificationService'
 import type { Notification } from '@/types'
 
@@ -30,6 +31,14 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   isLoading: false,
 
   refresh: async (userId: string) => {
+    // Enforce tenant isolation: only load notifications for the currently-authenticated user.
+    // If the caller passes a different userId (e.g., after a partial logout), the store
+    // returns empty rather than leaking another user's notifications.
+    const currentUser = useAuthStore.getState().currentUser
+    if (!currentUser || currentUser.id !== userId) {
+      set({ notifications: [], unreadCount: 0, isLoading: false })
+      return
+    }
     set({ isLoading: true })
     const all = await db.notifications.where('userId').equals(userId).reverse().sortBy('createdAt')
     set({

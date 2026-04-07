@@ -73,7 +73,13 @@ export async function markNotificationRead(id: string, actorUserId: string): Pro
   await db.notifications.update(id, { isRead: true })
 }
 
-export async function markAllNotificationsRead(userId: string): Promise<void> {
+/**
+ * Mark all of a user's notifications as read.
+ * @param actorUserId - must equal userId; throws if caller tries to mutate another user's notifications.
+ */
+export async function markAllNotificationsRead(userId: string, actorUserId: string): Promise<void> {
+  if (actorUserId !== userId)
+    throw new Error('Forbidden: you can only mark your own notifications as read')
   await db.notifications
     .where('userId')
     .equals(userId)

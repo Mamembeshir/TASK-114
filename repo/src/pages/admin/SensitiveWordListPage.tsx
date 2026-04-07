@@ -7,8 +7,7 @@ import { ShieldAlert, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/store/authStore'
 import { db } from '@/db'
-import { generateId } from '@/crypto'
-import { writeAuditLog } from '@/utils/audit'
+import { addSensitiveWord, deleteSensitiveWord } from '@/services/adminConfigService'
 import { Button, Card, EmptyState, Spinner } from '@/components/ui'
 import type { SensitiveWord } from '@/types'
 
@@ -36,25 +35,11 @@ export function SensitiveWordListPage() {
     if (!word) return
     setIsActing(true)
     try {
-      const existing = await db.sensitiveWords.where('word').equals(word).first()
-      if (existing) {
+      const added = await addSensitiveWord(word, currentUser.id, currentUser.displayName)
+      if (!added) {
         toast.error('Word already in list')
         return
       }
-      await db.sensitiveWords.add({
-        id: generateId(),
-        word,
-        createdBy: currentUser.id,
-        createdAt: Date.now(),
-      })
-      await writeAuditLog({
-        eventType: 'system.sensitive_word_added',
-        actorId: currentUser.id,
-        actorName: currentUser.displayName,
-        entityType: 'SensitiveWord',
-        entityId: word,
-        description: `${currentUser.displayName} added sensitive word "${word}"`,
-      })
       toast.success(`"${word}" added to moderation list`)
       setInput('')
       void load()
@@ -68,15 +53,7 @@ export function SensitiveWordListPage() {
   const handleDelete = async (sw: SensitiveWord) => {
     setIsActing(true)
     try {
-      await db.sensitiveWords.delete(sw.id)
-      await writeAuditLog({
-        eventType: 'system.sensitive_word_removed',
-        actorId: currentUser.id,
-        actorName: currentUser.displayName,
-        entityType: 'SensitiveWord',
-        entityId: sw.word,
-        description: `${currentUser.displayName} removed sensitive word "${sw.word}"`,
-      })
+      await deleteSensitiveWord(sw.id, sw.word, currentUser.id, currentUser.displayName)
       toast.success(`"${sw.word}" removed`)
       void load()
     } catch (err) {

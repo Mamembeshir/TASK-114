@@ -7,7 +7,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/store/authStore'
 import { db } from '@/db'
-import { writeAuditLog } from '@/utils/audit'
+import { saveSystemConfig } from '@/services/adminConfigService'
 import { Button, Card, CardHeader, Input, Spinner } from '@/components/ui'
 import type { SystemConfig } from '@/types'
 
@@ -67,30 +67,7 @@ export function SystemSettingsPage() {
     if (!validate()) return
     setIsSaving(true)
     try {
-      const existing = await db.systemConfig.get('singleton')
-      const updates = {
-        ...config,
-        documentNumberPrefix: config.documentNumberPrefix.trim().toUpperCase(),
-        updatedAt: Date.now(),
-        updatedBy: currentUser.id,
-      }
-      if (existing) {
-        await db.systemConfig.update('singleton', updates)
-      } else {
-        await db.systemConfig.add({
-          id: 'singleton',
-          ...updates,
-          documentNumberCounter: 0,
-        })
-      }
-      await writeAuditLog({
-        eventType: 'system.config_updated',
-        actorId: currentUser.id,
-        actorName: currentUser.displayName,
-        entityType: 'SystemConfig',
-        entityId: 'singleton',
-        description: `${currentUser.displayName} updated system configuration`,
-      })
+      await saveSystemConfig(config, currentUser.id, currentUser.displayName)
       toast.success('Settings saved')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to save')
