@@ -19,6 +19,8 @@ import type { CatalogItem } from '@/types'
 export interface CatalogItemInput {
   title: string
   description: string
+  /** Optional brand / manufacturer name; shown in browse facets. */
+  brand?: string
   categoryId: string
   tags: string[]
   /** Optional structured spec dimensions used for faceted filtering (e.g. { color: 'red', size: 'M' }) */

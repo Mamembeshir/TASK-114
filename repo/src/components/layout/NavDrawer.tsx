@@ -1,5 +1,6 @@
 import {
   Archive,
+  BarChart2,
   Bell,
   ChevronLeft,
   ChevronRight,
@@ -97,6 +98,12 @@ const NAV_ITEMS: NavItem[] = [
       return '/publishing/feed'
     },
     permission: 'viewPublications',
+  },
+  {
+    label: 'Readership Analytics',
+    icon: BarChart2,
+    to: '/publishing/analytics',
+    permission: 'managePublications',
   },
   {
     label: 'Documents',

@@ -20,6 +20,7 @@
  *  /publishing/:id/edit      → PublicationFormPage (edit)
  *  /publishing/:id/review    → ReviewDetailPage
  *  /publishing/queue         → ReviewQueuePage
+ *  /publishing/analytics     → ReadershipsAnalyticsPage
  *  /publishing/feed          → PublicationFeedPage
  *  /publishing               → PublicationListPage
  *  /documents/new            → DocumentFormPage (create)
@@ -99,6 +100,11 @@ const ReviewDetailPage = lazy(() =>
 const PublicationFeedPage = lazy(() =>
   import('@/pages/publishing/PublicationFeedPage').then((m) => ({
     default: m.PublicationFeedPage,
+  })),
+)
+const ReadershipsAnalyticsPage = lazy(() =>
+  import('@/pages/publishing/ReadershipsAnalyticsPage').then((m) => ({
+    default: m.ReadershipsAnalyticsPage,
   })),
 )
 const DocumentListPage = lazy(() =>
@@ -328,6 +334,14 @@ function matchRoute(path: string): React.ReactNode {
     return (
       <PermissionGuard permission="approvePublication">
         <ReviewQueuePage />
+      </PermissionGuard>
+    )
+
+  // /publishing/analytics
+  if (path === '/publishing/analytics')
+    return (
+      <PermissionGuard permission="managePublications">
+        <ReadershipsAnalyticsPage />
       </PermissionGuard>
     )
 

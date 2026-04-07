@@ -26,11 +26,13 @@ export function CatalogItemFormPage({ editId, tabId }: Props) {
 
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
+  const [brand, setBrand] = useState('')
   const [categoryId, setCategoryId] = useState('')
   const [price, setPrice] = useState('')
   const [stock, setStock] = useState('')
   const [tags, setTags] = useState<string[]>([])
   const [tagInput, setTagInput] = useState('')
+  const [specsRows, setSpecsRows] = useState<{ key: string; value: string }[]>([])
   const [imageUrls, setImageUrls] = useState([''])
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [moderationFlags, setModerationFlags] = useState<string[]>([])
@@ -51,10 +53,14 @@ export function CatalogItemFormPage({ editId, tabId }: Props) {
       if (!item) return
       setTitle(item.title)
       setDescription(item.description)
+      setBrand(item.brand ?? '')
       setCategoryId(item.categoryId)
       setPrice(String(item.price))
       setStock(String(item.stock))
       setTags(item.tags)
+      setSpecsRows(
+        item.specs ? Object.entries(item.specs).map(([key, value]) => ({ key, value })) : [],
+      )
       setImageUrls(item.imageUrls.length ? item.imageUrls : [''])
       setModerationFlags(item.moderationFlags)
     })
@@ -75,15 +81,22 @@ export function CatalogItemFormPage({ editId, tabId }: Props) {
     return Object.keys(e).length === 0
   }
 
-  const buildInput = () => ({
-    title: title.trim(),
-    description: description.trim(),
-    categoryId,
-    tags,
-    price: Number(price),
-    stock: Number(stock),
-    imageUrls: imageUrls.filter((u) => u.trim() && !isExternalUrl(u)),
-  })
+  const buildInput = () => {
+    const specs = Object.fromEntries(
+      specsRows.filter((r) => r.key.trim()).map((r) => [r.key.trim(), r.value.trim()]),
+    )
+    return {
+      title: title.trim(),
+      description: description.trim(),
+      brand: brand.trim() || undefined,
+      categoryId,
+      tags,
+      specs: Object.keys(specs).length > 0 ? specs : undefined,
+      price: Number(price),
+      stock: Number(stock),
+      imageUrls: imageUrls.filter((u) => u.trim() && !isExternalUrl(u)),
+    }
+  }
 
   const refreshFlags = async (id: string) => {
     const fresh = await db.catalogItems.get(id)
@@ -272,6 +285,70 @@ export function CatalogItemFormPage({ editId, tabId }: Props) {
             error={errors.price}
             placeholder="0.00"
           />
+        </div>
+      </Card>
+
+      {/* Brand */}
+      <Card>
+        <CardHeader title="Brand / Manufacturer" description="Optional — shown in browse filters" />
+        <Input
+          label=""
+          value={brand}
+          onChange={(e) => {
+            setBrand(e.target.value)
+            setDirty(true)
+          }}
+          placeholder="e.g. Acme Corp"
+        />
+      </Card>
+
+      {/* Specs */}
+      <Card>
+        <CardHeader
+          title="Specifications"
+          description="Key-value attributes used for faceted filtering (e.g. Color → Red, Size → M)"
+        />
+        <div className="space-y-2">
+          {specsRows.map((row, idx) => (
+            <div key={idx} className="flex gap-2">
+              <input
+                className="w-36 bg-surface-800 border border-surface-700 rounded-lg px-3 py-2 text-sm text-surface-100 placeholder-surface-600 focus:outline-none focus:border-primary-500"
+                value={row.key}
+                onChange={(e) => {
+                  const next = [...specsRows]
+                  next[idx] = { ...next[idx], key: e.target.value }
+                  setSpecsRows(next)
+                  setDirty(true)
+                }}
+                placeholder="Attribute"
+              />
+              <input
+                className="flex-1 bg-surface-800 border border-surface-700 rounded-lg px-3 py-2 text-sm text-surface-100 placeholder-surface-600 focus:outline-none focus:border-primary-500"
+                value={row.value}
+                onChange={(e) => {
+                  const next = [...specsRows]
+                  next[idx] = { ...next[idx], value: e.target.value }
+                  setSpecsRows(next)
+                  setDirty(true)
+                }}
+                placeholder="Value"
+              />
+              <button
+                onClick={() => { setSpecsRows(specsRows.filter((_, i) => i !== idx)) }}
+                className="text-surface-500 hover:text-danger-400"
+                aria-label="Remove spec"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => { setSpecsRows([...specsRows, { key: '', value: '' }]) }}
+          >
+            + Add specification
+          </Button>
         </div>
       </Card>
 
