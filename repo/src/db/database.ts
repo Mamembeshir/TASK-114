@@ -2,10 +2,11 @@ import Dexie, { type Table } from 'dexie'
 import type { User, Session } from '@/types/auth'
 import type { AuditLog } from '@/types/audit'
 import type { Auction, Bid, ProxyBid, Wallet, WalletTransaction } from '@/types/auction'
-import type { CatalogItem, Category, Tag } from '@/types/catalog'
+import type { CatalogItem, CatalogReview, Category, Tag } from '@/types/catalog'
 import type { Publication, PublicationVersion, ViewEvent } from '@/types/publication'
 import type {
   Document,
+  DocumentTemplate,
   DocumentVersion,
   CheckoutRecord,
   RetentionPolicy,
@@ -49,6 +50,7 @@ export class MeridianDB extends Dexie {
 
   // ── Catalog ────────────────────────────────────────────────────────────────
   catalogItems!: Table<CatalogItem>
+  catalogReviews!: Table<CatalogReview>
   categories!: Table<Category>
   tags!: Table<Tag>
 
@@ -59,6 +61,7 @@ export class MeridianDB extends Dexie {
 
   // ── Documents ──────────────────────────────────────────────────────────────
   documents!: Table<Document>
+  documentTemplates!: Table<DocumentTemplate>
   documentVersions!: Table<DocumentVersion>
   checkoutRecords!: Table<CheckoutRecord>
   retentionPolicies!: Table<RetentionPolicy>
@@ -180,5 +183,20 @@ export class MeridianDB extends Dexie {
             delete row.reservedAmount
           })
       })
+
+    // Version 4: add *tags multi-entry index to documents for efficient tag queries;
+    // add documentTemplates table for reusable document scaffolding.
+    this.version(4).stores({
+      documents:
+        'id, documentNumber, status, categoryId, checkedOutBy, retentionDueDate, createdBy, createdAt, *tags',
+      documentTemplates: 'id, type, categoryId, createdBy, createdAt',
+    })
+
+    // Version 5: first-class catalog review records.
+    // [itemId+userId] compound index enforces one-review-per-user-per-item query;
+    // uniqueness is enforced in the service layer.
+    this.version(5).stores({
+      catalogReviews: 'id, itemId, userId, [itemId+userId], status, createdAt',
+    })
   }
 }

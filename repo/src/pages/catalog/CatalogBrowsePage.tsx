@@ -8,10 +8,13 @@
  * search events recorded over the past 7 days — top 7 by query count).
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Clock, Search, TrendingUp, X, Package } from 'lucide-react'
+import { Clock, Search, Star, TrendingUp, X, Package } from 'lucide-react'
+import { toast } from 'sonner'
+import { useAuthStore } from '@/store/authStore'
 import { db } from '@/db'
+import { submitReview, listItemReviews, getMyReview } from '@/services/reviewService'
 import { Badge, Card, EmptyState, SkeletonCard } from '@/components/ui'
-import type { CatalogItem, Category } from '@/types'
+import type { CatalogItem, CatalogReview, Category } from '@/types'
 
 type SortOption = 'newest' | 'price_asc' | 'price_desc' | 'top_sellers'
 
@@ -98,12 +101,183 @@ function computeTrendingKeywords(): string[] {
   }
 }
 
+// ── Star rating helpers ────────────────────────────────────────────────────────
+
+function StarDisplay({ score, count }: { score: number; count: number }) {
+  const avg = count > 0 ? score / count : 0
+  return (
+    <div className="flex items-center gap-1">
+      {[1, 2, 3, 4, 5].map((n) => (
+        <Star
+          key={n}
+          className={[
+            'w-3.5 h-3.5',
+            n <= Math.round(avg) ? 'text-yellow-400 fill-yellow-400' : 'text-surface-600',
+          ].join(' ')}
+        />
+      ))}
+      <span className="text-xs text-surface-500 ml-0.5">
+        {count > 0 ? `${avg.toFixed(1)} (${String(count)})` : 'No reviews'}
+      </span>
+    </div>
+  )
+}
+
+function StarInput({ value, onChange }: { value: number; onChange: (n: number) => void }) {
+  const [hover, setHover] = useState(0)
+  return (
+    <div className="flex gap-0.5">
+      {[1, 2, 3, 4, 5].map((n) => (
+        <button
+          key={n}
+          type="button"
+          onMouseEnter={() => { setHover(n) }}
+          onMouseLeave={() => { setHover(0) }}
+          onClick={() => { onChange(n) }}
+          className="p-0.5"
+        >
+          <Star
+            className={[
+              'w-5 h-5 transition-colors',
+              n <= (hover || value) ? 'text-yellow-400 fill-yellow-400' : 'text-surface-600',
+            ].join(' ')}
+          />
+        </button>
+      ))}
+    </div>
+  )
+}
+
+// ── Review panel (per-item expandable) ────────────────────────────────────────
+
+interface ReviewPanelProps {
+  item: CatalogItem
+  currentUserId: string
+  currentUserName: string
+}
+
+function ReviewPanel({ item, currentUserId, currentUserName }: ReviewPanelProps) {
+  const [reviews, setReviews] = useState<CatalogReview[]>([])
+  const [myReview, setMyReview] = useState<CatalogReview | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [rating, setRating] = useState(0)
+  const [comment, setComment] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    const load = async () => {
+      const [approved, mine] = await Promise.all([
+        listItemReviews(item.id),
+        getMyReview(item.id, currentUserId),
+      ])
+      setReviews(approved)
+      setMyReview(mine)
+      if (mine) {
+        setRating(mine.rating)
+        setComment(mine.comment)
+      }
+      setIsLoading(false)
+    }
+    void load()
+  }, [item.id, currentUserId])
+
+  const handleSubmit = async () => {
+    if (rating === 0) { toast.error('Please select a rating'); return }
+    if (!comment.trim()) { toast.error('Please enter a comment'); return }
+    setSubmitting(true)
+    try {
+      const result = await submitReview(item.id, rating, comment.trim(), currentUserId, currentUserName)
+      setMyReview(result)
+      if (result.status === 'Flagged') {
+        toast.warning('Review submitted but contains flagged content — awaiting moderator review')
+      } else {
+        toast.success('Review submitted')
+      }
+      // Refresh approved list
+      const approved = await listItemReviews(item.id)
+      setReviews(approved)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to submit review')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  if (isLoading) {
+    return <p className="text-xs text-surface-600 py-2">Loading reviews…</p>
+  }
+
+  return (
+    <div className="border-t border-surface-800 pt-3 space-y-3">
+      {/* Write / update review */}
+      <div className="space-y-2">
+        <p className="text-xs font-medium text-surface-400">
+          {myReview ? 'Update your review' : 'Write a review'}
+        </p>
+        <StarInput value={rating} onChange={setRating} />
+        <textarea
+          className="w-full bg-surface-800 border border-surface-700 rounded-lg px-3 py-2 text-xs text-surface-100 placeholder-surface-600 focus:outline-none focus:border-primary-500 resize-none"
+          rows={2}
+          placeholder="Share your experience…"
+          value={comment}
+          onChange={(e) => { setComment(e.target.value) }}
+        />
+        <button
+          onClick={() => void handleSubmit()}
+          disabled={submitting}
+          className="px-3 py-1.5 rounded-lg text-xs font-medium bg-primary-600 text-white hover:bg-primary-500 disabled:opacity-50 transition-colors"
+        >
+          {submitting ? 'Submitting…' : myReview ? 'Update' : 'Submit'}
+        </button>
+        {myReview?.status === 'Flagged' && (
+          <p className="text-xs text-warning-400">
+            Your review is under moderation and not yet visible to others.
+          </p>
+        )}
+      </div>
+
+      {/* Approved reviews list */}
+      {reviews.length > 0 ? (
+        <div className="space-y-2">
+          <p className="text-xs font-medium text-surface-500">{String(reviews.length)} review{reviews.length !== 1 ? 's' : ''}</p>
+          {reviews.map((r) => (
+            <div key={r.id} className="rounded-lg bg-surface-800/50 px-3 py-2 space-y-0.5">
+              <div className="flex items-center gap-2">
+                <div className="flex gap-0.5">
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <Star
+                      key={n}
+                      className={[
+                        'w-3 h-3',
+                        n <= r.rating ? 'text-yellow-400 fill-yellow-400' : 'text-surface-600',
+                      ].join(' ')}
+                    />
+                  ))}
+                </div>
+                <span className="text-xs text-surface-400 font-medium">{r.username}</span>
+                <span className="text-xs text-surface-600">
+                  {new Date(r.createdAt).toLocaleDateString()}
+                </span>
+              </div>
+              <p className="text-xs text-surface-300">{r.comment}</p>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-xs text-surface-600">No approved reviews yet.</p>
+      )}
+    </div>
+  )
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function CatalogBrowsePage() {
+  const currentUser = useAuthStore((s) => s.currentUser)
   const [items, setItems] = useState<CatalogItem[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [expandedReviewId, setExpandedReviewId] = useState<string | null>(null)
 
   // Filters
   const [query, setQuery] = useState('')
@@ -523,10 +697,28 @@ export function CatalogBrowsePage() {
                       </div>
                     )}
                   </div>
+                  <StarDisplay score={item.ratingScore} count={item.ratingCount} />
                   <div className="flex items-center justify-between pt-2 border-t border-surface-800">
                     <span className="font-mono font-bold text-surface-100">{item.price}</span>
                     <Badge variant="default">{String(item.stock)} in stock</Badge>
                   </div>
+                  {currentUser && (
+                    <button
+                      onClick={() => {
+                        setExpandedReviewId(expandedReviewId === item.id ? null : item.id)
+                      }}
+                      className="text-xs text-primary-400 hover:underline text-left"
+                    >
+                      {expandedReviewId === item.id ? 'Hide reviews' : 'Reviews'}
+                    </button>
+                  )}
+                  {expandedReviewId === item.id && currentUser && (
+                    <ReviewPanel
+                      item={item}
+                      currentUserId={currentUser.id}
+                      currentUserName={currentUser.displayName}
+                    />
+                  )}
                 </Card>
               ))}
             </div>

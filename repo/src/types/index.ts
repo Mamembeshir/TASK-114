@@ -15,7 +15,15 @@ export type {
   WalletTransactionType,
 } from './auction'
 
-export type { CatalogItem, CatalogItemStatus, ModerationStatus, Category, Tag } from './catalog'
+export type {
+  CatalogItem,
+  CatalogItemStatus,
+  ModerationStatus,
+  CatalogReview,
+  CatalogReviewStatus,
+  Category,
+  Tag,
+} from './catalog'
 
 export type {
   Publication,

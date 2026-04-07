@@ -54,3 +54,23 @@ export interface Tag {
   name: string
   createdAt: number
 }
+
+// ── Catalog Reviews ────────────────────────────────────────────────────────────
+
+export type CatalogReviewStatus = 'Approved' | 'Flagged' | 'Removed'
+
+export interface CatalogReview {
+  id: string
+  itemId: string
+  userId: string
+  /** Denormalized display name — preserved if user is deactivated */
+  username: string
+  /** Integer 1–5 */
+  rating: number
+  comment: string
+  /** Words flagged by the moderation engine on the comment */
+  moderationFlags: string[]
+  status: CatalogReviewStatus
+  createdAt: number
+  updatedAt: number
+}

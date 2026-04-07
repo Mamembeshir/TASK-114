@@ -34,6 +34,8 @@ export type AuditEventType =
   | 'catalog.archived'
   | 'catalog.moderation_approved'
   | 'catalog.moderation_rejected'
+  | 'catalog.review_submitted'
+  | 'catalog.review_removed'
   // Publication events
   | 'publication.created'
   | 'publication.submitted'
