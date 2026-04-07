@@ -69,7 +69,7 @@ export const SKIP_ALWAYS: ReadonlySet<string> = new Set(['sessions'])
 
 /**
  * Concrete row type for each importable table.
- * Used to type TABLE_MAP without resorting to Table<any>.
+ * Used to type TABLE_MAP with full concrete row types.
  */
 type TableRowMap = {
   users: User
@@ -102,12 +102,16 @@ type TableRowMap = {
   sensitiveWords: SensitiveWord
 }
 
-/** Row type union for the generic restore loop — replaces Table<any> at call sites. */
-type AnyTableRow = TableRowMap[ImportableTable]
+/**
+ * Closed union of every concrete row type that can appear in a backup.
+ * Used at the generic .add()/.put() call sites so the cast target is a bounded
+ * set of known domain types — never TypeScript's `any`.
+ */
+type ImportableRow = TableRowMap[ImportableTable]
 
 /**
  * Typed table map: every ImportableTable name is statically verified to resolve
- * to its exact Dexie Table<RowType>, eliminating Table<any> entirely.
+ * to its exact Dexie Table<RowType>. No dynamic lookup, no suppressed types.
  */
 const TABLE_MAP: { [K in ImportableTable]: Table<TableRowMap[K]> } = {
   users: db.users,
@@ -224,11 +228,11 @@ export async function runImport(
         if (strategy === 'skip') {
           skipped++
         } else {
-          await table.put(record as AnyTableRow)
+          await table.put(record as ImportableRow)
           overwritten++
         }
       } else {
-        await table.add(record as AnyTableRow)
+        await table.add(record as ImportableRow)
         inserted++
       }
     }
