@@ -19,6 +19,8 @@ import { getAppKey } from '@/crypto/appKey'
 import { writeAuditLog } from '@/utils/audit'
 import { moderateContent } from '@/utils/moderation'
 import { requirePermission } from '@/utils/permissions'
+import { useAuthStore } from '@/store/authStore'
+import { hasPermission } from '@/auth/permissions'
 import { createNotification, createNotificationForMany } from './notificationService'
 import { Role } from '@/types'
 import type { Document, DocumentTemplate, DocumentVersion } from '@/types'
@@ -285,6 +287,11 @@ export async function updateDocument(
     throw new Error('Document is checked out by another user')
   if (!['Draft', 'Rejected'].includes(doc.status))
     throw new Error('Only Draft or Rejected documents can be edited')
+  // Object-level: editors may only update documents they created;
+  // manageDocuments bypasses this (admin override).
+  const actorRole = useAuthStore.getState().currentUser?.role
+  if (doc.createdBy !== actorId && !hasPermission(actorRole!, 'manageDocuments'))
+    throw new Error('Forbidden: you can only edit documents you created')
 
   const textsToCheck = [updates.title ?? doc.title, updates.body ?? doc.body]
   const moderationFlags = await moderateContent(textsToCheck)
@@ -463,6 +470,9 @@ export async function submitDocumentForReview(
   if (!doc) throw new Error('Document not found')
   if (!['Draft', 'Rejected'].includes(doc.status))
     throw new Error('Only Draft or Rejected documents can be submitted for review')
+  // Object-level: only the author may submit their own document for review.
+  if (doc.createdBy !== actorId)
+    throw new Error('Forbidden: you can only submit documents you created')
 
   const moderationFlags = await moderateContent([doc.title, doc.body])
   if (moderationFlags.length > 0) {
@@ -491,6 +501,9 @@ export async function approveDocument(
   const doc = await readDoc(id)
   if (!doc) throw new Error('Document not found')
   if (doc.status !== 'InReview') throw new Error('Document is not in review')
+  // Self-review prevention: the author must not approve their own work.
+  if (doc.createdBy === actorId)
+    throw new Error('Forbidden: you cannot approve a document you created')
 
   const documentNumber = await assignDocumentNumber()
   const now = Date.now()
@@ -551,6 +564,9 @@ export async function rejectDocument(
   const doc = await readDoc(id)
   if (!doc) throw new Error('Document not found')
   if (doc.status !== 'InReview') throw new Error('Document is not in review')
+  // Self-review prevention: the author must not reject their own work.
+  if (doc.createdBy === actorId)
+    throw new Error('Forbidden: you cannot reject a document you created')
 
   await db.documents.update(id, { status: 'Rejected', updatedAt: Date.now() })
   await writeAuditLog({

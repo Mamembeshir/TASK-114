@@ -12,6 +12,8 @@ import { generateId } from '@/crypto'
 import { writeAuditLog } from '@/utils/audit'
 import { moderateContent } from '@/utils/moderation'
 import { requirePermission } from '@/utils/permissions'
+import { useAuthStore } from '@/store/authStore'
+import { hasPermission } from '@/auth/permissions'
 import type { CatalogItem } from '@/types'
 
 export interface CatalogItemInput {
@@ -66,6 +68,11 @@ export async function updateCatalogItem(
   const item = await db.catalogItems.get(id)
   if (!item) throw new Error('Catalog item not found')
   if (item.status === 'Archived') throw new Error('Cannot edit an archived item')
+  // Object-level: editors may only update items they created;
+  // manageCatalog bypasses this (admin override).
+  const actorRole = useAuthStore.getState().currentUser?.role
+  if (item.createdBy !== actorId && !hasPermission(actorRole!, 'manageCatalog'))
+    throw new Error('Forbidden: you can only edit catalog items you created')
   const textsToCheck = [
     updates.title ?? item.title,
     updates.description ?? item.description,

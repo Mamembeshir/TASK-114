@@ -7,6 +7,8 @@ import { db } from '@/db'
 import { generateId } from '@/crypto'
 import { writeAuditLog } from '@/utils/audit'
 import { requirePermission } from '@/utils/permissions'
+import { useAuthStore } from '@/store/authStore'
+import { hasPermission } from '@/auth/permissions'
 import type { Auction, AuctionStatus, IncrementTier } from '@/types'
 
 export interface CreateAuctionInput {
@@ -68,6 +70,11 @@ export async function updateAuction(
   const auction = await db.auctions.get(id)
   if (!auction) throw new Error('Auction not found')
   if (auction.status !== 'Draft') throw new Error('Only Draft auctions can be edited')
+  // Object-level: editors may only update auctions they created;
+  // manageAuctions bypasses this (admin override).
+  const actorRole = useAuthStore.getState().currentUser?.role
+  if (auction.createdBy !== actorId && !hasPermission(actorRole!, 'manageAuctions'))
+    throw new Error('Forbidden: you can only edit auctions you created')
 
   await db.auctions.update(id, { ...changes, updatedAt: Date.now() })
   await writeAuditLog({

@@ -14,6 +14,8 @@ import { generateId } from '@/crypto'
 import { writeAuditLog } from '@/utils/audit'
 import { moderateContent } from '@/utils/moderation'
 import { requirePermission } from '@/utils/permissions'
+import { useAuthStore } from '@/store/authStore'
+import { hasPermission } from '@/auth/permissions'
 import { createNotification, createNotificationForMany } from './notificationService'
 import type { Publication, PublicationType, WorkflowStatus } from '@/types'
 import type { Role } from '@/types'
@@ -138,6 +140,11 @@ export async function updatePublication(
   if (!pub) throw new Error('Publication not found')
   if (pub.status !== 'Draft' && pub.status !== 'Rejected')
     throw new Error('Only Draft or Rejected publications can be edited')
+  // Object-level: editors may only update their own publications;
+  // managePublications bypasses this (admin override).
+  const actorRole = useAuthStore.getState().currentUser?.role
+  if (pub.createdBy !== actorId && !hasPermission(actorRole!, 'managePublications'))
+    throw new Error('Forbidden: you can only edit publications you created')
 
   const textsToCheck = [updates.title ?? pub.title, updates.body ?? pub.body]
   const moderationFlags = await moderateContent(textsToCheck)
@@ -169,6 +176,9 @@ export async function submitForReview(
   if (!pub) throw new Error('Publication not found')
   if (pub.status !== 'Draft' && pub.status !== 'Rejected')
     throw new Error('Only Draft or Rejected publications can be submitted for review')
+  // Object-level: only the author may submit their own publication for review.
+  if (pub.createdBy !== actorId)
+    throw new Error('Forbidden: you can only submit publications you created')
 
   // Run moderation before submit
   const moderationFlags = await moderateContent([pub.title, pub.body])
@@ -205,6 +215,9 @@ export async function approvePublication(
   const pub = await db.publications.get(id)
   if (!pub) throw new Error('Publication not found')
   if (pub.status !== 'InReview') throw new Error('Publication is not in review')
+  // Self-review prevention: the author must not approve their own work.
+  if (pub.createdBy === actorId)
+    throw new Error('Forbidden: you cannot approve a publication you created')
 
   const versionId = await snapshotVersion(pub, 'Approved', actorId, comment)
   await db.publications.update(id, {
@@ -242,6 +255,9 @@ export async function rejectPublication(
   const pub = await db.publications.get(id)
   if (!pub) throw new Error('Publication not found')
   if (pub.status !== 'InReview') throw new Error('Publication is not in review')
+  // Self-review prevention: the author must not reject their own work.
+  if (pub.createdBy === actorId)
+    throw new Error('Forbidden: you cannot reject a publication you created')
 
   const versionId = await snapshotVersion(pub, 'Rejected', actorId, comment)
   await db.publications.update(id, {
