@@ -14,7 +14,7 @@ import {
   markOutboundFailed,
   markOutboundSent,
   requeueOutbound,
-  queueOutboundMessage,
+  composeOutboundMessage,
   renderTemplate,
 } from '@/services/notificationService'
 import { Badge, Button, EmptyState, Table } from '@/components/ui'
@@ -119,7 +119,7 @@ export function OutboundQueuePage() {
 
     setComposing(true)
     try {
-      await queueOutboundMessage({
+      await composeOutboundMessage({
         channel: composeChannel,
         recipientUserId: composeRecipientUserId.trim(),
         recipientAddress: composeRecipientAddress.trim(),

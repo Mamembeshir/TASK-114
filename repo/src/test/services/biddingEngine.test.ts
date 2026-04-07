@@ -45,7 +45,7 @@ async function seedAuction(overrides: Partial<Auction> = {}): Promise<Auction> {
 
 async function seedWallet(userId: string): Promise<void> {
   await ensureWallet(userId)
-  await creditWallet(userId, 10_000, 'Test seed', 'system')
+  await creditWallet(userId, 10_000, 'Test seed')
 }
 
 // ── Setup ─────────────────────────────────────────────────────────────────────
@@ -62,6 +62,17 @@ beforeEach(async () => {
     db.auditLogs.clear(),
     db.auctionLocks.clear(),
   ])
+  // creditWallet requires manageWallets permission — set Administrator for wallet seeding
+  useAuthStore.setState({
+    currentUser: {
+      id: 'admin-1',
+      username: 'admin',
+      displayName: 'Admin',
+      role: Role.Administrator,
+      isActive: true,
+      createdAt: Date.now(),
+    },
+  } as Parameters<typeof useAuthStore.setState>[0])
 })
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -247,10 +258,12 @@ describe('setProxyBid — permission guard', () => {
   })
 
   it('allows Participant to call setProxyBid', async () => {
-    useAuthStore.setState({ currentUser: makeUser(Role.Participant) })
+    // Seed wallet as Administrator (requires manageWallets), then switch to Participant
+    useAuthStore.setState({ currentUser: makeUser(Role.Administrator) })
     await seedAuction()
     await seedWallet(`user-${Role.Participant}`)
 
+    useAuthStore.setState({ currentUser: makeUser(Role.Participant) })
     const result = await setProxyBid('auction-1', `user-${Role.Participant}`, 'Participant', 200, 50, 0)
     expect(result.success).toBe(true)
   })

@@ -19,11 +19,24 @@ import {
   processScheduledQueue,
   requeueOutbound,
 } from '@/services/notificationService'
+import { useAuthStore } from '@/store/authStore'
+import { Role } from '@/types'
 
 // ── Setup ─────────────────────────────────────────────────────────────────────
 
 beforeEach(async () => {
   await db.outboundQueue.clear()
+  // requeueOutbound and other management mutators require manageMessages — set Administrator
+  useAuthStore.setState({
+    currentUser: {
+      id: 'admin-1',
+      username: 'admin',
+      displayName: 'Admin',
+      role: Role.Administrator,
+      isActive: true,
+      createdAt: Date.now(),
+    },
+  } as Parameters<typeof useAuthStore.setState>[0])
 })
 
 // ── Scheduling on queue creation ──────────────────────────────────────────────

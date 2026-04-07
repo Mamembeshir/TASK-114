@@ -9,6 +9,7 @@
 import { db } from '@/db'
 import { generateId } from '@/crypto'
 import { useAuthStore } from '@/store/authStore'
+import { requirePermission } from '@/utils/permissions'
 import type { NotificationType, OutboundChannel, NotificationTemplate } from '@/types'
 import { RETRY_DELAYS_MS } from '@/types'
 
@@ -195,6 +196,7 @@ export async function queueOutboundMessage(input: QueueOutboundInput): Promise<v
 }
 
 export async function markOutboundSent(id: string): Promise<void> {
+  requirePermission('manageMessages')
   await db.outboundQueue.update(id, { status: 'Sent', sentAt: Date.now() })
 }
 
@@ -204,6 +206,7 @@ export async function markOutboundSent(id: string): Promise<void> {
  * to permanent `Failed`.
  */
 export async function markOutboundFailed(id: string): Promise<void> {
+  requirePermission('manageMessages')
   const item = await db.outboundQueue.get(id)
   if (!item) return
   const attempts = item.attemptCount + 1
@@ -228,6 +231,7 @@ export async function markOutboundFailed(id: string): Promise<void> {
 
 /** Manually re-queue a Failed or Scheduled item, resetting its attempt counter. */
 export async function requeueOutbound(id: string): Promise<void> {
+  requirePermission('manageMessages')
   await db.outboundQueue.update(id, {
     status: 'Queued',
     attemptCount: 0,
@@ -287,16 +291,30 @@ export function stopOutboundRetryTimer(): void {
 }
 
 export async function deleteOutboundItem(id: string): Promise<void> {
+  requirePermission('manageMessages')
   await db.outboundQueue.delete(id)
 }
 
 export async function bulkMarkOutboundSent(ids: string[]): Promise<void> {
+  requirePermission('manageMessages')
   const now = Date.now()
   await db.outboundQueue.where('id').anyOf(ids).modify({ status: 'Sent', sentAt: now })
 }
 
 export async function bulkDeleteOutbound(ids: string[]): Promise<void> {
+  requirePermission('manageMessages')
   await db.outboundQueue.where('id').anyOf(ids).delete()
+}
+
+/**
+ * Compose and enqueue an outbound message from a user-initiated action
+ * (e.g., the Outbound Queue compose form).
+ * Requires the 'sendMessage' permission — use this instead of calling
+ * `queueOutboundMessage` directly from UI code.
+ */
+export async function composeOutboundMessage(input: QueueOutboundInput): Promise<void> {
+  requirePermission('sendMessage')
+  await queueOutboundMessage(input)
 }
 
 // ── Subscription preferences ──────────────────────────────────────────────────

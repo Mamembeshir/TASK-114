@@ -23,7 +23,7 @@ async function endAndClose(auctionId: string): Promise<void> {
 
 async function seedWallet(userId: string, balance = 10_000): Promise<void> {
   await ensureWallet(userId)
-  if (balance > 0) await creditWallet(userId, balance, 'Test seed', 'system')
+  if (balance > 0) await creditWallet(userId, balance, 'Test seed')
 }
 
 function auctionPayload(overrides = {}) {

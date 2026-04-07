@@ -127,10 +127,10 @@ export function WalletPage() {
     setIsSubmitting(true)
     try {
       if (modalType === 'credit') {
-        await creditWallet(targetUserId, amt, description, currentUser.id)
+        await creditWallet(targetUserId, amt, description)
         toast.success('Wallet credited')
       } else {
-        await debitWallet(targetUserId, amt, description, currentUser.id)
+        await debitWallet(targetUserId, amt, description)
         toast.success('Wallet debited')
       }
       setModalOpen(false)

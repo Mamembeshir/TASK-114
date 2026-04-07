@@ -17,6 +17,8 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { db } from '@/db'
 import { placeBid } from '@/services/biddingEngine'
 import { ensureWallet, creditWallet } from '@/services/walletService'
+import { useAuthStore } from '@/store/authStore'
+import { Role } from '@/types'
 import type { Auction, SystemConfig } from '@/types'
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -51,7 +53,7 @@ async function seedAuction(overrides: Partial<Auction> = {}): Promise<Auction> {
 
 async function seedWallet(userId: string): Promise<void> {
   await ensureWallet(userId)
-  await creditWallet(userId, 10_000, 'Seed', 'system')
+  await creditWallet(userId, 10_000, 'Seed')
 }
 
 function makeConfig(overrides: Partial<SystemConfig> = {}): SystemConfig {
@@ -84,6 +86,17 @@ beforeEach(async () => {
     db.systemConfig.clear(),
     db.auctionLocks.clear(),
   ])
+  // creditWallet requires manageWallets permission — set Administrator for wallet seeding
+  useAuthStore.setState({
+    currentUser: {
+      id: 'admin-1',
+      username: 'admin',
+      displayName: 'Admin',
+      role: Role.Administrator,
+      isActive: true,
+      createdAt: Date.now(),
+    },
+  } as Parameters<typeof useAuthStore.setState>[0])
 })
 
 // ── Tests ──────────────────────────────────────────────────────────────────────

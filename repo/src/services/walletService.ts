@@ -17,6 +17,8 @@ import { db } from '@/db'
 import { generateId } from '@/crypto'
 import { encrypt, decrypt } from '@/crypto/encryption'
 import { getAppKey } from '@/crypto/appKey'
+import { useAuthStore } from '@/store/authStore'
+import { requirePermission } from '@/utils/permissions'
 import type { Wallet, WalletDecrypted, WalletTransactionType } from '@/types'
 
 // ── Encryption helpers ────────────────────────────────────────────────────────
@@ -87,14 +89,15 @@ export async function getWallet(userId: string): Promise<WalletDecrypted | null>
   return w ? decryptWallet(w) : null
 }
 
-/** Credit (add funds) to a user's wallet. Admin-initiated manual top-up. */
+/** Credit (add funds) to a user's wallet. Restricted to users with manageWallets permission. */
 export async function creditWallet(
   userId: string,
   amount: number,
   description: string,
-  actorId: string,
   relatedAuctionId?: string,
 ): Promise<void> {
+  requirePermission('manageWallets')
+  const actorId = useAuthStore.getState().currentUser!.id
   if (amount <= 0) throw new Error('Credit amount must be positive')
   await ensureWallet(userId)
 
@@ -118,14 +121,15 @@ export async function creditWallet(
   )
 }
 
-/** Debit (remove funds) from a user's wallet. Throws if insufficient available balance. */
+/** Debit (remove funds) from a user's wallet. Restricted to users with manageWallets permission. */
 export async function debitWallet(
   userId: string,
   amount: number,
   description: string,
-  actorId: string,
   relatedAuctionId?: string,
 ): Promise<void> {
+  requirePermission('manageWallets')
+  const actorId = useAuthStore.getState().currentUser!.id
   if (amount <= 0) throw new Error('Debit amount must be positive')
 
   const wallet = await db.wallets.where('userId').equals(userId).first()
