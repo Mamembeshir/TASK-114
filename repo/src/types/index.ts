@@ -8,6 +8,7 @@ export type {
   Auction,
   AuctionStatus,
   Bid,
+  IncrementTier,
   ProxyBid,
   Wallet,
   WalletDecrypted,

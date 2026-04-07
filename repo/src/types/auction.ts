@@ -1,5 +1,18 @@
 // ── Auction System ────────────────────────────────────────────────────────────
 
+/**
+ * A single tier in a price-banded minimum increment schedule.
+ * Tiers must be listed in ascending `upTo` order; the last tier must have
+ * `upTo: null` to serve as the catch-all "above all bands" rule.
+ */
+export interface IncrementTier {
+  /** Upper bound of this tier (current price must be strictly less than this value).
+   *  `null` means "all prices above the previous tier's upper bound". */
+  upTo: number | null
+  /** Minimum bid increment required when the current price falls in this tier. */
+  increment: number
+}
+
 export type AuctionStatus =
   | 'Draft'
   | 'Active'
@@ -19,6 +32,13 @@ export interface Auction {
   startPrice: number
   currentPrice: number
   minimumIncrement: number
+  /**
+   * Optional tiered minimum-increment schedule keyed by price band.
+   * When present and non-empty, the engine uses this instead of `minimumIncrement`.
+   * Tiers are evaluated in order; the first whose `upTo` exceeds `currentPrice`
+   * (or whose `upTo` is null) determines the required increment.
+   */
+  incrementTiers?: IncrementTier[]
   /** Deposit amount held on win (deducted only on award per decision #2) */
   depositAmount: number
   startTime: number

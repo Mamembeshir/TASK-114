@@ -13,6 +13,7 @@ import { db } from '@/db'
 import { generateId } from '@/crypto'
 import { writeAuditLog } from '@/utils/audit'
 import { requirePermission } from '@/utils/permissions'
+import { getMinimumIncrement } from '@/utils/increment'
 import { prepareReservation, applyReservationInTx } from './walletService'
 import type { PreparedReservation } from './walletService'
 import { broadcast } from './bidChannel'
@@ -52,12 +53,14 @@ async function insertBid(
 /**
  * After a manual bid at `incomingAmount` from `incomingBidderId`, check whether
  * a competing proxy can outbid it and auto-counter if so.
+ * Uses the tier-aware increment so proxy counter-bids also respect price bands.
  */
 async function resolveProxies(
   auctionId: string,
   incomingAmount: number,
   incomingBidderId: string,
   minimumIncrement: number,
+  incrementTiers?: import('@/types').IncrementTier[],
 ): Promise<{ winningBidderId: string; winningAmount: number; counterBid: Bid | null }> {
   const proxies = await db.proxyBids
     .where('auctionId')
@@ -73,8 +76,10 @@ async function resolveProxies(
     return { winningBidderId: incomingBidderId, winningAmount: incomingAmount, counterBid: null }
   }
 
+  // Counter-bid increment is tier-aware: use the increment band for the incoming price
+  const counterIncrement = getMinimumIncrement(incomingAmount, incrementTiers, minimumIncrement)
   // Competing proxy outbids — raise just enough above incoming
-  const counterAmount = Math.min(top.maxAmount, incomingAmount + minimumIncrement)
+  const counterAmount = Math.min(top.maxAmount, incomingAmount + counterIncrement)
   const counterBid = await insertBid(auctionId, top.bidderId, counterAmount, true, generateId())
 
   return { winningBidderId: top.bidderId, winningAmount: counterAmount, counterBid }
@@ -155,12 +160,17 @@ export async function placeBid(
         }
       }
 
-      const minRequired = auction.currentPrice + auction.minimumIncrement
+      const minIncrement = getMinimumIncrement(
+        auction.currentPrice,
+        auction.incrementTiers,
+        auction.minimumIncrement,
+      )
+      const minRequired = auction.currentPrice + minIncrement
       if (amount < minRequired) {
         return {
           success: false,
           newPrice: auction.currentPrice,
-          message: `Minimum bid is ${String(minRequired)}`,
+          message: `Minimum bid is ${String(minRequired)} (increment: ${String(minIncrement)})`,
           extended: false,
         }
       }
@@ -191,6 +201,7 @@ export async function placeBid(
         amount,
         bidderId,
         auction.minimumIncrement,
+        auction.incrementTiers,
       )
 
       // Anti-sniping: every bid that lands in the final 30 s extends the end time

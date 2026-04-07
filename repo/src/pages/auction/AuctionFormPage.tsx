@@ -3,13 +3,15 @@
  * Props passed via tab metadata (editId for edit mode).
  */
 import { useEffect, useRef, useState } from 'react'
+import { Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/store/authStore'
 import { db } from '@/db'
 import { createAuction, updateAuction, publishAuction } from '@/services/auctionService'
+import { DEFAULT_INCREMENT_TIERS } from '@/utils/increment'
 import { useTabStore } from '@/store/tabStore'
 import { Button, Input, Select, Textarea, Card, CardHeader } from '@/components/ui'
-import type { Category } from '@/types'
+import type { Category, IncrementTier } from '@/types'
 
 interface Props {
   /** If provided, loads the existing Draft for editing */
@@ -38,7 +40,15 @@ export function AuctionFormPage({ editId, tabId }: Props) {
   const [description, setDescription] = useState('')
   const [categoryId, setCategoryId] = useState('')
   const [startPrice, setStartPrice] = useState('')
-  const [minimumIncrement, setMinimumIncrement] = useState('')
+  const [minimumIncrement, setMinimumIncrement] = useState('10')
+  const [useTiers, setUseTiers] = useState(false)
+  // Tier rows stored as editable strings; converted to numbers on save
+  const [tiers, setTiers] = useState<Array<{ upTo: string; increment: string }>>(
+    DEFAULT_INCREMENT_TIERS.map((t) => ({
+      upTo: t.upTo === null ? '' : String(t.upTo),
+      increment: String(t.increment),
+    })),
+  )
   const [depositAmount, setDepositAmount] = useState('')
   const [depositUserEdited, setDepositUserEdited] = useState(false)
   const [startTime, setStartTime] = useState('')
@@ -76,6 +86,15 @@ export function AuctionFormPage({ editId, tabId }: Props) {
       setCategoryId(auction.categoryId)
       setStartPrice(String(auction.startPrice))
       setMinimumIncrement(String(auction.minimumIncrement))
+      if (auction.incrementTiers && auction.incrementTiers.length > 0) {
+        setUseTiers(true)
+        setTiers(
+          auction.incrementTiers.map((t) => ({
+            upTo: t.upTo === null ? '' : String(t.upTo),
+            increment: String(t.increment),
+          })),
+        )
+      }
       setDepositAmount(String(auction.depositAmount))
       setDepositUserEdited(true) // treat loaded value as user-confirmed
       setStartTime(toDatetimeLocal(auction.startTime))
@@ -91,8 +110,40 @@ export function AuctionFormPage({ editId, tabId }: Props) {
     if (!categoryId) e.categoryId = 'Category is required'
     const sp = Number(startPrice)
     if (isNaN(sp) || sp < 0) e.startPrice = 'Enter a valid start price'
-    const mi = Number(minimumIncrement)
-    if (isNaN(mi) || mi <= 0) e.minimumIncrement = 'Minimum increment must be positive'
+    if (!useTiers) {
+      const mi = Number(minimumIncrement)
+      if (isNaN(mi) || mi <= 0) e.minimumIncrement = 'Minimum increment must be positive'
+    } else {
+      // Validate tier table
+      if (tiers.length === 0) {
+        e.tiers = 'Add at least one tier'
+      } else {
+        for (let i = 0; i < tiers.length; i++) {
+          const inc = Number(tiers[i]?.increment)
+          if (isNaN(inc) || inc <= 0) {
+            e.tiers = `Tier ${String(i + 1)}: increment must be positive`
+            break
+          }
+          const upTo = tiers[i]?.upTo
+          if (i < tiers.length - 1 && (upTo === '' || isNaN(Number(upTo)))) {
+            e.tiers = `Tier ${String(i + 1)}: upper bound is required for all tiers except the last`
+            break
+          }
+          if (i > 0) {
+            const prevUpTo = Number(tiers[i - 1]?.upTo)
+            const curUpTo = Number(upTo)
+            if (upTo !== '' && !isNaN(curUpTo) && curUpTo <= prevUpTo) {
+              e.tiers = `Tier ${String(i + 1)}: upper bound must be greater than the previous tier`
+              break
+            }
+          }
+        }
+        // Ensure last tier has empty upTo (open-ended)
+        if (!e.tiers && tiers[tiers.length - 1]?.upTo !== '') {
+          e.tiers = 'The last tier must have a blank "Up to" value (open-ended catch-all)'
+        }
+      }
+    }
     const da = Number(depositAmount)
     if (isNaN(da) || da < 0) e.depositAmount = 'Enter a valid deposit amount'
     if (!startTime) e.startTime = 'Start time is required'
@@ -102,6 +153,14 @@ export function AuctionFormPage({ editId, tabId }: Props) {
     }
     setErrors(e)
     return Object.keys(e).length === 0
+  }
+
+  const buildIncrementTiers = (): IncrementTier[] | undefined => {
+    if (!useTiers) return undefined
+    return tiers.map((t) => ({
+      upTo: t.upTo === '' ? null : Number(t.upTo),
+      increment: Number(t.increment),
+    }))
   }
 
   const handleSave = async (andPublish = false) => {
@@ -114,7 +173,8 @@ export function AuctionFormPage({ editId, tabId }: Props) {
         categoryId,
         imageUrls: [],
         startPrice: Number(startPrice),
-        minimumIncrement: Number(minimumIncrement),
+        minimumIncrement: Number(minimumIncrement) || 1,
+        incrementTiers: buildIncrementTiers(),
         depositAmount: Number(depositAmount),
         startTime: fromDatetimeLocal(startTime),
         endTime: fromDatetimeLocal(endTime),
@@ -217,17 +277,21 @@ export function AuctionFormPage({ editId, tabId }: Props) {
             error={errors.startPrice}
             placeholder="0"
           />
-          <Input
-            label="Min increment"
-            id="minimumIncrement"
-            type="number"
-            min={1}
-            step={1}
-            value={minimumIncrement}
-            onChange={fieldChange(setMinimumIncrement)}
-            error={errors.minimumIncrement}
-            placeholder="10"
-          />
+          {!useTiers ? (
+            <Input
+              label="Min increment"
+              id="minimumIncrement"
+              type="number"
+              min={1}
+              step={1}
+              value={minimumIncrement}
+              onChange={fieldChange(setMinimumIncrement)}
+              error={errors.minimumIncrement}
+              placeholder="10"
+            />
+          ) : (
+            <div className="sm:col-span-2" />
+          )}
           <Input
             label="Deposit amount"
             id="depositAmount"
@@ -243,6 +307,91 @@ export function AuctionFormPage({ editId, tabId }: Props) {
             hint="Default: 10% of start price, min $50"
           />
         </div>
+        {/* Tiered increment toggle + editor */}
+        <div className="mt-4 space-y-3">
+          <label className="flex items-center gap-2 cursor-pointer w-fit">
+            <input
+              type="checkbox"
+              checked={useTiers}
+              onChange={(e) => {
+                setUseTiers(e.target.checked)
+                setDirty(true)
+              }}
+              className="accent-primary-600"
+            />
+            <span className="text-sm text-surface-300">Use tiered increment rules by price band</span>
+          </label>
+
+          {useTiers && (
+            <div className="space-y-2">
+              <p className="text-xs text-surface-500">
+                Tiers are evaluated in order. The last row must have a blank "Up to" value
+                (open-ended catch-all for any price above the preceding band).
+              </p>
+              <div className="space-y-1.5">
+                {tiers.map((tier, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <div className="w-32">
+                      <Input
+                        label={i === 0 ? 'Up to (price)' : ''}
+                        type="number"
+                        min={1}
+                        step={1}
+                        value={tier.upTo}
+                        placeholder={i === tiers.length - 1 ? '∞ (leave blank)' : 'e.g. 500'}
+                        onChange={(e) => {
+                          const next = [...tiers]
+                          next[i] = { ...tier, upTo: e.target.value }
+                          setTiers(next)
+                          setDirty(true)
+                        }}
+                      />
+                    </div>
+                    <div className="w-28">
+                      <Input
+                        label={i === 0 ? 'Increment' : ''}
+                        type="number"
+                        min={1}
+                        step={1}
+                        value={tier.increment}
+                        placeholder="e.g. 25"
+                        onChange={(e) => {
+                          const next = [...tiers]
+                          next[i] = { ...tier, increment: e.target.value }
+                          setTiers(next)
+                          setDirty(true)
+                        }}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTiers(tiers.filter((_, idx) => idx !== i))
+                        setDirty(true)
+                      }}
+                      className={`text-surface-500 hover:text-red-400 transition-colors ${i === 0 ? 'mt-5' : ''}`}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              {errors.tiers && <p className="text-xs text-red-400">{errors.tiers}</p>}
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setTiers([...tiers, { upTo: '', increment: '10' }])
+                  setDirty(true)
+                }}
+              >
+                <Plus className="w-3.5 h-3.5 mr-1" />
+                Add tier
+              </Button>
+            </div>
+          )}
+        </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
           <Input
             label="Start time"

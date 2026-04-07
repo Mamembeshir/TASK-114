@@ -7,7 +7,7 @@ import { db } from '@/db'
 import { generateId } from '@/crypto'
 import { writeAuditLog } from '@/utils/audit'
 import { requirePermission } from '@/utils/permissions'
-import type { Auction, AuctionStatus } from '@/types'
+import type { Auction, AuctionStatus, IncrementTier } from '@/types'
 
 export interface CreateAuctionInput {
   title: string
@@ -16,6 +16,9 @@ export interface CreateAuctionInput {
   imageUrls: string[]
   startPrice: number
   minimumIncrement: number
+  /** Optional tiered increment schedule. When provided and non-empty, overrides
+   *  the flat `minimumIncrement` value in the bid engine. */
+  incrementTiers?: IncrementTier[]
   depositAmount: number
   startTime: number
   endTime: number

@@ -442,7 +442,7 @@ export function UserManagementPage() {
               setForm((f) => ({ ...f, password: e.target.value }))
             }}
             error={errors.password}
-            hint="Min 8 characters. User will be required to change on first login."
+            hint="Min 12 characters. User will be required to change on first login."
           />
           <Input
             label="Confirm Password"
@@ -542,7 +542,7 @@ export function UserManagementPage() {
               setErrors({})
             }}
             error={errors.newPassword}
-            hint="Min 8 characters. User will be required to change on next login."
+            hint="Min 12 characters. User will be required to change on next login."
           />
           <div className="flex justify-end gap-3">
             <Button
@@ -557,7 +557,7 @@ export function UserManagementPage() {
               variant="danger"
               onClick={() => void handleResetPassword()}
               isLoading={isActing}
-              disabled={newPassword.length < 8}
+              disabled={newPassword.length < 12}
             >
               Reset Password
             </Button>
