@@ -287,6 +287,7 @@ export async function setProxyBid(
   depositAmount: number,
   previousDepositHeld: number,
 ): Promise<{ success: boolean; message: string }> {
+  requirePermission('placeBid')
   const auction = await db.auctions.get(auctionId)
   if (!auction) return { success: false, message: 'Auction not found' }
   if (auction.status !== 'Active' && auction.status !== 'Extended') {

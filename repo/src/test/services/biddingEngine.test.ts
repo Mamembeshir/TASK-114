@@ -5,10 +5,12 @@
  * anti-sniping extension (once per auction), idempotency key deduplication.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { db } from '@/db'
 import { placeBid, setProxyBid } from '@/services/biddingEngine'
 import { ensureWallet, creditWallet } from '@/services/walletService'
+import { useAuthStore } from '@/store/authStore'
+import { Role } from '@/types'
 import type { Auction } from '@/types'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -215,5 +217,58 @@ describe('proxy bid resolution', () => {
     expect(result.success).toBe(true)
     expect(result.newPrice).toBe(winAmount)
     expect(result.message).toBe('Bid placed successfully!')
+  })
+})
+
+// ── Permission guard — setProxyBid ─────────────────────────────────────────────
+
+describe('setProxyBid — permission guard', () => {
+  function makeUser(role: Role) {
+    return {
+      id: `user-${role}`,
+      username: role.toLowerCase(),
+      displayName: role,
+      email: `${role.toLowerCase()}@test`,
+      passwordHash: '',
+      passwordSalt: '',
+      role,
+      isActive: true,
+      isTemporaryPassword: false,
+      createdAt: 0,
+      updatedAt: 0,
+      createdBy: 'system',
+    }
+  }
+
+  afterEach(() => {
+    // Restore the default admin user used by other tests
+    useAuthStore.setState({ currentUser: makeUser(Role.Administrator), isLoading: false })
+  })
+
+  it('allows Participant to call setProxyBid', async () => {
+    useAuthStore.setState({ currentUser: makeUser(Role.Participant) })
+    await seedAuction()
+    await seedWallet(`user-${Role.Participant}`)
+
+    const result = await setProxyBid('auction-1', `user-${Role.Participant}`, 'Participant', 200, 50, 0)
+    expect(result.success).toBe(true)
+  })
+
+  it('throws Forbidden when ContentEditor calls setProxyBid', async () => {
+    useAuthStore.setState({ currentUser: makeUser(Role.ContentEditor) })
+    await seedAuction()
+
+    await expect(
+      setProxyBid('auction-1', `user-${Role.ContentEditor}`, 'Editor', 200, 50, 0),
+    ).rejects.toThrow(/Forbidden/)
+  })
+
+  it('throws Forbidden when ReviewerApprover calls setProxyBid', async () => {
+    useAuthStore.setState({ currentUser: makeUser(Role.ReviewerApprover) })
+    await seedAuction()
+
+    await expect(
+      setProxyBid('auction-1', `user-${Role.ReviewerApprover}`, 'Reviewer', 200, 50, 0),
+    ).rejects.toThrow(/Forbidden/)
   })
 })
