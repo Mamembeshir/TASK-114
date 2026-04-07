@@ -82,6 +82,7 @@ beforeEach(async () => {
     db.notifications.clear(),
     db.auditLogs.clear(),
     db.systemConfig.clear(),
+    db.auctionLocks.clear(),
   ])
 })
 

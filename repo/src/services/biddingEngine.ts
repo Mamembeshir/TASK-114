@@ -17,6 +17,7 @@ import { getMinimumIncrement } from '@/utils/increment'
 import { prepareReservation, applyReservationInTx } from './walletService'
 import type { PreparedReservation } from './walletService'
 import { broadcast } from './bidChannel'
+import { acquireBidLock, releaseBidLock } from './bidLockManager'
 import { createNotification } from './notificationService'
 import type { Bid } from '@/types'
 
@@ -129,6 +130,19 @@ export async function placeBid(
       success: false,
       newPrice: preCheck.currentPrice,
       message: 'Auction is not accepting bids',
+      extended: false,
+    }
+  }
+
+  // Acquire the per-auction lock before entering the critical section.
+  // This provides the explicit per-auction lock primitive required by decision #10,
+  // complementing the Dexie transaction (atomicity) and idempotency key (dedup).
+  const lockHolderId = await acquireBidLock(auctionId)
+  if (!lockHolderId) {
+    return {
+      success: false,
+      newPrice: preCheck.currentPrice,
+      message: 'Another bid is currently being processed for this auction — please retry',
       extended: false,
     }
   }
@@ -279,16 +293,21 @@ export async function placeBid(
     },
   )
 
-  // Send outbid notification outside the transaction (db.notifications not in scope above)
-  if (outbidUserId !== undefined && outbidNewPrice !== undefined) {
-    await createNotification({
-      userId: outbidUserId,
-      type: 'BidOutbid',
-      title: 'You Were Outbid',
-      message: `Someone placed a higher bid on "${outbidAuctionTitle ?? auctionId}". New price: ${String(outbidNewPrice)}.`,
-      relatedEntityType: 'Auction',
-      relatedEntityId: auctionId,
-    })
+  try {
+    // Send outbid notification outside the transaction (db.notifications not in scope above)
+    if (outbidUserId !== undefined && outbidNewPrice !== undefined) {
+      await createNotification({
+        userId: outbidUserId,
+        type: 'BidOutbid',
+        title: 'You Were Outbid',
+        message: `Someone placed a higher bid on "${outbidAuctionTitle ?? auctionId}". New price: ${String(outbidNewPrice)}.`,
+        relatedEntityType: 'Auction',
+        relatedEntityId: auctionId,
+      })
+    }
+  } finally {
+    // Always release the per-auction lock, even if notification delivery fails
+    await releaseBidLock(auctionId, lockHolderId)
   }
 
   return result

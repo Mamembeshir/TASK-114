@@ -107,6 +107,26 @@ export interface WalletDecrypted {
 
 export type WalletTransactionType = 'Credit' | 'Debit' | 'Reserve' | 'Release' | 'DepositDeducted'
 
+/**
+ * Explicit per-auction lock record for cross-tab bid exclusivity.
+ *
+ * Stored in the `auctionLocks` IndexedDB table with a unique constraint on
+ * `auctionId` so that only one tab can hold the lock at a time. Stale locks
+ * (expiresAt ≤ now) are reclaimed automatically by the lock manager.
+ *
+ * Lifecycle:  acquireBidLock(auctionId) → (critical section) → releaseBidLock(auctionId, holderId)
+ */
+export interface AuctionLock {
+  id: string
+  /** Unique per auction — only one lock allowed concurrently; enforced by &auctionId index */
+  auctionId: string
+  /** Opaque ID generated per acquire call; verified on release to prevent accidental unlocks */
+  heldBy: string
+  acquiredAt: number
+  /** Epoch-ms deadline: if now > expiresAt the lock is stale and may be stolen */
+  expiresAt: number
+}
+
 export interface WalletTransaction {
   id: string
   walletId: string

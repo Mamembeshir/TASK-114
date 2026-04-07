@@ -60,6 +60,7 @@ beforeEach(async () => {
     db.walletTransactions.clear(),
     db.notifications.clear(),
     db.auditLogs.clear(),
+    db.auctionLocks.clear(),
   ])
 })
 

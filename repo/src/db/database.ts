@@ -1,7 +1,7 @@
 import Dexie, { type Table } from 'dexie'
 import type { User, Session } from '@/types/auth'
 import type { AuditLog } from '@/types/audit'
-import type { Auction, Bid, ProxyBid, Wallet, WalletTransaction } from '@/types/auction'
+import type { Auction, AuctionLock, Bid, ProxyBid, Wallet, WalletTransaction } from '@/types/auction'
 import type { CatalogItem, CatalogReview, Category, Tag } from '@/types/catalog'
 import type { Publication, PublicationVersion, ViewEvent } from '@/types/publication'
 import type {
@@ -47,6 +47,12 @@ export class MeridianDB extends Dexie {
   proxyBids!: Table<ProxyBid>
   wallets!: Table<Wallet>
   walletTransactions!: Table<WalletTransaction>
+  /**
+   * Explicit per-auction lock table for cross-tab bid exclusivity.
+   * Unique constraint on `auctionId` ensures only one tab can hold the lock.
+   * See `bidLockManager.ts` for acquire/release semantics.
+   */
+  auctionLocks!: Table<AuctionLock>
 
   // ── Catalog ────────────────────────────────────────────────────────────────
   catalogItems!: Table<CatalogItem>
@@ -231,5 +237,14 @@ export class MeridianDB extends Dexie {
             row.metadata = await encrypt(JSON.stringify(plain), key)
           })
       })
+
+    // Version 7: introduce explicit per-auction lock table for cross-tab bid exclusivity.
+    // The &auctionId unique constraint is the core mechanism: only one IndexedDB
+    // add() for a given auctionId can succeed at a time, providing an atomic lock
+    // primitive across browser tabs sharing the same origin storage.
+    this.version(7).stores({
+      // &auctionId — unique index enforces one active lock per auction at a time
+      auctionLocks: 'id, &auctionId, acquiredAt, expiresAt',
+    })
   }
 }
