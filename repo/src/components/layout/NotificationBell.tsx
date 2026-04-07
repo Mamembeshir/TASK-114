@@ -115,7 +115,7 @@ export function NotificationBell() {
   const recent = notifications.slice(0, 20)
 
   const handleDelete = async (id: string) => {
-    await deleteNotification(id)
+    await deleteNotification(id, currentUser.id)
     await refresh(currentUser.id)
   }
 

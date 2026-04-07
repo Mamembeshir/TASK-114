@@ -36,8 +36,15 @@ async function decStr(cipher: string): Promise<string> {
 }
 
 /**
+ * Shape of a Document row as stored in IndexedDB.
+ * `title`, `body`, and `metadata` are AES-GCM-256 ciphertext strings.
+ * `metadata` is the encrypted JSON serialisation of `Record<string,string>`.
+ */
+type StoredDocument = Omit<Document, 'metadata'> & { metadata: string }
+
+/**
  * Return a copy of `doc` with `title` and `body` encrypted for DB storage.
- * Other fields are left unchanged.
+ * Used for DocumentVersion objects which have no metadata field.
  */
 async function encryptDocFields<T extends { title: string; body: string }>(doc: T): Promise<T> {
   return {
@@ -49,6 +56,7 @@ async function encryptDocFields<T extends { title: string; body: string }>(doc: 
 
 /**
  * Return a copy of `doc` with `title` and `body` decrypted from DB ciphertext.
+ * Used for DocumentVersion objects which have no metadata field.
  */
 async function decryptDocFields<T extends { title: string; body: string }>(doc: T): Promise<T> {
   return {
@@ -58,12 +66,47 @@ async function decryptDocFields<T extends { title: string; body: string }>(doc: 
   }
 }
 
+/**
+ * Encrypt a full Document for IndexedDB storage.
+ * Encrypts `title`, `body`, and `metadata` (serialised as JSON then AES-GCM-256).
+ */
+async function encryptDocument(doc: Document): Promise<StoredDocument> {
+  return {
+    ...doc,
+    title: await encStr(doc.title),
+    body: await encStr(doc.body),
+    // Default to {} when metadata was omitted (optional field) so the stored
+    // ciphertext is always valid JSON when decrypted.
+    metadata: await encStr(JSON.stringify(doc.metadata ?? {})),
+  }
+}
+
+/**
+ * Decrypt a StoredDocument from IndexedDB to a plaintext Document.
+ * Decrypts `title`, `body`, and `metadata` (AES-GCM-256 then JSON.parse).
+ */
+async function decryptDocument(raw: StoredDocument): Promise<Document> {
+  // Guard: rows written before the v6 migration may still carry a plaintext
+  // object.  Treat them as already-decrypted until the migration catches up.
+  const metadataIsEncrypted = typeof raw.metadata === 'string'
+  const metadata: Record<string, string> = metadataIsEncrypted
+    ? (JSON.parse(await decStr(raw.metadata)) as Record<string, string>)
+    : ((raw.metadata as unknown as Record<string, string>) ?? {})
+
+  return {
+    ...raw,
+    title: await decStr(raw.title),
+    body: await decStr(raw.body),
+    metadata,
+  }
+}
+
 // ── Private DB read helpers ───────────────────────────────────────────────────
 
-/** Read a document by id and decrypt its sensitive fields. Returns null if not found. */
+/** Read a document by id and decrypt all sensitive fields. Returns null if not found. */
 async function readDoc(id: string): Promise<Document | null> {
   const raw = await db.documents.get(id)
-  return raw ? decryptDocFields(raw) : null
+  return raw ? decryptDocument(raw as unknown as StoredDocument) : null
 }
 
 // ── Public read helpers ───────────────────────────────────────────────────────
@@ -75,8 +118,10 @@ export async function getDocumentById(id: string): Promise<Document | null> {
 
 /** Return all documents with sensitive fields decrypted, newest-first. */
 export async function listDocuments(): Promise<Document[]> {
-  const raws = await db.documents.orderBy('updatedAt').reverse().toArray()
-  return Promise.all(raws.map(decryptDocFields))
+  // updatedAt is not a Dexie index; fetch all rows then sort in-memory.
+  const raws = await db.documents.toArray()
+  const docs = await Promise.all((raws as unknown as StoredDocument[]).map(decryptDocument))
+  return docs.sort((a, b) => b.updatedAt - a.updatedAt)
 }
 
 /** Return all versions for a specific document with sensitive fields decrypted. */
@@ -141,7 +186,8 @@ export interface DocumentInput {
   attachmentUrls: string[]
   retentionYears: number
   tags: string[]
-  metadata: Record<string, string>
+  /** Arbitrary key-value metadata. Optional — defaults to {} when omitted. */
+  metadata?: Record<string, string>
   templateId?: string
 }
 
@@ -214,8 +260,8 @@ export async function searchDocuments(criteria: {
     raws = await db.documents.orderBy('updatedAt').reverse().toArray()
   }
 
-  // Decrypt sensitive fields
-  let results = await Promise.all(raws.map(decryptDocFields))
+  // Decrypt all sensitive fields (title, body, metadata)
+  let results = await Promise.all((raws as unknown as StoredDocument[]).map(decryptDocument))
 
   // Apply remaining in-memory filters
   if (criteria.status && criteria.status !== 'All') {
@@ -261,8 +307,8 @@ export async function createDocument(
     createdAt: Date.now(),
     updatedAt: Date.now(),
   }
-  // Store encrypted — callers always receive the plaintext `doc` returned here
-  await db.documents.add(await encryptDocFields(doc))
+  // Store encrypted (title, body, metadata) — callers always receive the plaintext `doc`
+  await db.documents.add(await encryptDocument(doc) as unknown as Document)
   await writeAuditLog({
     eventType: 'document.created',
     actorId,
@@ -296,16 +342,20 @@ export async function updateDocument(
   const textsToCheck = [updates.title ?? doc.title, updates.body ?? doc.body]
   const moderationFlags = await moderateContent(textsToCheck)
 
-  // Only encrypt the text fields that are actually being updated
-  const encUpdates: Partial<DocumentInput> & { moderationFlags: string[]; updatedAt: number } = {
+  // Only encrypt the sensitive fields that are actually being updated.
+  // metadata is serialised as JSON then encrypted, mirroring the write path in encryptDocument.
+  const encUpdates: Record<string, unknown> = {
     ...updates,
     moderationFlags,
     updatedAt: Date.now(),
   }
   if (updates.title !== undefined) encUpdates.title = await encStr(updates.title)
   if (updates.body !== undefined) encUpdates.body = await encStr(updates.body)
+  if (updates.metadata !== undefined) {
+    encUpdates.metadata = await encStr(JSON.stringify(updates.metadata))
+  }
 
-  await db.documents.update(id, encUpdates)
+  await db.documents.update(id, encUpdates as unknown as Partial<Document>)
   await writeAuditLog({
     eventType: 'document.updated',
     actorId,

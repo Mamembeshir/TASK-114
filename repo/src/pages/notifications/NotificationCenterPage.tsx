@@ -205,7 +205,7 @@ export function NotificationCenterPage() {
   }
 
   const handleDeleteSelected = async () => {
-    await Promise.all([...selected].map(deleteNotification))
+    await Promise.all([...selected].map((id) => deleteNotification(id, currentUser.id)))
     setSelected(new Set())
     void refresh(currentUser.id)
   }
@@ -223,7 +223,7 @@ export function NotificationCenterPage() {
   }
 
   const handleDeleteOne = async (id: string) => {
-    await deleteNotification(id)
+    await deleteNotification(id, currentUser.id)
     void refresh(currentUser.id)
   }
 

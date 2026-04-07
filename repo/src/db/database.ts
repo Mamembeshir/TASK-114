@@ -198,5 +198,38 @@ export class MeridianDB extends Dexie {
     this.version(5).stores({
       catalogReviews: 'id, itemId, userId, [itemId+userId], status, createdAt',
     })
+
+    // Version 6: encrypt Document.metadata at rest.
+    // Prior versions stored metadata as a plaintext Record<string,string>.
+    // The upgrade serialises each existing metadata object to JSON and encrypts
+    // it with the same AES-GCM-256 app key used for title/body, replacing the
+    // plaintext object with the ciphertext string in-place.
+    // Documents that already carry a string metadata value are already migrated
+    // and are skipped.
+    this.version(6)
+      .stores({
+        // Schema unchanged — index list is the same as version 4.
+        documents:
+          'id, documentNumber, status, categoryId, checkedOutBy, retentionDueDate, createdBy, createdAt, *tags',
+      })
+      .upgrade(async (tx) => {
+        const { getAppKey } = await import('@/crypto/appKey')
+        const { encrypt } = await import('@/crypto/encryption')
+        const key = await getAppKey()
+
+        await tx
+          .table('documents')
+          .toCollection()
+          .modify(async (row: Record<string, unknown>) => {
+            // Skip rows already migrated (metadata is already a ciphertext string).
+            if (typeof row.metadata === 'string') return
+
+            const plain = typeof row.metadata === 'object' && row.metadata !== null
+              ? (row.metadata as Record<string, string>)
+              : {}
+
+            row.metadata = await encrypt(JSON.stringify(plain), key)
+          })
+      })
   }
 }

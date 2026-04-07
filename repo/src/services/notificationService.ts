@@ -61,7 +61,15 @@ export async function createNotificationForMany(
   )
 }
 
-export async function markNotificationRead(id: string): Promise<void> {
+/**
+ * Mark a notification as read.
+ * @param actorUserId - must be the owner of the notification; throws if not.
+ */
+export async function markNotificationRead(id: string, actorUserId: string): Promise<void> {
+  const notif = await db.notifications.get(id)
+  if (!notif) return // idempotent — already deleted
+  if (notif.userId !== actorUserId)
+    throw new Error('Forbidden: you can only mark your own notifications as read')
   await db.notifications.update(id, { isRead: true })
 }
 
@@ -73,7 +81,15 @@ export async function markAllNotificationsRead(userId: string): Promise<void> {
     .modify({ isRead: true })
 }
 
-export async function deleteNotification(id: string): Promise<void> {
+/**
+ * Delete a notification.
+ * @param actorUserId - must be the owner of the notification; throws if not.
+ */
+export async function deleteNotification(id: string, actorUserId: string): Promise<void> {
+  const notif = await db.notifications.get(id)
+  if (!notif) return // idempotent — already deleted
+  if (notif.userId !== actorUserId)
+    throw new Error('Forbidden: you can only delete your own notifications')
   await db.notifications.delete(id)
 }
 
@@ -245,8 +261,15 @@ export async function setSubscription(
 
 // ── Read receipts ──────────────────────────────────────────────────────────────
 
-/** Record that a user has read a specific notification (idempotent). */
+/**
+ * Record that a user has read a specific notification (idempotent).
+ * Verifies that the notification belongs to `userId` before writing.
+ */
 export async function recordReadReceipt(notificationId: string, userId: string): Promise<void> {
+  const notif = await db.notifications.get(notificationId)
+  if (notif && notif.userId !== userId)
+    throw new Error('Forbidden: you can only record a read receipt for your own notifications')
+
   const existing = await db.messageReadReceipts
     .where('notificationId')
     .equals(notificationId)
@@ -260,8 +283,8 @@ export async function recordReadReceipt(notificationId: string, userId: string):
       readAt: Date.now(),
     })
   }
-  // Also mark the in-app notification as read
-  await markNotificationRead(notificationId)
+  // Also mark the in-app notification as read — ownership already verified above
+  await markNotificationRead(notificationId, userId)
 }
 
 /** Get the list of user IDs who have read a notification (for sent confirmations). */
