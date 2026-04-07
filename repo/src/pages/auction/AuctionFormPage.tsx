@@ -64,7 +64,16 @@ export function AuctionFormPage({ editId, tabId }: Props) {
 
   useEffect(() => {
     void db.categories.toArray().then(setCategories)
-  }, [])
+    // Seed minimumIncrement from admin-configured default for new auctions.
+    // Edit mode overwrites this via the separate editId effect below.
+    if (!editId) {
+      void db.systemConfig.get('singleton').then((cfg) => {
+        if (cfg && cfg.defaultMinimumIncrement > 0) {
+          setMinimumIncrement(String(cfg.defaultMinimumIncrement))
+        }
+      })
+    }
+  }, [editId])
 
   // Auto-compute default deposit when start price changes (10% of start, min $50)
   // Only applies when the user has not manually overridden the deposit field.
