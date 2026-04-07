@@ -19,6 +19,8 @@ export interface User {
   role: Role
   /** Optional organisational unit — used to scope publication targeting */
   organization?: string
+  /** Optional tag memberships — used to scope publication audience targeting */
+  tags?: string[]
   isActive: boolean
   /** True when Admin issues a temporary password — user must change on next login */
   isTemporaryPassword: boolean

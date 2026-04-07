@@ -78,7 +78,10 @@ export interface CreatePublicationInput {
   audienceRoles: Role[]
   /** Organisations that may see this publication. Empty = global broadcast to all orgs. */
   audienceOrgs: string[]
-  /** Topic tags for feed filtering. */
+  /**
+   * Audience tags — users must have at least one matching tag to receive this
+   * publication. Empty array = no tag restriction (all users pass this gate).
+   */
   audienceTags: string[]
 }
 
@@ -300,9 +303,11 @@ export async function publishPublication(
 
   const audienceRoles: Role[] = pub.audienceRoles ?? []
   const audienceOrgs: string[] = pub.audienceOrgs ?? []
+  const audienceTags: string[] = pub.audienceTags ?? []
   const audienceParts: string[] = []
   if (audienceRoles.length > 0) audienceParts.push(`roles: ${audienceRoles.join(', ')}`)
   if (audienceOrgs.length > 0) audienceParts.push(`orgs: ${audienceOrgs.join(', ')}`)
+  if (audienceTags.length > 0) audienceParts.push(`tags: ${audienceTags.join(', ')}`)
   const audienceDesc = audienceParts.length > 0 ? audienceParts.join(' | ') : 'all users'
 
   await db.publications.update(id, {
@@ -323,12 +328,14 @@ export async function publishPublication(
   // Notify only users who match all active audience dimensions:
   //   role: in audienceRoles (or audienceRoles empty → all roles pass)
   //   org:  in audienceOrgs  (or audienceOrgs empty  → all orgs pass)
+  //   tags: user has at least one matching tag (or audienceTags empty → all pass)
   const allUsers = await db.users.filter((u) => u.isActive).toArray()
   const recipients = allUsers.filter(
     (u) =>
       u.id !== actorId &&
       (audienceRoles.length === 0 || audienceRoles.includes(u.role)) &&
-      (audienceOrgs.length === 0 || (u.organization != null && audienceOrgs.includes(u.organization))),
+      (audienceOrgs.length === 0 || (u.organization != null && audienceOrgs.includes(u.organization))) &&
+      (audienceTags.length === 0 || audienceTags.some((t) => u.tags?.includes(t))),
   )
   await createNotificationForMany(
     recipients.map((u) => u.id),

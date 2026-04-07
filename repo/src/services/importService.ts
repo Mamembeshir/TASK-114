@@ -3,6 +3,7 @@
  * can be unit-tested independently of the React component.
  */
 
+import type { Table } from 'dexie'
 import { db } from '@/db'
 import { writeAuditLog } from '@/utils/audit'
 import { requirePermission } from '@/utils/permissions'
@@ -43,6 +44,43 @@ export type ImportableTable = (typeof IMPORTABLE_TABLES)[number]
 
 // Never import sessions — they contain auth tokens
 export const SKIP_ALWAYS: ReadonlySet<string> = new Set(['sessions'])
+
+/**
+ * Typed table map eliminates (db as any) access in this security-sensitive
+ * restore path, giving compile-time guarantees that every ImportableTable
+ * name resolves to a real Dexie Table instance.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const TABLE_MAP: Record<ImportableTable, Table<any>> = {
+  users: db.users,
+  auctions: db.auctions,
+  bids: db.bids,
+  proxyBids: db.proxyBids,
+  wallets: db.wallets,
+  walletTransactions: db.walletTransactions,
+  catalogItems: db.catalogItems,
+  categories: db.categories,
+  tags: db.tags,
+  publications: db.publications,
+  publicationVersions: db.publicationVersions,
+  viewEvents: db.viewEvents,
+  documents: db.documents,
+  documentVersions: db.documentVersions,
+  checkoutRecords: db.checkoutRecords,
+  retentionPolicies: db.retentionPolicies,
+  destructionApprovals: db.destructionApprovals,
+  documentTemplates: db.documentTemplates,
+  notifications: db.notifications,
+  outboundQueue: db.outboundQueue,
+  notificationTemplates: db.notificationTemplates,
+  notificationSubscriptions: db.notificationSubscriptions,
+  messageReadReceipts: db.messageReadReceipts,
+  trainingCourses: db.trainingCourses,
+  trainingProgress: db.trainingProgress,
+  auditLogs: db.auditLogs,
+  systemConfig: db.systemConfig,
+  sensitiveWords: db.sensitiveWords,
+}
 
 export type ConflictStrategy = 'skip' | 'overwrite'
 
@@ -89,9 +127,7 @@ export async function runImport(
     if (!rows || rows.length === 0) continue
     if (SKIP_ALWAYS.has(tableName)) continue
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const table = (db as any)[tableName]
-    if (!table) continue
+    const table = TABLE_MAP[tableName]
 
     let inserted = 0
     let skipped = 0

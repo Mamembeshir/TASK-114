@@ -42,8 +42,8 @@ export function PublicationFeedPage() {
         .reverse()
         .sortBy('publishedAt')
 
-      // Filter by audience role + org: a publication is visible when both dimensions pass.
-      // Empty audience array = no restriction (global broadcast) for that dimension.
+      // Filter by audience role + org + tags: a publication is visible when all
+      // active dimensions pass. Empty array = no restriction for that dimension.
       const visible = all.filter((pub) => {
         const roleOk =
           !pub.audienceRoles?.length ||
@@ -52,7 +52,10 @@ export function PublicationFeedPage() {
           !pub.audienceOrgs?.length ||
           (currentUser?.organization != null &&
             pub.audienceOrgs.includes(currentUser.organization))
-        return roleOk && orgOk
+        const tagOk =
+          !pub.audienceTags?.length ||
+          pub.audienceTags.some((t) => currentUser?.tags?.includes(t))
+        return roleOk && orgOk && tagOk
       })
       setPublications(visible)
       setIsLoading(false)
