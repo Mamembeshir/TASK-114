@@ -111,9 +111,16 @@ type ImportableRow = TableRowMap[ImportableTable]
 
 /**
  * Typed table map: every ImportableTable name is statically verified to resolve
- * to its exact Dexie Table<RowType>. No dynamic lookup, no suppressed types.
+ * to its exact Dexie Table<RowType, string, RowType>.
+ *
+ * All three Dexie Table type parameters are explicit:
+ *   T          = concrete row type from TableRowMap
+ *   TKey       = string  (all domain tables use id: string as primary key)
+ *   TInsertType = T      (full row object required on insert)
+ *
+ * This prevents Dexie's default `TKey = any` from leaking into the type.
  */
-const TABLE_MAP: { [K in ImportableTable]: Table<TableRowMap[K]> } = {
+const TABLE_MAP: { [K in ImportableTable]: Table<TableRowMap[K], string, TableRowMap[K]> } = {
   users: db.users,
   auctions: db.auctions,
   bids: db.bids,
