@@ -31,14 +31,27 @@ export async function createNotification(input: CreateNotificationInput): Promis
   })
 }
 
-/** Create the same notification for multiple users at once. */
+/** Create the same notification for multiple users at once.
+ *  Respects each user's inApp subscription preference — users who have opted
+ *  out of inApp for this notification type will not receive it.
+ */
 export async function createNotificationForMany(
   userIds: string[],
   fields: Omit<CreateNotificationInput, 'userId'>,
 ): Promise<void> {
+  // Filter to users who have inApp enabled for this type (default: true)
+  const eligible = await Promise.all(
+    userIds.map(async (userId) => {
+      const pref = await getSubscription(userId, fields.type)
+      return pref.inApp ? userId : null
+    }),
+  )
+  const filtered = eligible.filter((id): id is string => id !== null)
+  if (filtered.length === 0) return
+
   const now = Date.now()
   await db.notifications.bulkAdd(
-    userIds.map((userId) => ({
+    filtered.map((userId) => ({
       id: generateId(),
       userId,
       ...fields,
@@ -262,7 +275,12 @@ export async function getReadReceipts(notificationId: string): Promise<string[]>
 
 // ── Convenience helpers (called from other services) ──────────────────────────
 
-/** Notify a user and optionally enqueue an outbound message. */
+/**
+ * Notify a user and optionally enqueue an outbound message.
+ * Both in-app delivery and each outbound channel are gated on the user's
+ * subscription preferences for the given notification type.
+ * Defaults (when no preference row exists): inApp=true, email=false, sms=false.
+ */
 export async function notify(
   input: CreateNotificationInput,
   outbound?: {
@@ -272,16 +290,25 @@ export async function notify(
     body: string
   },
 ): Promise<void> {
-  await createNotification(input)
+  const pref = await getSubscription(input.userId, input.type)
+
+  if (pref.inApp) {
+    await createNotification(input)
+  }
+
   if (outbound) {
-    await queueOutboundMessage({
-      channel: outbound.channel,
-      recipientUserId: input.userId,
-      recipientAddress: outbound.address,
-      subject: outbound.subject,
-      body: outbound.body,
-      relatedEntityType: input.relatedEntityType,
-      relatedEntityId: input.relatedEntityId,
-    })
+    const channelKey = outbound.channel.toLowerCase() as Lowercase<OutboundChannel>
+    const wantsOutbound = pref[channelKey as keyof typeof pref] === true
+    if (wantsOutbound) {
+      await queueOutboundMessage({
+        channel: outbound.channel,
+        recipientUserId: input.userId,
+        recipientAddress: outbound.address,
+        subject: outbound.subject,
+        body: outbound.body,
+        relatedEntityType: input.relatedEntityType,
+        relatedEntityId: input.relatedEntityId,
+      })
+    }
   }
 }

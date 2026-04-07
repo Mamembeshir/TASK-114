@@ -148,7 +148,6 @@ const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     Permission.viewDocuments,
     Permission.checkoutDocument,
     Permission.approveDocument,
-    Permission.approveDestruction,
 
     Permission.viewMessages,
   ],

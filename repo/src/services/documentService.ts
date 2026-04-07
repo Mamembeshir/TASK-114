@@ -21,7 +21,7 @@ import { moderateContent } from '@/utils/moderation'
 import { requirePermission } from '@/utils/permissions'
 import { createNotification, createNotificationForMany } from './notificationService'
 import { Role } from '@/types'
-import type { Document, DocumentVersion } from '@/types'
+import type { Document, DocumentTemplate, DocumentVersion } from '@/types'
 
 // ── Field-level encryption helpers ────────────────────────────────────────────
 
@@ -138,6 +138,109 @@ export interface DocumentInput {
   body: string
   attachmentUrls: string[]
   retentionYears: number
+  tags: string[]
+  metadata: Record<string, string>
+  templateId?: string
+}
+
+// ── Document Templates ────────────────────────────────────────────────────────
+
+export interface DocumentTemplateInput {
+  name: string
+  type: string
+  categoryId: string
+  body: string
+  defaultRetentionYears: number
+  tags: string[]
+}
+
+export async function createDocumentTemplate(
+  input: DocumentTemplateInput,
+  actorId: string,
+  actorName: string,
+): Promise<DocumentTemplate> {
+  requirePermission('manageDocuments')
+  const now = Date.now()
+  const template: DocumentTemplate = {
+    id: generateId(),
+    ...input,
+    createdBy: actorId,
+    createdAt: now,
+    updatedAt: now,
+  }
+  await db.documentTemplates.add(template)
+  await writeAuditLog({
+    eventType: 'document.template_created',
+    actorId,
+    actorName,
+    entityType: 'Document',
+    entityId: template.id,
+    description: `${actorName} created document template "${template.name}"`,
+  })
+  return template
+}
+
+export async function listDocumentTemplates(): Promise<DocumentTemplate[]> {
+  return db.documentTemplates.orderBy('createdAt').reverse().toArray()
+}
+
+export async function getDocumentTemplate(id: string): Promise<DocumentTemplate | null> {
+  return (await db.documentTemplates.get(id)) ?? null
+}
+
+/**
+ * Multidimensional document search using indexed Dexie queries where possible,
+ * with in-memory filtering for non-indexed criteria.
+ */
+export async function searchDocuments(criteria: {
+  query?: string
+  status?: string
+  categoryId?: string
+  type?: string
+  tag?: string
+}): Promise<Document[]> {
+  let raws: Document[]
+
+  if (criteria.tag) {
+    // Use the *tags multi-entry index for efficient tag lookup
+    raws = await db.documents.where('tags').equals(criteria.tag).toArray()
+  } else if (criteria.status && criteria.status !== 'All') {
+    raws = await db.documents.where('status').equals(criteria.status).toArray()
+  } else if (criteria.categoryId) {
+    raws = await db.documents.where('categoryId').equals(criteria.categoryId).toArray()
+  } else {
+    raws = await db.documents.orderBy('updatedAt').reverse().toArray()
+  }
+
+  // Decrypt sensitive fields
+  let results = await Promise.all(raws.map(decryptDocFields))
+
+  // Apply remaining in-memory filters
+  if (criteria.status && criteria.status !== 'All') {
+    results = results.filter((d) => d.status === criteria.status)
+  }
+  if (criteria.categoryId) {
+    results = results.filter((d) => d.categoryId === criteria.categoryId)
+  }
+  if (criteria.type) {
+    results = results.filter((d) => d.type === criteria.type)
+  }
+  if (criteria.query) {
+    const q = criteria.query.toLowerCase()
+    results = results.filter(
+      (d) =>
+        d.title.toLowerCase().includes(q) ||
+        (d.documentNumber ?? '').toLowerCase().includes(q) ||
+        (d.tags ?? []).some((t) => t.toLowerCase().includes(q)),
+    )
+  }
+
+  // Exclude destroyed documents unless explicitly requested
+  if (!criteria.status || criteria.status === 'All') {
+    results = results.filter((d) => d.status !== 'Destroyed')
+  }
+
+  return results.sort((a, b) => b.updatedAt - a.updatedAt)
 }
 
 export async function createDocument(
@@ -175,6 +278,7 @@ export async function updateDocument(
   actorId: string,
   actorName: string,
 ): Promise<void> {
+  requirePermission('createDocument')
   const doc = await readDoc(id)
   if (!doc) throw new Error('Document not found')
   if (doc.checkedOutBy && doc.checkedOutBy !== actorId)
@@ -214,6 +318,7 @@ export async function checkoutDocument(
   actorId: string,
   actorName: string,
 ): Promise<void> {
+  requirePermission('checkoutDocument')
   const doc = await readDoc(id)
   if (!doc) throw new Error('Document not found')
 
@@ -266,6 +371,7 @@ export async function checkinDocument(
   actorId: string,
   actorName: string,
 ): Promise<void> {
+  requirePermission('checkoutDocument')
   const doc = await readDoc(id)
   if (!doc) throw new Error('Document not found')
   if (doc.checkedOutBy !== actorId)
@@ -318,6 +424,7 @@ export async function releaseCheckout(
   actorId: string,
   actorName: string,
 ): Promise<void> {
+  requirePermission('manageDocuments')
   const doc = await readDoc(id)
   if (!doc) throw new Error('Document not found')
 
@@ -351,6 +458,7 @@ export async function submitDocumentForReview(
   actorId: string,
   actorName: string,
 ): Promise<void> {
+  requirePermission('createDocument')
   const doc = await readDoc(id)
   if (!doc) throw new Error('Document not found')
   if (!['Draft', 'Rejected'].includes(doc.status))
@@ -379,6 +487,7 @@ export async function approveDocument(
   actorName: string,
   comment?: string,
 ): Promise<void> {
+  requirePermission('approveDocument')
   const doc = await readDoc(id)
   if (!doc) throw new Error('Document not found')
   if (doc.status !== 'InReview') throw new Error('Document is not in review')
@@ -438,6 +547,7 @@ export async function rejectDocument(
   actorName: string,
   comment: string,
 ): Promise<void> {
+  requirePermission('approveDocument')
   const doc = await readDoc(id)
   if (!doc) throw new Error('Document not found')
   if (doc.status !== 'InReview') throw new Error('Document is not in review')
@@ -470,6 +580,7 @@ export async function requestDestruction(
   actorId: string,
   actorName: string,
 ): Promise<void> {
+  requirePermission('approveDestruction')
   const doc = await readDoc(id)
   if (!doc) throw new Error('Document not found')
   if (!['Approved', 'Archived'].includes(doc.status))
@@ -512,6 +623,12 @@ export async function reviewerApproveDestruction(
   actorId: string,
   actorName: string,
 ): Promise<void> {
+  requirePermission('approveDocument')
+  const actor = await db.users.get(actorId)
+  if (!actor || actor.role !== Role.ReviewerApprover) {
+    throw new Error('Forbidden: only a ReviewerApprover may perform the reviewer step')
+  }
+
   const approval = await db.destructionApprovals.get(approvalId)
   if (!approval) throw new Error('Approval record not found')
   if (approval.status !== 'Pending') throw new Error('Approval is not in Pending state')
@@ -537,9 +654,19 @@ export async function adminApproveDestruction(
   actorId: string,
   actorName: string,
 ): Promise<void> {
+  requirePermission('approveDestruction')
+  const actor = await db.users.get(actorId)
+  if (!actor || actor.role !== Role.Administrator) {
+    throw new Error('Forbidden: only an Administrator may perform the final destruction approval')
+  }
+
   const approval = await db.destructionApprovals.get(approvalId)
   if (!approval) throw new Error('Approval record not found')
   if (approval.status !== 'ReviewerApproved') throw new Error('Reviewer approval required first')
+
+  if (approval.reviewerApprovedBy === actorId) {
+    throw new Error('Role separation violation: the admin approver must be a different person than the reviewer')
+  }
 
   const now = Date.now()
   await db.destructionApprovals.update(approvalId, {
@@ -567,6 +694,7 @@ export async function rejectDestruction(
   actorId: string,
   actorName: string,
 ): Promise<void> {
+  requirePermission('approveDestruction')
   const approval = await db.destructionApprovals.get(approvalId)
   if (!approval) throw new Error('Approval record not found')
 

@@ -45,6 +45,9 @@ importers:
       '@eslint/js':
         specifier: ^9.17.0
         version: 9.39.4
+      '@rollup/rollup-linux-arm64-musl':
+        specifier: ^4.60.1
+        version: 4.60.1
       '@testing-library/jest-dom':
         specifier: ^6.6.3
         version: 6.9.1
@@ -4717,8 +4720,7 @@ snapshots:
   '@rollup/rollup-linux-arm64-gnu@4.60.1':
     optional: true
 
-  '@rollup/rollup-linux-arm64-musl@4.60.1':
-    optional: true
+  '@rollup/rollup-linux-arm64-musl@4.60.1': {}
 
   '@rollup/rollup-linux-loong64-gnu@4.60.1':
     optional: true

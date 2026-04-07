@@ -35,6 +35,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
+    "@rollup/rollup-linux-arm64-musl": "^4.60.1",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.1.0",
     "@testing-library/user-event": "^14.5.2",
@@ -60,5 +61,12 @@
     "vite": "^6.0.5",
     "vite-plugin-pwa": "^1.2.0",
     "vitest": "^2.1.8"
+  },
+  "pnpm": {
+    "supportedArchitectures": {
+      "os": ["darwin", "linux"],
+      "cpu": ["arm64"],
+      "libc": ["glibc", "musl"]
+    }
   }
 }

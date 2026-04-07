@@ -13,10 +13,12 @@ import {
   updatePublication,
   submitForReview,
 } from '@/services/publicationService'
-import { Button, Card, CardHeader, Input, RichTextEditor, Select } from '@/components/ui'
+import { Button, Card, CardHeader, Checkbox, Input, RichTextEditor, Select } from '@/components/ui'
+import { Role } from '@/types'
 import type { PublicationType } from '@/types'
 
 const PUBLICATION_TYPES: PublicationType[] = ['Announcement', 'Notice', 'Bulletin', 'Carousel']
+const ALL_ROLES: Role[] = [Role.Administrator, Role.ContentEditor, Role.ReviewerApprover, Role.Participant]
 const AUTO_SAVE_INTERVAL = 30_000
 
 interface Props {
@@ -33,6 +35,8 @@ export function PublicationFormPage({ editId, tabId }: Props) {
   const [type, setType] = useState<PublicationType>('Announcement')
   const [body, setBody] = useState('')
   const [attachmentUrls, setAttachmentUrls] = useState([''])
+  const [audienceRoles, setAudienceRoles] = useState<Role[]>([])
+  const [audienceTagsInput, setAudienceTagsInput] = useState('')
   const [moderationFlags, setModerationFlags] = useState<string[]>([])
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -54,6 +58,8 @@ export function PublicationFormPage({ editId, tabId }: Props) {
       setType(pub.type)
       setBody(pub.body)
       setAttachmentUrls(pub.attachmentUrls.length ? pub.attachmentUrls : [''])
+      setAudienceRoles(pub.audienceRoles ?? [])
+      setAudienceTagsInput((pub.audienceTags ?? []).join(', '))
       setModerationFlags(pub.moderationFlags)
     })
   }, [editId])
@@ -62,11 +68,17 @@ export function PublicationFormPage({ editId, tabId }: Props) {
     if (!currentUser || !title.trim()) return // Don't auto-save if no user or empty title
     setIsLoading(true)
     try {
+      const audienceTags = audienceTagsInput
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean)
       const input = {
         title: title.trim(),
         type,
         body,
         attachmentUrls: attachmentUrls.filter((u) => u.trim()),
+        audienceRoles,
+        audienceTags,
       }
       if (currentIdRef.current) {
         await updatePublication(
@@ -97,7 +109,7 @@ export function PublicationFormPage({ editId, tabId }: Props) {
     } finally {
       setIsLoading(false)
     }
-  }, [title, type, body, attachmentUrls, currentUser, tabId, closeTab, markDirty])
+  }, [title, type, body, attachmentUrls, audienceRoles, audienceTagsInput, currentUser, tabId, closeTab, markDirty])
 
   // Auto-save every 30 seconds
   useEffect(() => {
@@ -255,6 +267,41 @@ export function PublicationFormPage({ editId, tabId }: Props) {
           >
             + Add attachment
           </Button>
+        </div>
+      </Card>
+
+      <Card>
+        <CardHeader
+          title="Audience"
+          description="Restrict visibility by role. Leave all unchecked to broadcast to everyone."
+        />
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            {ALL_ROLES.map((role) => (
+              <Checkbox
+                key={role}
+                label={role}
+                checked={audienceRoles.includes(role)}
+                onChange={(e) => {
+                  setAudienceRoles(
+                    e.target.checked
+                      ? [...audienceRoles, role]
+                      : audienceRoles.filter((r) => r !== role),
+                  )
+                  setDirty(true)
+                }}
+              />
+            ))}
+          </div>
+          <Input
+            label="Topic tags (comma-separated)"
+            value={audienceTagsInput}
+            onChange={(e) => {
+              setAudienceTagsInput(e.target.value)
+              setDirty(true)
+            }}
+            placeholder="e.g. finance, compliance, hr"
+          />
         </div>
       </Card>
 

@@ -61,6 +61,7 @@ export async function updateAuction(
   actorId: string,
   actorName: string,
 ): Promise<void> {
+  requirePermission('createAuction')
   const auction = await db.auctions.get(id)
   if (!auction) throw new Error('Auction not found')
   if (auction.status !== 'Draft') throw new Error('Only Draft auctions can be edited')
@@ -83,6 +84,7 @@ export async function publishAuction(
   actorId: string,
   actorName: string,
 ): Promise<void> {
+  requirePermission('manageAuctions')
   const auction = await db.auctions.get(id)
   if (!auction) throw new Error('Auction not found')
   if (auction.status !== 'Draft') throw new Error('Only Draft auctions can be published')
@@ -102,6 +104,7 @@ export async function publishAuction(
 // ── Cancel ────────────────────────────────────────────────────────────────────
 
 export async function cancelAuction(id: string, actorId: string, actorName: string): Promise<void> {
+  requirePermission('manageAuctions')
   const auction = await db.auctions.get(id)
   if (!auction) throw new Error('Auction not found')
   if (auction.status === 'Awarded' || auction.status === 'NoSale') {

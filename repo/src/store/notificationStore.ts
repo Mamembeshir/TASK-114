@@ -8,7 +8,7 @@
 
 import { create } from 'zustand'
 import { db } from '@/db'
-import { markNotificationRead, markAllNotificationsRead } from '@/services/notificationService'
+import { recordReadReceipt } from '@/services/notificationService'
 import type { Notification } from '@/types'
 
 const CHANNEL_NAME = 'meridian_notifications'
@@ -40,13 +40,21 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   },
 
   markRead: async (id: string, userId: string) => {
-    await markNotificationRead(id)
+    // recordReadReceipt writes the MessageReadReceipt row and also sets isRead: true
+    await recordReadReceipt(id, userId)
     await get().refresh(userId)
     broadcastRefresh()
   },
 
   markAllRead: async (userId: string) => {
-    await markAllNotificationsRead(userId)
+    // Write individual receipts for every currently-unread notification so the
+    // messageReadReceipts table is populated for traceability.
+    const unread = await db.notifications
+      .where('userId')
+      .equals(userId)
+      .filter((n) => !n.isRead)
+      .toArray()
+    await Promise.all(unread.map((n) => recordReadReceipt(n.id, userId)))
     await get().refresh(userId)
     broadcastRefresh()
   },

@@ -1,12 +1,17 @@
 /**
- * NotificationCenterPage — full notification history with filters and bulk actions.
+ * NotificationCenterPage — notification history with filters/bulk actions + subscription preferences.
  */
 
 import { useEffect, useState } from 'react'
-import { Bell, CheckCheck, Trash2 } from 'lucide-react'
+import { Bell, CheckCheck, Settings, Trash2 } from 'lucide-react'
+import { toast } from 'sonner'
 import { useAuthStore } from '@/store/authStore'
 import { useNotificationStore } from '@/store/notificationStore'
-import { deleteNotification } from '@/services/notificationService'
+import {
+  deleteNotification,
+  getSubscription,
+  setSubscription,
+} from '@/services/notificationService'
 import { Badge, Button, EmptyState } from '@/components/ui'
 import type { NotificationType } from '@/types'
 
@@ -29,6 +34,129 @@ const TYPE_LABELS: Record<NotificationType, string> = {
   System: 'System',
 }
 
+// All notification types shown in the preferences table
+const ALL_TYPES: NotificationType[] = [
+  'BidOutbid',
+  'AuctionWon',
+  'AuctionNoSale',
+  'AuctionStarted',
+  'AuctionExtended',
+  'PublicationApproved',
+  'PublicationRejected',
+  'PublicationPublished',
+  'DocumentApproved',
+  'DocumentRejected',
+  'DocumentCheckoutExpiring',
+  'DocumentRetentionDue',
+  'DocumentDestructionRequested',
+  'WalletCredited',
+  'WalletDebited',
+  'System',
+]
+
+interface Pref {
+  inApp: boolean
+  email: boolean
+  sms: boolean
+}
+
+type PrefMap = Record<string, Pref>
+
+interface SubscriptionPrefsPanelProps {
+  userId: string
+}
+
+function SubscriptionPrefsPanel({ userId }: SubscriptionPrefsPanelProps) {
+  const [prefs, setPrefs] = useState<PrefMap>({})
+  const [saving, setSaving] = useState<string | null>(null)
+
+  useEffect(() => {
+    const load = async () => {
+      const entries = await Promise.all(
+        ALL_TYPES.map(async (type) => {
+          const pref = await getSubscription(userId, type)
+          return [type, pref] as const
+        }),
+      )
+      setPrefs(Object.fromEntries(entries))
+    }
+    void load()
+  }, [userId])
+
+  const handleToggle = async (type: string, channel: keyof Pref) => {
+    const current = prefs[type] ?? { inApp: true, email: false, sms: false }
+    const updated = { ...current, [channel]: !current[channel] }
+    setSaving(`${type}-${channel}`)
+    try {
+      await setSubscription(userId, type, { [channel]: updated[channel] })
+      setPrefs((prev) => ({ ...prev, [type]: updated }))
+    } catch {
+      toast.error('Failed to save preference')
+    } finally {
+      setSaving(null)
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-surface-500">
+        Control which notification types you receive and on which channels.
+        In-app notifications are on by default. Email and SMS require an address
+        configured in your profile and will be queued for manual export.
+      </p>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-surface-800 text-surface-500 text-xs">
+              <th className="text-left pb-2 font-medium pr-4">Notification</th>
+              <th className="text-center pb-2 font-medium w-20">In-App</th>
+              <th className="text-center pb-2 font-medium w-20">Email</th>
+              <th className="text-center pb-2 font-medium w-20">SMS</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-surface-800/50">
+            {ALL_TYPES.map((type) => {
+              const pref = prefs[type] ?? { inApp: true, email: false, sms: false }
+              return (
+                <tr key={type} className="hover:bg-surface-800/30 transition-colors">
+                  <td className="py-2.5 pr-4 text-surface-300 text-xs font-medium">
+                    {TYPE_LABELS[type]}
+                  </td>
+                  {(['inApp', 'email', 'sms'] as (keyof Pref)[]).map((channel) => (
+                    <td key={channel} className="py-2.5 text-center">
+                      <button
+                        onClick={() => void handleToggle(type, channel)}
+                        disabled={saving === `${type}-${channel}`}
+                        className={[
+                          'w-8 h-4.5 rounded-full transition-colors relative inline-block',
+                          pref[channel]
+                            ? 'bg-primary-600 hover:bg-primary-500'
+                            : 'bg-surface-700 hover:bg-surface-600',
+                          saving === `${type}-${channel}` ? 'opacity-50' : '',
+                        ].join(' ')}
+                        title={`${pref[channel] ? 'Disable' : 'Enable'} ${channel} for ${TYPE_LABELS[type]}`}
+                        aria-pressed={pref[channel]}
+                      >
+                        <span
+                          className={[
+                            'absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-transform',
+                            pref[channel] ? 'translate-x-4' : 'translate-x-0.5',
+                          ].join(' ')}
+                        />
+                      </button>
+                    </td>
+                  ))}
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
 type FilterType = 'all' | 'unread' | NotificationType
 
 function timeAgo(ts: number): string {
@@ -42,6 +170,7 @@ function timeAgo(ts: number): string {
 export function NotificationCenterPage() {
   const currentUser = useAuthStore((s) => s.currentUser)
   const { notifications, unreadCount, refresh, markRead, markAllRead } = useNotificationStore()
+  const [activeTab, setActiveTab] = useState<'inbox' | 'preferences'>('inbox')
   const [filter, setFilter] = useState<FilterType>('all')
   const [selected, setSelected] = useState(new Set<string>())
 
@@ -104,10 +233,12 @@ export function NotificationCenterPage() {
         <div>
           <h1 className="text-lg font-semibold text-surface-100">Notifications</h1>
           <p className="text-sm text-surface-500 mt-0.5">
-            {unreadCount > 0 ? `${String(unreadCount)} unread` : 'All caught up'}
+            {activeTab === 'inbox'
+              ? unreadCount > 0 ? `${String(unreadCount)} unread` : 'All caught up'
+              : 'Manage delivery preferences per notification type'}
           </p>
         </div>
-        {unreadCount > 0 && (
+        {activeTab === 'inbox' && unreadCount > 0 && (
           <Button variant="secondary" size="sm" onClick={() => void markAllRead(currentUser.id)}>
             <CheckCheck className="w-3.5 h-3.5 mr-1.5" />
             Mark all read
@@ -115,6 +246,48 @@ export function NotificationCenterPage() {
         )}
       </div>
 
+      {/* Tab bar */}
+      <div className="flex gap-1 bg-surface-800/50 rounded-lg p-1 w-fit">
+        <button
+          onClick={() => { setActiveTab('inbox') }}
+          className={[
+            'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors',
+            activeTab === 'inbox'
+              ? 'bg-surface-700 text-surface-100'
+              : 'text-surface-500 hover:text-surface-300',
+          ].join(' ')}
+        >
+          <Bell className="w-3.5 h-3.5" />
+          Inbox
+          {unreadCount > 0 && (
+            <span className="ml-0.5 px-1.5 py-0.5 rounded-full text-xs bg-primary-600 text-white leading-none">
+              {String(unreadCount)}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => { setActiveTab('preferences') }}
+          className={[
+            'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors',
+            activeTab === 'preferences'
+              ? 'bg-surface-700 text-surface-100'
+              : 'text-surface-500 hover:text-surface-300',
+          ].join(' ')}
+        >
+          <Settings className="w-3.5 h-3.5" />
+          Preferences
+        </button>
+      </div>
+
+      {/* Preferences panel */}
+      {activeTab === 'preferences' && (
+        <div className="bg-surface-900 border border-surface-800 rounded-xl p-4">
+          <SubscriptionPrefsPanel userId={currentUser.id} />
+        </div>
+      )}
+
+      {activeTab === 'inbox' && (
+      <>
       {/* Filter bar */}
       <div className="flex gap-2 flex-wrap">
         {(['all', 'unread'] as FilterType[]).map((f) => (
@@ -232,6 +405,8 @@ export function NotificationCenterPage() {
           </>
         )}
       </div>
+      </>
+      )}
     </div>
   )
 }

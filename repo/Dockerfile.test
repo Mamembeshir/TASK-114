@@ -1,17 +1,11 @@
 # Dedicated image for CI test runs
+# node_modules are mounted from the host at runtime (no network access in this environment)
 FROM node:22-alpine
-
-RUN npm install -g pnpm@10.23.0
 
 WORKDIR /app
 
-COPY package.json pnpm-lock.yaml* ./
-# Increase timeout + retries for slow/throttled Docker build networks
-RUN pnpm config set network-timeout 300000 && \
-    pnpm config set fetch-retries 5 && \
-    pnpm install --frozen-lockfile
-
+# Copy all source files (node_modules excluded via .dockerignore)
 COPY . .
 
-# Default: run tests once (CI mode)
-CMD ["pnpm", "test"]
+# Default: run tests once (CI mode) using the host-mounted node_modules
+CMD ["node_modules/.bin/vitest", "run"]

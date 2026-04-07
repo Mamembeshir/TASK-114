@@ -16,6 +16,7 @@ import { moderateContent } from '@/utils/moderation'
 import { requirePermission } from '@/utils/permissions'
 import { createNotification, createNotificationForMany } from './notificationService'
 import type { Publication, PublicationType, WorkflowStatus } from '@/types'
+import type { Role } from '@/types'
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -71,6 +72,10 @@ export interface CreatePublicationInput {
   type: PublicationType
   body: string
   attachmentUrls: string[]
+  /** Roles that may see this publication. Empty = global broadcast to all roles. */
+  audienceRoles: Role[]
+  /** Topic tags for feed filtering. */
+  audienceTags: string[]
 }
 
 export async function createPublication(
@@ -102,6 +107,8 @@ export async function createPublication(
     status: 'Draft',
     moderationFlags,
     currentVersionId: versionId,
+    audienceRoles: input.audienceRoles,
+    audienceTags: input.audienceTags,
     createdBy: actorId,
     createdAt: now,
     updatedAt: now,
@@ -126,6 +133,7 @@ export async function updatePublication(
   actorId: string,
   actorName: string,
 ): Promise<void> {
+  requirePermission('createPublication')
   const pub = await db.publications.get(id)
   if (!pub) throw new Error('Publication not found')
   if (pub.status !== 'Draft' && pub.status !== 'Rejected')
@@ -156,6 +164,7 @@ export async function submitForReview(
   actorId: string,
   actorName: string,
 ): Promise<void> {
+  requirePermission('createPublication')
   const pub = await db.publications.get(id)
   if (!pub) throw new Error('Publication not found')
   if (pub.status !== 'Draft' && pub.status !== 'Rejected')
@@ -192,6 +201,7 @@ export async function approvePublication(
   actorName: string,
   comment?: string,
 ): Promise<void> {
+  requirePermission('approvePublication')
   const pub = await db.publications.get(id)
   if (!pub) throw new Error('Publication not found')
   if (pub.status !== 'InReview') throw new Error('Publication is not in review')
@@ -228,6 +238,7 @@ export async function rejectPublication(
   actorName: string,
   comment: string,
 ): Promise<void> {
+  requirePermission('approvePublication')
   const pub = await db.publications.get(id)
   if (!pub) throw new Error('Publication not found')
   if (pub.status !== 'InReview') throw new Error('Publication is not in review')
@@ -263,9 +274,14 @@ export async function publishPublication(
   actorId: string,
   actorName: string,
 ): Promise<void> {
+  requirePermission('managePublications')
   const pub = await db.publications.get(id)
   if (!pub) throw new Error('Publication not found')
   if (pub.status !== 'Approved') throw new Error('Only Approved publications can be published')
+
+  const audienceRoles: Role[] = pub.audienceRoles ?? []
+  const audienceDesc =
+    audienceRoles.length > 0 ? `roles: ${audienceRoles.join(', ')}` : 'all roles'
 
   await db.publications.update(id, {
     status: 'Published',
@@ -279,19 +295,24 @@ export async function publishPublication(
     actorName,
     entityType: 'Publication',
     entityId: id,
-    description: `${actorName} published "${pub.title}"`,
+    description: `${actorName} published "${pub.title}" — audience: ${audienceDesc}`,
   })
 
-  // Notify all active users that a new publication is available
-  const users = await db.users.filter((u) => u.isActive).toArray()
-  const recipientIds = users.map((u) => u.id).filter((uid) => uid !== actorId)
-  await createNotificationForMany(recipientIds, {
-    type: 'PublicationPublished',
-    title: 'New Publication',
-    message: `"${pub.title}" has been published and is now available in the feed.`,
-    relatedEntityType: 'Publication',
-    relatedEntityId: id,
-  })
+  // Notify only users whose role is in the audience (or everyone if no restriction)
+  const allUsers = await db.users.filter((u) => u.isActive).toArray()
+  const recipients = allUsers.filter(
+    (u) => u.id !== actorId && (audienceRoles.length === 0 || audienceRoles.includes(u.role)),
+  )
+  await createNotificationForMany(
+    recipients.map((u) => u.id),
+    {
+      type: 'PublicationPublished',
+      title: 'New Publication',
+      message: `"${pub.title}" has been published and is now available in the feed.`,
+      relatedEntityType: 'Publication',
+      relatedEntityId: id,
+    },
+  )
 }
 
 export async function rollbackToVersion(
@@ -300,6 +321,7 @@ export async function rollbackToVersion(
   actorId: string,
   actorName: string,
 ): Promise<void> {
+  requirePermission('managePublications')
   const [pub, version] = await Promise.all([
     db.publications.get(publicationId),
     db.publicationVersions.get(versionId),

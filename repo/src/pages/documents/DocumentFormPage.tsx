@@ -3,7 +3,7 @@
  * Requires exclusive checkout before editing an existing document.
  */
 import { useEffect, useRef, useState } from 'react'
-import { AlertTriangle, Lock, X } from 'lucide-react'
+import { AlertTriangle, Lock, Plus, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/store/authStore'
 import { useTabStore } from '@/store/tabStore'
@@ -15,9 +15,10 @@ import {
   checkoutDocument,
   checkinDocument,
   getDocumentById,
+  listDocumentTemplates,
 } from '@/services/documentService'
 import { Button, Card, CardHeader, Input, RichTextEditor, Select, Spinner } from '@/components/ui'
-import type { Category, Document } from '@/types'
+import type { Category, Document, DocumentTemplate } from '@/types'
 
 const DOCUMENT_TYPES = ['Policy', 'Procedure', 'Form', 'Manual', 'Report', 'Other']
 
@@ -31,6 +32,7 @@ export function DocumentFormPage({ editId, tabId }: Props) {
   const { markDirty, closeTab } = useTabStore()
 
   const [categories, setCategories] = useState<Category[]>([])
+  const [templates, setTemplates] = useState<DocumentTemplate[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [isLoadingDoc, setIsLoadingDoc] = useState(!!editId)
   const [doc, setDoc] = useState<Document | null>(null)
@@ -42,6 +44,9 @@ export function DocumentFormPage({ editId, tabId }: Props) {
   const [body, setBody] = useState('')
   const [attachmentUrls, setAttachmentUrls] = useState([''])
   const [retentionYears, setRetentionYears] = useState('7')
+  const [tagsInput, setTagsInput] = useState('')
+  const [metadataRows, setMetadataRows] = useState<{ key: string; value: string }[]>([])
+  const [templateId, setTemplateId] = useState<string | undefined>(undefined)
   const [moderationFlags, setModerationFlags] = useState<string[]>([])
   const [errors, setErrors] = useState<Record<string, string>>({})
 
@@ -54,7 +59,8 @@ export function DocumentFormPage({ editId, tabId }: Props) {
 
   useEffect(() => {
     void db.categories.toArray().then(setCategories)
-  }, [])
+    if (!editId) void listDocumentTemplates().then(setTemplates)
+  }, [editId])
 
   useEffect(() => {
     if (!editId || !currentUser) return
@@ -71,6 +77,9 @@ export function DocumentFormPage({ editId, tabId }: Props) {
       setBody(d.body)
       setAttachmentUrls(d.attachmentUrls.length ? d.attachmentUrls : [''])
       setRetentionYears(String(d.retentionYears))
+      setTagsInput((d.tags ?? []).join(', '))
+      setMetadataRows(Object.entries(d.metadata ?? {}).map(([key, value]) => ({ key, value })))
+      setTemplateId(d.templateId)
       setModerationFlags(d.moderationFlags)
       setIsCheckedOut(d.checkedOutBy === currentUser.id)
       setIsLoadingDoc(false)
@@ -99,14 +108,38 @@ export function DocumentFormPage({ editId, tabId }: Props) {
     return Object.keys(e).length === 0
   }
 
-  const buildInput = () => ({
-    title: title.trim(),
-    type,
-    categoryId,
-    body,
-    attachmentUrls: attachmentUrls.filter((u) => u.trim()),
-    retentionYears: Number(retentionYears),
-  })
+  const buildInput = () => {
+    const tags = tagsInput
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean)
+    const metadata = Object.fromEntries(
+      metadataRows.filter((r) => r.key.trim()).map((r) => [r.key.trim(), r.value]),
+    )
+    return {
+      title: title.trim(),
+      type,
+      categoryId,
+      body,
+      attachmentUrls: attachmentUrls.filter((u) => u.trim()),
+      retentionYears: Number(retentionYears),
+      tags,
+      metadata,
+      templateId,
+    }
+  }
+
+  const handleApplyTemplate = (tmplId: string) => {
+    const tmpl = templates.find((t) => t.id === tmplId)
+    if (!tmpl) return
+    setTemplateId(tmplId)
+    setType(tmpl.type)
+    if (tmpl.categoryId) setCategoryId(tmpl.categoryId)
+    setBody(tmpl.body)
+    setRetentionYears(String(tmpl.defaultRetentionYears))
+    setTagsInput(tmpl.tags.join(', '))
+    setDirty(true)
+  }
 
   const handleSaveDraft = async () => {
     if (!validate()) return
@@ -306,6 +339,103 @@ export function DocumentFormPage({ editId, tabId }: Props) {
               error={errors.retentionYears}
               disabled={!canEdit}
             />
+          </div>
+        </div>
+      </Card>
+
+      {/* Template picker — only for new documents */}
+      {!editId && templates.length > 0 && (
+        <Card>
+          <CardHeader
+            title="Start from Template"
+            description="Pre-fill type, body, tags, and retention from a saved template."
+          />
+          <Select
+            label="Template"
+            value={templateId ?? ''}
+            onChange={(e) => {
+              if (e.target.value) handleApplyTemplate(e.target.value)
+              else setTemplateId(undefined)
+            }}
+          >
+            <option value="">None — start from scratch</option>
+            {templates.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name} ({t.type})
+              </option>
+            ))}
+          </Select>
+        </Card>
+      )}
+
+      <Card>
+        <CardHeader title="Tags &amp; Metadata" />
+        <div className="space-y-4">
+          <Input
+            label="Tags (comma-separated)"
+            value={tagsInput}
+            onChange={(e) => {
+              setTagsInput(e.target.value)
+              setDirty(true)
+            }}
+            placeholder="e.g. hr, compliance, finance"
+            disabled={!canEdit}
+          />
+          <div>
+            <p className="text-xs font-medium text-surface-400 mb-2">Custom metadata</p>
+            <div className="space-y-2">
+              {metadataRows.map((row, idx) => (
+                <div key={idx} className="flex gap-2 items-center">
+                  <input
+                    className="w-36 bg-surface-800 border border-surface-700 rounded-lg px-3 py-2 text-sm text-surface-100 placeholder-surface-600 focus:outline-none focus:border-primary-500 disabled:opacity-50"
+                    placeholder="Key"
+                    value={row.key}
+                    onChange={(e) => {
+                      const next = [...metadataRows]
+                      next[idx] = { ...row, key: e.target.value }
+                      setMetadataRows(next)
+                      setDirty(true)
+                    }}
+                    disabled={!canEdit}
+                  />
+                  <input
+                    className="flex-1 bg-surface-800 border border-surface-700 rounded-lg px-3 py-2 text-sm text-surface-100 placeholder-surface-600 focus:outline-none focus:border-primary-500 disabled:opacity-50"
+                    placeholder="Value"
+                    value={row.value}
+                    onChange={(e) => {
+                      const next = [...metadataRows]
+                      next[idx] = { ...row, value: e.target.value }
+                      setMetadataRows(next)
+                      setDirty(true)
+                    }}
+                    disabled={!canEdit}
+                  />
+                  {canEdit && (
+                    <button
+                      onClick={() => {
+                        setMetadataRows(metadataRows.filter((_, i) => i !== idx))
+                      }}
+                      className="text-surface-500 hover:text-danger-400 shrink-0"
+                      aria-label="Remove metadata row"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
+              {canEdit && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setMetadataRows([...metadataRows, { key: '', value: '' }])
+                  }}
+                >
+                  <Plus className="w-3.5 h-3.5 mr-1" />
+                  Add field
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </Card>

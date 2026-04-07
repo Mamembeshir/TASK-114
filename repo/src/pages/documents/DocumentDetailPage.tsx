@@ -9,6 +9,7 @@ import { toast } from 'sonner'
 import { useAuthStore } from '@/store/authStore'
 import { useTabStore } from '@/store/tabStore'
 import { usePermission } from '@/hooks/usePermission'
+import { Role } from '@/types'
 import { db } from '@/db'
 import {
   approveDocument,
@@ -357,7 +358,7 @@ export function DocumentDetailPage({ documentId }: Props) {
                 Step 2: Admin approved
               </div>
             </div>
-            {canReview && destructionApproval.status === 'Pending' && (
+            {canReview && currentUser?.role === Role.ReviewerApprover && destructionApproval.status === 'Pending' && (
               <Button
                 variant="danger"
                 size="sm"
@@ -367,7 +368,7 @@ export function DocumentDetailPage({ documentId }: Props) {
                 Reviewer — Approve Destruction
               </Button>
             )}
-            {canDestroy && destructionApproval.status === 'ReviewerApproved' && (
+            {canDestroy && currentUser?.role === Role.Administrator && destructionApproval.status === 'ReviewerApproved' && destructionApproval.reviewerApprovedBy !== currentUser.id && (
               <Button
                 variant="danger"
                 size="sm"

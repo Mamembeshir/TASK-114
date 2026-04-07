@@ -1,5 +1,7 @@
 // ── Publishing Workbench ──────────────────────────────────────────────────────
 
+import type { Role } from '@/types/auth'
+
 export type PublicationType = 'Announcement' | 'Notice' | 'Bulletin' | 'Carousel'
 
 export type WorkflowStatus = 'Draft' | 'InReview' | 'Approved' | 'Rejected' | 'Published'
@@ -16,6 +18,16 @@ export interface Publication {
   /** Points to the active PublicationVersion snapshot */
   currentVersionId: string
   publishedAt?: number
+  /**
+   * Roles that may see this publication in the feed.
+   * Empty array = visible to all roles (global broadcast).
+   */
+  audienceRoles: Role[]
+  /**
+   * Topic tags used for self-serve feed filtering by readers.
+   * Also used to scope publications to tagged audiences.
+   */
+  audienceTags: string[]
   createdBy: string
   createdAt: number
   updatedAt: number

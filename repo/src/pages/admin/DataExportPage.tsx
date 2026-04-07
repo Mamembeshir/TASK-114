@@ -43,12 +43,19 @@ const MODULES: ExportModule[] = [
   },
 ]
 
+function sanitizeUser(
+  user: Awaited<ReturnType<typeof db.users.toArray>>[number],
+): Record<string, unknown> {
+  const { passwordHash: _h, passwordSalt: _s, ...safe } = user
+  return safe
+}
+
 async function gatherData(module: Module): Promise<Record<string, unknown[]>> {
   switch (module) {
     case 'all':
       return {
-        users: await db.users.toArray(),
-        sessions: await db.sessions.toArray(),
+        users: (await db.users.toArray()).map(sanitizeUser),
+        // sessions omitted — contain auth tokens that must not leave the system
         auctions: await db.auctions.toArray(),
         bids: await db.bids.toArray(),
         proxyBids: await db.proxyBids.toArray(),
@@ -71,7 +78,7 @@ async function gatherData(module: Module): Promise<Record<string, unknown[]>> {
         sensitiveWords: await db.sensitiveWords.toArray(),
       }
     case 'users':
-      return { users: await db.users.toArray() }
+      return { users: (await db.users.toArray()).map(sanitizeUser) }
     case 'auctions':
       return {
         auctions: await db.auctions.toArray(),
@@ -153,7 +160,7 @@ export function DataExportPage() {
       <Card>
         <CardHeader
           title="Export Modules"
-          description="Data is exported as JSON with timestamps. No sensitive credentials are included in user exports."
+          description="Data is exported as JSON with timestamps. Password hashes, salts, and session tokens are always stripped from exports."
         />
         <div className="space-y-2">
           {MODULES.map((m) => (

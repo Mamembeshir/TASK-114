@@ -41,6 +41,31 @@ export interface Document {
   /** Epoch ms — set when document reaches Approved status */
   retentionDueDate?: number
   moderationFlags: string[]
+  /** Multi-entry indexed tags for search and classification */
+  tags: string[]
+  /** Arbitrary key-value metadata (e.g. owner, department, classification) */
+  metadata: Record<string, string>
+  /** Template this document was created from, if any */
+  templateId?: string
+  createdBy: string
+  createdAt: number
+  updatedAt: number
+}
+
+/**
+ * Reusable document template — pre-fills type, body, tags, and retention
+ * when creating a new document.
+ */
+export interface DocumentTemplate {
+  id: string
+  name: string
+  /** Default document type for documents created from this template */
+  type: string
+  categoryId: string
+  body: string
+  defaultRetentionYears: number
+  /** Default tags applied to documents created from this template */
+  tags: string[]
   createdBy: string
   createdAt: number
   updatedAt: number

@@ -120,8 +120,8 @@ describe('hasPermission — ReviewerApprover', () => {
   it('can approve documents', () => {
     expect(hasPermission(r, Permission.approveDocument)).toBe(true)
   })
-  it('can approve destruction', () => {
-    expect(hasPermission(r, Permission.approveDestruction)).toBe(true)
+  it('cannot approve destruction (admin-only step — two-step separation)', () => {
+    expect(hasPermission(r, Permission.approveDestruction)).toBe(false)
   })
   it('can moderate catalog', () => {
     expect(hasPermission(r, Permission.moderateCatalogItem)).toBe(true)
