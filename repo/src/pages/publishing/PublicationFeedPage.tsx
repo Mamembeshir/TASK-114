@@ -3,12 +3,13 @@
  * Records view events and tracks time-on-page via Page Visibility API (SPEC 9, CLAUDE.md #9).
  */
 import { useEffect, useRef, useState } from 'react'
-import { FileText } from 'lucide-react'
+import { Download, FileText } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { db } from '@/db'
 import { generateId } from '@/crypto'
 import { Badge, Card, EmptyState, Skeleton, SkeletonText } from '@/components/ui'
 import { sanitizeHtml } from '@/utils/sanitize'
+import { decodeLocalFile, downloadDataUrl } from '@/utils/fileUtils'
 import type { Publication, PublicationType } from '@/types'
 
 const TYPE_VARIANTS: Record<PublicationType, 'info' | 'warning' | 'primary'> = {
@@ -238,21 +239,24 @@ export function PublicationFeedPage() {
                       className="prose prose-invert prose-sm max-w-none text-surface-300"
                       dangerouslySetInnerHTML={{ __html: sanitizeHtml(pub.body) }}
                     />
-                    {pub.attachmentUrls.length > 0 && pub.attachmentUrls[0] && (
+                    {pub.attachmentUrls.filter(Boolean).length > 0 && (
                       <div className="mt-4">
                         <p className="text-xs font-medium text-surface-500 mb-2">Attachments</p>
                         <div className="space-y-1">
-                          {pub.attachmentUrls.filter(Boolean).map((url, i) => (
-                            <a
-                              key={i}
-                              href={url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="block text-xs text-primary-400 hover:underline truncate"
-                            >
-                              {url}
-                            </a>
-                          ))}
+                          {pub.attachmentUrls.filter(Boolean).map((stored, i) => {
+                            const file = decodeLocalFile(stored)
+                            if (!file) return null
+                            return (
+                              <button
+                                key={i}
+                                onClick={() => { downloadDataUrl(file.dataUrl, file.name) }}
+                                className="flex items-center gap-1.5 text-xs text-primary-400 hover:text-primary-300 transition-colors"
+                              >
+                                <Download className="w-3 h-3 shrink-0" />
+                                <span className="truncate max-w-xs">{file.name}</span>
+                              </button>
+                            )
+                          })}
                         </div>
                       </div>
                     )}

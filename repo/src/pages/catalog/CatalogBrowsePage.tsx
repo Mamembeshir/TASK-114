@@ -735,14 +735,11 @@ export function CatalogBrowsePage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {filtered.map((item) => (
                 <Card key={item.id} className="flex flex-col gap-3">
-                  {item.imageUrls[0] ? (
+                  {item.imageUrls[0] && item.imageUrls[0].startsWith('data:') ? (
                     <img
                       src={item.imageUrls[0]}
                       alt={item.title}
                       className="w-full h-36 object-cover rounded-lg bg-surface-800"
-                      onError={(e) => {
-                        ;(e.target as HTMLImageElement).style.display = 'none'
-                      }}
                     />
                   ) : (
                     <div className="w-full h-36 bg-surface-800 rounded-lg flex items-center justify-center">

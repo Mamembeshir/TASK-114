@@ -3,7 +3,7 @@
  * Auto-saves to IndexedDB every 30 seconds.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { AlertTriangle, X } from 'lucide-react'
+import { AlertTriangle, Paperclip, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/store/authStore'
 import { useTabStore } from '@/store/tabStore'
@@ -14,6 +14,7 @@ import {
   submitForReview,
 } from '@/services/publicationService'
 import { Button, Card, CardHeader, Checkbox, Input, RichTextEditor, Select } from '@/components/ui'
+import { decodeLocalFile, encodeLocalFile, fileToDataUrl } from '@/utils/fileUtils'
 import { Role } from '@/types'
 import type { PublicationType } from '@/types'
 
@@ -82,7 +83,7 @@ export function PublicationFormPage({ editId, tabId }: Props) {
         title: title.trim(),
         type,
         body,
-        attachmentUrls: attachmentUrls.filter((u) => u.trim()),
+        attachmentUrls: attachmentUrls.filter((u) => u.trim() && !u.startsWith('http')),
         audienceRoles,
         audienceOrgs,
         audienceTags,
@@ -156,11 +157,21 @@ export function PublicationFormPage({ editId, tabId }: Props) {
     }
   }
 
-  const updateAttachmentUrl = (idx: number, value: string) => {
-    const next = [...attachmentUrls]
-    next[idx] = value
-    setAttachmentUrls(next)
-    setDirty(true)
+  const handleAttachmentFilePick = async (files: FileList | null) => {
+    if (!files || files.length === 0) return
+    try {
+      const encoded = await Promise.all(
+        Array.from(files).map(async (f) => encodeLocalFile(f.name, await fileToDataUrl(f))),
+      )
+      setAttachmentUrls((prev) => {
+        // Drop the initial placeholder empty string on first pick
+        const nonEmpty = prev.filter((u) => u.trim() !== '')
+        return [...nonEmpty, ...encoded]
+      })
+      setDirty(true)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to read file')
+    }
   }
 
   return (
@@ -238,40 +249,46 @@ export function PublicationFormPage({ editId, tabId }: Props) {
       </Card>
 
       <Card>
-        <CardHeader title="Attachments" description="Link URLs (optional)" />
-        <div className="space-y-2">
-          {attachmentUrls.map((url, idx) => (
-            <div key={idx} className="flex gap-2">
-              <input
-                className="flex-1 bg-surface-800 border border-surface-700 rounded-lg px-3 py-2 text-sm text-surface-100 placeholder-surface-600 focus:outline-none focus:border-primary-500"
-                value={url}
-                onChange={(e) => {
-                  updateAttachmentUrl(idx, e.target.value)
-                }}
-                placeholder="https://example.com/attachment.pdf"
-              />
-              {attachmentUrls.length > 1 && (
-                <button
-                  onClick={() => {
-                    setAttachmentUrls(attachmentUrls.filter((_, i) => i !== idx))
-                  }}
-                  className="text-surface-500 hover:text-danger-400"
-                  aria-label="Remove attachment"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
+        <CardHeader title="Attachments" description="Upload files from your device (stored locally, no internet required)" />
+        <div className="space-y-3">
+          {/* Uploaded attachment chips */}
+          {attachmentUrls.filter((u) => u.trim() && !u.startsWith('http')).length > 0 && (
+            <div className="space-y-1.5">
+              {attachmentUrls.filter((u) => u.trim() && !u.startsWith('http')).map((stored, idx) => {
+                const file = decodeLocalFile(stored)
+                return (
+                  <div key={idx} className="flex items-center gap-2 px-3 py-2 bg-surface-800 rounded-lg">
+                    <Paperclip className="w-3.5 h-3.5 text-surface-500 shrink-0" />
+                    <span className="flex-1 text-xs text-surface-300 truncate">
+                      {file?.name ?? 'file'}
+                    </span>
+                    <button
+                      onClick={() => {
+                        setAttachmentUrls(attachmentUrls.filter((u) => u !== stored))
+                        setDirty(true)
+                      }}
+                      className="text-surface-500 hover:text-danger-400 shrink-0"
+                      aria-label="Remove attachment"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )
+              })}
             </div>
-          ))}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              setAttachmentUrls([...attachmentUrls, ''])
-            }}
-          >
-            + Add attachment
-          </Button>
+          )}
+          {/* File picker */}
+          <label className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-surface-600 hover:border-primary-500 cursor-pointer text-sm text-surface-400 hover:text-primary-400 transition-colors w-fit">
+            <Paperclip className="w-4 h-4 shrink-0" />
+            <span>Choose files…</span>
+            <input
+              type="file"
+              multiple
+              className="sr-only"
+              onChange={(e) => { void handleAttachmentFilePick(e.target.files) }}
+            />
+          </label>
+          <p className="text-xs text-surface-600">Max 10 MB per file</p>
         </div>
       </Card>
 

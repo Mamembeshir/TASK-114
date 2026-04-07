@@ -4,7 +4,7 @@
  * Admins can initiate/approve destruction.
  */
 import { useCallback, useEffect, useState } from 'react'
-import { Lock, ShieldAlert } from 'lucide-react'
+import { Download, Lock, ShieldAlert } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/store/authStore'
 import { useTabStore } from '@/store/tabStore'
@@ -22,6 +22,7 @@ import {
   getDocumentById,
 } from '@/services/documentService'
 import { sanitizeHtml } from '@/utils/sanitize'
+import { decodeLocalFile, downloadDataUrl } from '@/utils/fileUtils'
 import { Badge, Button, Card, CardHeader, Modal, Spinner, Textarea } from '@/components/ui'
 import type { DestructionApproval, Document, DocumentStatus } from '@/types'
 
@@ -264,17 +265,20 @@ export function DocumentDetailPage({ documentId }: Props) {
           <div className="mt-4 pt-4 border-t border-surface-800">
             <p className="text-xs font-medium text-surface-500 mb-2">Attachments</p>
             <div className="space-y-1">
-              {doc.attachmentUrls.filter(Boolean).map((url, i) => (
-                <a
-                  key={i}
-                  href={url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block text-xs text-primary-400 hover:underline truncate"
-                >
-                  {url}
-                </a>
-              ))}
+              {doc.attachmentUrls.filter(Boolean).map((stored, i) => {
+                const file = decodeLocalFile(stored)
+                if (!file) return null
+                return (
+                  <button
+                    key={i}
+                    onClick={() => { downloadDataUrl(file.dataUrl, file.name) }}
+                    className="flex items-center gap-1.5 text-xs text-primary-400 hover:text-primary-300 transition-colors"
+                  >
+                    <Download className="w-3 h-3 shrink-0" />
+                    <span className="truncate max-w-xs">{file.name}</span>
+                  </button>
+                )
+              })}
             </div>
           </div>
         )}

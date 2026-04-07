@@ -2,13 +2,14 @@
  * CatalogItemFormPage — create a new catalog item or edit an existing Draft.
  */
 import { useEffect, useRef, useState } from 'react'
-import { AlertTriangle, X } from 'lucide-react'
+import { AlertTriangle, ImagePlus, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/store/authStore'
 import { useTabStore } from '@/store/tabStore'
 import { db } from '@/db'
 import { createCatalogItem, updateCatalogItem, publishCatalogItem } from '@/services/catalogService'
 import { Button, Card, CardHeader, Input, Select, Textarea } from '@/components/ui'
+import { fileToDataUrl, isExternalUrl } from '@/utils/fileUtils'
 import type { Category } from '@/types'
 
 interface Props {
@@ -81,7 +82,7 @@ export function CatalogItemFormPage({ editId, tabId }: Props) {
     tags,
     price: Number(price),
     stock: Number(stock),
-    imageUrls: imageUrls.filter((u) => u.trim()),
+    imageUrls: imageUrls.filter((u) => u.trim() && !isExternalUrl(u)),
   })
 
   const refreshFlags = async (id: string) => {
@@ -160,18 +161,29 @@ export function CatalogItemFormPage({ editId, tabId }: Props) {
     setDirty(true)
   }
 
-  const updateImageUrl = (idx: number, value: string) => {
-    const next = [...imageUrls]
-    next[idx] = value
-    setImageUrls(next)
-    setDirty(true)
+  const handleImageFilePick = async (files: FileList | null) => {
+    if (!files || files.length === 0) return
+    const picked = Array.from(files).filter((f) => f.type.startsWith('image/'))
+    if (picked.length === 0) {
+      toast.error('Please select image files (jpg, png, gif, webp, svg)')
+      return
+    }
+    try {
+      const dataUrls = await Promise.all(picked.map(fileToDataUrl))
+      // Replace the placeholder empty string on first pick; append on subsequent picks
+      setImageUrls((prev) => {
+        const nonEmpty = prev.filter((u) => u.trim() !== '' && !isExternalUrl(u))
+        return [...nonEmpty, ...dataUrls]
+      })
+      setDirty(true)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to read image file')
+    }
   }
 
-  const addImageUrl = () => {
-    setImageUrls([...imageUrls, ''])
-  }
   const removeImageUrl = (idx: number) => {
     setImageUrls(imageUrls.filter((_, i) => i !== idx))
+    setDirty(true)
   }
 
   return (
@@ -310,34 +322,42 @@ export function CatalogItemFormPage({ editId, tabId }: Props) {
       </Card>
 
       <Card>
-        <CardHeader title="Images" description="Paste image URLs (optional)" />
-        <div className="space-y-2">
-          {imageUrls.map((url, idx) => (
-            <div key={idx} className="flex gap-2">
-              <input
-                className="flex-1 bg-surface-800 border border-surface-700 rounded-lg px-3 py-2 text-sm text-surface-100 placeholder-surface-600 focus:outline-none focus:border-primary-500"
-                value={url}
-                onChange={(e) => {
-                  updateImageUrl(idx, e.target.value)
-                }}
-                placeholder="https://example.com/image.jpg"
-              />
-              {imageUrls.length > 1 && (
-                <button
-                  onClick={() => {
-                    removeImageUrl(idx)
-                  }}
-                  className="text-surface-500 hover:text-danger-400"
-                  aria-label="Remove image"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
+        <CardHeader title="Images" description="Upload images from your device (stored locally, no internet required)" />
+        <div className="space-y-3">
+          {/* Thumbnails for already-uploaded images */}
+          {imageUrls.filter((u) => u.trim() && !isExternalUrl(u)).length > 0 && (
+            <div className="flex flex-wrap gap-3">
+              {imageUrls.filter((u) => u.trim() && !isExternalUrl(u)).map((url, idx) => (
+                <div key={idx} className="relative group w-24 h-24 shrink-0">
+                  <img
+                    src={url}
+                    alt={`Image ${String(idx + 1)}`}
+                    className="w-24 h-24 object-cover rounded-lg border border-surface-700 bg-surface-800"
+                  />
+                  <button
+                    onClick={() => { removeImageUrl(imageUrls.indexOf(url)) }}
+                    className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-danger-600 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    aria-label="Remove image"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
             </div>
-          ))}
-          <Button variant="ghost" size="sm" onClick={addImageUrl}>
-            + Add another image
-          </Button>
+          )}
+          {/* File picker */}
+          <label className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-surface-600 hover:border-primary-500 cursor-pointer text-sm text-surface-400 hover:text-primary-400 transition-colors w-fit">
+            <ImagePlus className="w-4 h-4 shrink-0" />
+            <span>Choose image files…</span>
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              className="sr-only"
+              onChange={(e) => { void handleImageFilePick(e.target.files) }}
+            />
+          </label>
+          <p className="text-xs text-surface-600">Accepted: JPG, PNG, GIF, WebP, SVG · Max 10 MB per file</p>
         </div>
       </Card>
 

@@ -3,7 +3,7 @@
  * Requires exclusive checkout before editing an existing document.
  */
 import { useEffect, useRef, useState } from 'react'
-import { AlertTriangle, Lock, Plus, Trash2, X } from 'lucide-react'
+import { AlertTriangle, Lock, Paperclip, Plus, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/store/authStore'
 import { useTabStore } from '@/store/tabStore'
@@ -18,6 +18,7 @@ import {
   listDocumentTemplates,
 } from '@/services/documentService'
 import { Button, Card, CardHeader, Input, RichTextEditor, Select, Spinner } from '@/components/ui'
+import { decodeLocalFile, encodeLocalFile, fileToDataUrl } from '@/utils/fileUtils'
 import type { Category, Document, DocumentTemplate } from '@/types'
 
 const DOCUMENT_TYPES = ['Policy', 'Procedure', 'Form', 'Manual', 'Report', 'Other']
@@ -128,7 +129,7 @@ export function DocumentFormPage({ editId, tabId }: Props) {
       type,
       categoryId,
       body,
-      attachmentUrls: attachmentUrls.filter((u) => u.trim()),
+      attachmentUrls: attachmentUrls.filter((u) => u.trim() && !u.startsWith('http')),
       retentionYears: Number(retentionYears),
       tags,
       metadata,
@@ -229,6 +230,22 @@ export function DocumentFormPage({ editId, tabId }: Props) {
 
   // For existing docs, require checkout to edit
   const canEdit = !editId || isCheckedOut
+
+  const handleAttachmentFilePick = async (files: FileList | null) => {
+    if (!files || files.length === 0) return
+    try {
+      const encoded = await Promise.all(
+        Array.from(files).map(async (f) => encodeLocalFile(f.name, await fileToDataUrl(f))),
+      )
+      setAttachmentUrls((prev) => {
+        const nonEmpty = prev.filter((u) => u.trim() !== '')
+        return [...nonEmpty, ...encoded]
+      })
+      setDirty(true)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to read file')
+    }
+  }
 
   return (
     <div className="p-6 space-y-6 max-w-3xl">
@@ -462,45 +479,51 @@ export function DocumentFormPage({ editId, tabId }: Props) {
       </Card>
 
       <Card>
-        <CardHeader title="Attachments" description="Link URLs (optional)" />
-        <div className="space-y-2">
-          {attachmentUrls.map((url, idx) => (
-            <div key={idx} className="flex gap-2">
-              <input
-                className="flex-1 bg-surface-800 border border-surface-700 rounded-lg px-3 py-2 text-sm text-surface-100 placeholder-surface-600 focus:outline-none focus:border-primary-500 disabled:opacity-50"
-                value={url}
-                onChange={(e) => {
-                  const next = [...attachmentUrls]
-                  next[idx] = e.target.value
-                  setAttachmentUrls(next)
-                  setDirty(true)
-                }}
-                placeholder="https://example.com/file.pdf"
-                disabled={!canEdit}
-              />
-              {attachmentUrls.length > 1 && canEdit && (
-                <button
-                  onClick={() => {
-                    setAttachmentUrls(attachmentUrls.filter((_, i) => i !== idx))
-                  }}
-                  className="text-surface-500 hover:text-danger-400"
-                  aria-label="Remove attachment"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
+        <CardHeader title="Attachments" description="Upload files from your device (stored locally, no internet required)" />
+        <div className="space-y-3">
+          {/* Uploaded attachment chips */}
+          {attachmentUrls.filter((u) => u.trim() && !u.startsWith('http')).length > 0 && (
+            <div className="space-y-1.5">
+              {attachmentUrls.filter((u) => u.trim() && !u.startsWith('http')).map((stored, idx) => {
+                const file = decodeLocalFile(stored)
+                return (
+                  <div key={idx} className="flex items-center gap-2 px-3 py-2 bg-surface-800 rounded-lg">
+                    <Paperclip className="w-3.5 h-3.5 text-surface-500 shrink-0" />
+                    <span className="flex-1 text-xs text-surface-300 truncate">
+                      {file?.name ?? 'file'}
+                    </span>
+                    {canEdit && (
+                      <button
+                        onClick={() => {
+                          setAttachmentUrls(attachmentUrls.filter((u) => u !== stored))
+                          setDirty(true)
+                        }}
+                        className="text-surface-500 hover:text-danger-400 shrink-0"
+                        aria-label="Remove attachment"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
             </div>
-          ))}
+          )}
+          {/* File picker — only shown when document is checked out */}
           {canEdit && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setAttachmentUrls([...attachmentUrls, ''])
-              }}
-            >
-              + Add attachment
-            </Button>
+            <>
+              <label className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-surface-600 hover:border-primary-500 cursor-pointer text-sm text-surface-400 hover:text-primary-400 transition-colors w-fit">
+                <Paperclip className="w-4 h-4 shrink-0" />
+                <span>Choose files…</span>
+                <input
+                  type="file"
+                  multiple
+                  className="sr-only"
+                  onChange={(e) => { void handleAttachmentFilePick(e.target.files) }}
+                />
+              </label>
+              <p className="text-xs text-surface-600">Max 10 MB per file</p>
+            </>
           )}
         </div>
       </Card>
