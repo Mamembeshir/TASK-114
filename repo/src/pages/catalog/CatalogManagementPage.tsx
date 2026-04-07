@@ -68,7 +68,7 @@ export function CatalogManagementPage() {
 
   const handlePublish = async (id: string) => {
     try {
-      await publishCatalogItem(id, currentUser.id, currentUser.displayName)
+      await publishCatalogItem(id)
       toast.success('Item published')
       void load()
     } catch (err) {
@@ -78,7 +78,7 @@ export function CatalogManagementPage() {
 
   const handleArchive = async (id: string) => {
     try {
-      await archiveCatalogItem(id, currentUser.id, currentUser.displayName)
+      await archiveCatalogItem(id)
       toast.success('Item archived')
       void load()
     } catch (err) {
@@ -88,7 +88,7 @@ export function CatalogManagementPage() {
 
   const handleRestore = async (id: string) => {
     try {
-      await restoreCatalogItem(id, currentUser.id, currentUser.displayName)
+      await restoreCatalogItem(id)
       toast.success('Item restored to Draft')
       void load()
     } catch (err) {

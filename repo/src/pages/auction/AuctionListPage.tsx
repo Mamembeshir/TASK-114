@@ -70,7 +70,7 @@ export function AuctionListPage() {
 
   const handlePublish = async (auction: Auction) => {
     try {
-      await publishAuction(auction.id, currentUser.id, currentUser.displayName)
+      await publishAuction(auction.id)
       toast.success(`"${auction.title}" published`)
       void load()
     } catch (err) {
@@ -81,7 +81,7 @@ export function AuctionListPage() {
   const handleCancel = async (auction: Auction) => {
     if (!window.confirm(`Cancel auction "${auction.title}"?`)) return
     try {
-      await cancelAuction(auction.id, currentUser.id, currentUser.displayName)
+      await cancelAuction(auction.id)
       toast.success('Auction cancelled')
       void load()
     } catch (err) {

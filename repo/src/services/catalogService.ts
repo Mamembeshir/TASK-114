@@ -30,10 +30,11 @@ export interface CatalogItemInput {
 
 export async function createCatalogItem(
   input: CatalogItemInput,
-  actorId: string,
-  actorName: string,
 ): Promise<CatalogItem> {
   requirePermission('createCatalogItem')
+  const currentUser = useAuthStore.getState().currentUser!
+  const actorId = currentUser.id
+  const actorName = currentUser.displayName
   const moderationFlags = await moderateContent([input.title, input.description, ...input.tags])
   const item: CatalogItem = {
     id: generateId(),
@@ -63,17 +64,17 @@ export async function createCatalogItem(
 export async function updateCatalogItem(
   id: string,
   updates: Partial<CatalogItemInput>,
-  actorId: string,
-  actorName: string,
 ): Promise<void> {
   requirePermission('createCatalogItem')
+  const currentUser = useAuthStore.getState().currentUser!
+  const actorId = currentUser.id
+  const actorName = currentUser.displayName
   const item = await db.catalogItems.get(id)
   if (!item) throw new Error('Catalog item not found')
   if (item.status === 'Archived') throw new Error('Cannot edit an archived item')
   // Object-level: editors may only update items they created;
   // manageCatalog bypasses this (admin override).
-  const actorRole = useAuthStore.getState().currentUser?.role
-  if (item.createdBy !== actorId && !hasPermission(actorRole!, 'manageCatalog'))
+  if (item.createdBy !== actorId && !hasPermission(currentUser.role, 'manageCatalog'))
     throw new Error('Forbidden: you can only edit catalog items you created')
   const textsToCheck = [
     updates.title ?? item.title,
@@ -100,10 +101,11 @@ export async function updateCatalogItem(
 
 export async function publishCatalogItem(
   id: string,
-  actorId: string,
-  actorName: string,
 ): Promise<void> {
   requirePermission('moderateCatalogItem')
+  const currentUser = useAuthStore.getState().currentUser!
+  const actorId = currentUser.id
+  const actorName = currentUser.displayName
   const item = await db.catalogItems.get(id)
   if (!item) throw new Error('Catalog item not found')
   if (item.status !== 'Draft') throw new Error('Only Draft items can be published')
@@ -126,10 +128,11 @@ export async function publishCatalogItem(
 
 export async function archiveCatalogItem(
   id: string,
-  actorId: string,
-  actorName: string,
 ): Promise<void> {
   requirePermission('manageCatalog')
+  const currentUser = useAuthStore.getState().currentUser!
+  const actorId = currentUser.id
+  const actorName = currentUser.displayName
   const item = await db.catalogItems.get(id)
   if (!item) throw new Error('Catalog item not found')
   if (item.status === 'Archived') return
@@ -146,10 +149,11 @@ export async function archiveCatalogItem(
 
 export async function restoreCatalogItem(
   id: string,
-  actorId: string,
-  actorName: string,
 ): Promise<void> {
   requirePermission('manageCatalog')
+  const currentUser = useAuthStore.getState().currentUser!
+  const actorId = currentUser.id
+  const actorName = currentUser.displayName
   const item = await db.catalogItems.get(id)
   if (!item) throw new Error('Catalog item not found')
   if (item.status !== 'Archived') throw new Error('Only Archived items can be restored')
@@ -170,10 +174,11 @@ export async function restoreCatalogItem(
  */
 export async function approveModerationFlags(
   id: string,
-  actorId: string,
-  actorName: string,
 ): Promise<void> {
   requirePermission('moderateCatalogItem')
+  const currentUser = useAuthStore.getState().currentUser!
+  const actorId = currentUser.id
+  const actorName = currentUser.displayName
   const item = await db.catalogItems.get(id)
   if (!item) throw new Error('Catalog item not found')
   if (item.moderationFlags.length === 0) throw new Error('Item has no moderation flags to review')
@@ -196,10 +201,11 @@ export async function approveModerationFlags(
  */
 export async function rejectModerationFlags(
   id: string,
-  actorId: string,
-  actorName: string,
 ): Promise<void> {
   requirePermission('moderateCatalogItem')
+  const currentUser = useAuthStore.getState().currentUser!
+  const actorId = currentUser.id
+  const actorName = currentUser.displayName
   const item = await db.catalogItems.get(id)
   if (!item) throw new Error('Catalog item not found')
   if (item.moderationFlags.length === 0) throw new Error('Item has no moderation flags to review')

@@ -204,10 +204,11 @@ export interface DocumentTemplateInput {
 
 export async function createDocumentTemplate(
   input: DocumentTemplateInput,
-  actorId: string,
-  actorName: string,
 ): Promise<DocumentTemplate> {
   requirePermission('manageDocuments')
+  const currentUser = useAuthStore.getState().currentUser!
+  const actorId = currentUser.id
+  const actorName = currentUser.displayName
   const now = Date.now()
   const template: DocumentTemplate = {
     id: generateId(),
@@ -293,10 +294,11 @@ export async function searchDocuments(criteria: {
 
 export async function createDocument(
   input: DocumentInput,
-  actorId: string,
-  actorName: string,
 ): Promise<Document> {
   requirePermission('createDocument')
+  const currentUser = useAuthStore.getState().currentUser!
+  const actorId = currentUser.id
+  const actorName = currentUser.displayName
   const moderationFlags = await moderateContent([input.title, input.body])
   const doc: Document = {
     id: generateId(),
@@ -323,10 +325,11 @@ export async function createDocument(
 export async function updateDocument(
   id: string,
   updates: Partial<DocumentInput>,
-  actorId: string,
-  actorName: string,
 ): Promise<void> {
   requirePermission('createDocument')
+  const currentUser = useAuthStore.getState().currentUser!
+  const actorId = currentUser.id
+  const actorName = currentUser.displayName
   const doc = await readDoc(id)
   if (!doc) throw new Error('Document not found')
   if (doc.checkedOutBy && doc.checkedOutBy !== actorId)
@@ -335,8 +338,7 @@ export async function updateDocument(
     throw new Error('Only Draft or Rejected documents can be edited')
   // Object-level: editors may only update documents they created;
   // manageDocuments bypasses this (admin override).
-  const actorRole = useAuthStore.getState().currentUser?.role
-  if (doc.createdBy !== actorId && !hasPermission(actorRole!, 'manageDocuments'))
+  if (doc.createdBy !== actorId && !hasPermission(currentUser.role, 'manageDocuments'))
     throw new Error('Forbidden: you can only edit documents you created')
 
   const textsToCheck = [updates.title ?? doc.title, updates.body ?? doc.body]
@@ -372,10 +374,11 @@ const CHECKOUT_TIMEOUT_MS = 4 * 60 * 60 * 1000 // 4 hours auto-release
 
 export async function checkoutDocument(
   id: string,
-  actorId: string,
-  actorName: string,
 ): Promise<void> {
   requirePermission('checkoutDocument')
+  const currentUser = useAuthStore.getState().currentUser!
+  const actorId = currentUser.id
+  const actorName = currentUser.displayName
   const doc = await readDoc(id)
   if (!doc) throw new Error('Document not found')
 
@@ -425,10 +428,11 @@ export async function checkoutDocument(
 
 export async function checkinDocument(
   id: string,
-  actorId: string,
-  actorName: string,
 ): Promise<void> {
   requirePermission('checkoutDocument')
+  const currentUser = useAuthStore.getState().currentUser!
+  const actorId = currentUser.id
+  const actorName = currentUser.displayName
   const doc = await readDoc(id)
   if (!doc) throw new Error('Document not found')
   if (doc.checkedOutBy !== actorId)
@@ -478,10 +482,11 @@ export async function checkinDocument(
 
 export async function releaseCheckout(
   id: string,
-  actorId: string,
-  actorName: string,
 ): Promise<void> {
   requirePermission('manageDocuments')
+  const currentUser = useAuthStore.getState().currentUser!
+  const actorId = currentUser.id
+  const actorName = currentUser.displayName
   const doc = await readDoc(id)
   if (!doc) throw new Error('Document not found')
 
@@ -512,10 +517,11 @@ export async function releaseCheckout(
 
 export async function submitDocumentForReview(
   id: string,
-  actorId: string,
-  actorName: string,
 ): Promise<void> {
   requirePermission('createDocument')
+  const currentUser = useAuthStore.getState().currentUser!
+  const actorId = currentUser.id
+  const actorName = currentUser.displayName
   const doc = await readDoc(id)
   if (!doc) throw new Error('Document not found')
   if (!['Draft', 'Rejected'].includes(doc.status))
@@ -543,11 +549,12 @@ export async function submitDocumentForReview(
 
 export async function approveDocument(
   id: string,
-  actorId: string,
-  actorName: string,
   comment?: string,
 ): Promise<void> {
   requirePermission('approveDocument')
+  const currentUser = useAuthStore.getState().currentUser!
+  const actorId = currentUser.id
+  const actorName = currentUser.displayName
   const doc = await readDoc(id)
   if (!doc) throw new Error('Document not found')
   if (doc.status !== 'InReview') throw new Error('Document is not in review')
@@ -606,11 +613,12 @@ export async function approveDocument(
 
 export async function rejectDocument(
   id: string,
-  actorId: string,
-  actorName: string,
   comment: string,
 ): Promise<void> {
   requirePermission('approveDocument')
+  const currentUser = useAuthStore.getState().currentUser!
+  const actorId = currentUser.id
+  const actorName = currentUser.displayName
   const doc = await readDoc(id)
   if (!doc) throw new Error('Document not found')
   if (doc.status !== 'InReview') throw new Error('Document is not in review')
@@ -643,10 +651,11 @@ export async function rejectDocument(
 export async function requestDestruction(
   id: string,
   reason: string,
-  actorId: string,
-  actorName: string,
 ): Promise<void> {
   requirePermission('approveDestruction')
+  const currentUser = useAuthStore.getState().currentUser!
+  const actorId = currentUser.id
+  const actorName = currentUser.displayName
   const doc = await readDoc(id)
   if (!doc) throw new Error('Document not found')
   if (!['Approved', 'Archived'].includes(doc.status))
@@ -686,10 +695,11 @@ export async function requestDestruction(
 
 export async function reviewerApproveDestruction(
   approvalId: string,
-  actorId: string,
-  actorName: string,
 ): Promise<void> {
   requirePermission('approveDocument')
+  const currentUser = useAuthStore.getState().currentUser!
+  const actorId = currentUser.id
+  const actorName = currentUser.displayName
   const actor = await db.users.get(actorId)
   if (!actor || actor.role !== Role.ReviewerApprover) {
     throw new Error('Forbidden: only a ReviewerApprover may perform the reviewer step')
@@ -717,10 +727,11 @@ export async function reviewerApproveDestruction(
 
 export async function adminApproveDestruction(
   approvalId: string,
-  actorId: string,
-  actorName: string,
 ): Promise<void> {
   requirePermission('approveDestruction')
+  const currentUser = useAuthStore.getState().currentUser!
+  const actorId = currentUser.id
+  const actorName = currentUser.displayName
   const actor = await db.users.get(actorId)
   if (!actor || actor.role !== Role.Administrator) {
     throw new Error('Forbidden: only an Administrator may perform the final destruction approval')
@@ -757,10 +768,11 @@ export async function adminApproveDestruction(
 export async function rejectDestruction(
   approvalId: string,
   reason: string,
-  actorId: string,
-  actorName: string,
 ): Promise<void> {
   requirePermission('approveDestruction')
+  const currentUser = useAuthStore.getState().currentUser!
+  const actorId = currentUser.id
+  const actorName = currentUser.displayName
   const approval = await db.destructionApprovals.get(approvalId)
   if (!approval) throw new Error('Approval record not found')
 

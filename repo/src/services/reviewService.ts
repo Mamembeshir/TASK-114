@@ -17,6 +17,7 @@ import { generateId } from '@/crypto'
 import { writeAuditLog } from '@/utils/audit'
 import { moderateContent } from '@/utils/moderation'
 import { requirePermission } from '@/utils/permissions'
+import { useAuthStore } from '@/store/authStore'
 import type { CatalogReview } from '@/types'
 
 // ── Aggregation helper ─────────────────────────────────────────────────────────
@@ -47,10 +48,11 @@ export async function submitReview(
   itemId: string,
   rating: number,
   comment: string,
-  actorId: string,
-  actorName: string,
 ): Promise<CatalogReview> {
   requirePermission('viewCatalog')
+  const currentUser = useAuthStore.getState().currentUser!
+  const actorId = currentUser.id
+  const actorName = currentUser.displayName
 
   if (rating < 1 || rating > 5 || !Number.isInteger(rating)) {
     throw new Error('Rating must be an integer between 1 and 5')
@@ -141,10 +143,11 @@ export async function getMyReview(itemId: string, userId: string): Promise<Catal
  */
 export async function removeReview(
   reviewId: string,
-  actorId: string,
-  actorName: string,
 ): Promise<void> {
   requirePermission('moderateCatalogItem')
+  const currentUser = useAuthStore.getState().currentUser!
+  const actorId = currentUser.id
+  const actorName = currentUser.displayName
   const review = await db.catalogReviews.get(reviewId)
   if (!review) throw new Error('Review not found')
   await db.catalogReviews.update(reviewId, { status: 'Removed', updatedAt: Date.now() })

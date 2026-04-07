@@ -70,7 +70,19 @@ beforeEach(async () => {
 // ── 1. markAllNotificationsRead — ownership enforcement ────────────────────────
 
 describe('markAllNotificationsRead — object-level authorization', () => {
-  it('succeeds when actorUserId === userId', async () => {
+  it('succeeds when authenticated user === userId', async () => {
+    // Identity now derived from auth store — set it to alice before calling.
+    useAuthStore.setState({
+      currentUser: {
+        id: 'alice',
+        username: 'alice',
+        displayName: 'Alice',
+        role: Role.Participant,
+        isActive: true,
+        createdAt: Date.now(),
+      },
+    } as Parameters<typeof useAuthStore.setState>[0])
+
     await db.notifications.add({
       id: 'n1',
       userId: 'alice',
@@ -81,14 +93,15 @@ describe('markAllNotificationsRead — object-level authorization', () => {
       createdAt: Date.now(),
     })
 
-    await expect(markAllNotificationsRead('alice', 'alice')).resolves.toBeUndefined()
+    await expect(markAllNotificationsRead('alice')).resolves.toBeUndefined()
 
     const updated = await db.notifications.get('n1')
     expect(updated?.isRead).toBe(true)
   })
 
-  it('throws Forbidden when actorUserId !== userId', async () => {
-    await expect(markAllNotificationsRead('alice', 'bob')).rejects.toThrow(/Forbidden/)
+  it('throws Forbidden when authenticated user !== userId', async () => {
+    // beforeEach sets auth store to user-Administrator; 'alice' !== 'user-Administrator' → Forbidden
+    await expect(markAllNotificationsRead('alice')).rejects.toThrow(/Forbidden/)
   })
 
   it('does not mutate any notification when ownership check fails', async () => {
@@ -102,7 +115,8 @@ describe('markAllNotificationsRead — object-level authorization', () => {
       createdAt: Date.now(),
     })
 
-    await expect(markAllNotificationsRead('alice', 'eve')).rejects.toThrow()
+    // Auth store is user-Administrator; 'alice' !== 'user-Administrator' → throws
+    await expect(markAllNotificationsRead('alice')).rejects.toThrow()
 
     const unchanged = await db.notifications.get('n2')
     expect(unchanged?.isRead).toBe(false)
@@ -114,7 +128,7 @@ describe('markAllNotificationsRead — object-level authorization', () => {
 describe('addSensitiveWord — function-level authorization', () => {
   it('succeeds for Administrator (has manageSystem)', async () => {
     setRole(Role.Administrator)
-    const result = await addSensitiveWord('badword', 'admin-1', 'Admin')
+    const result = await addSensitiveWord('badword')
     expect(result).toBe(true)
     const stored = await db.sensitiveWords.where('word').equals('badword').first()
     expect(stored).toBeDefined()
@@ -123,34 +137,34 @@ describe('addSensitiveWord — function-level authorization', () => {
   it('throws Forbidden for ContentEditor (lacks manageSystem)', async () => {
     setRole(Role.ContentEditor)
     await expect(
-      addSensitiveWord('test', 'editor-1', 'Editor'),
+      addSensitiveWord('test'),
     ).rejects.toThrow(/Forbidden/)
   })
 
   it('throws Forbidden for ReviewerApprover (lacks manageSystem)', async () => {
     setRole(Role.ReviewerApprover)
     await expect(
-      addSensitiveWord('test', 'reviewer-1', 'Reviewer'),
+      addSensitiveWord('test'),
     ).rejects.toThrow(/Forbidden/)
   })
 
   it('throws Forbidden for Participant (lacks manageSystem)', async () => {
     setRole(Role.Participant)
     await expect(
-      addSensitiveWord('test', 'participant-1', 'Participant'),
+      addSensitiveWord('test'),
     ).rejects.toThrow(/Forbidden/)
   })
 
   it('returns false (idempotent) when word already exists', async () => {
     setRole(Role.Administrator)
-    await addSensitiveWord('duplicate', 'admin-1', 'Admin')
-    const second = await addSensitiveWord('duplicate', 'admin-1', 'Admin')
+    await addSensitiveWord('duplicate')
+    const second = await addSensitiveWord('duplicate')
     expect(second).toBe(false)
   })
 
   it('normalises to lowercase before storing', async () => {
     setRole(Role.Administrator)
-    await addSensitiveWord('UPPER', 'admin-1', 'Admin')
+    await addSensitiveWord('UPPER')
     const stored = await db.sensitiveWords.where('word').equals('upper').first()
     expect(stored).toBeDefined()
   })
@@ -159,12 +173,12 @@ describe('addSensitiveWord — function-level authorization', () => {
 describe('deleteSensitiveWord — function-level authorization', () => {
   it('succeeds for Administrator', async () => {
     setRole(Role.Administrator)
-    const added = await addSensitiveWord('todelete', 'admin-1', 'Admin')
+    const added = await addSensitiveWord('todelete')
     expect(added).toBe(true)
     const sw = await db.sensitiveWords.where('word').equals('todelete').first()
 
     await expect(
-      deleteSensitiveWord(sw!.id, sw!.word, 'admin-1', 'Admin'),
+      deleteSensitiveWord(sw!.id, sw!.word),
     ).resolves.toBeUndefined()
 
     const gone = await db.sensitiveWords.get(sw!.id)
@@ -174,7 +188,7 @@ describe('deleteSensitiveWord — function-level authorization', () => {
   it('throws Forbidden for ContentEditor', async () => {
     setRole(Role.ContentEditor)
     await expect(
-      deleteSensitiveWord('fake-id', 'word', 'editor-1', 'Editor'),
+      deleteSensitiveWord('fake-id', 'word'),
     ).rejects.toThrow(/Forbidden/)
   })
 })
@@ -183,7 +197,7 @@ describe('saveSystemConfig — function-level authorization', () => {
   it('succeeds for Administrator (has manageSystem)', async () => {
     setRole(Role.Administrator)
     await expect(
-      saveSystemConfig(BASE_CONFIG, 'admin-1', 'Admin'),
+      saveSystemConfig(BASE_CONFIG),
     ).resolves.toBeUndefined()
 
     const stored = await db.systemConfig.get('singleton')
@@ -194,20 +208,20 @@ describe('saveSystemConfig — function-level authorization', () => {
   it('throws Forbidden for ContentEditor (lacks manageSystem)', async () => {
     setRole(Role.ContentEditor)
     await expect(
-      saveSystemConfig(BASE_CONFIG, 'editor-1', 'Editor'),
+      saveSystemConfig(BASE_CONFIG),
     ).rejects.toThrow(/Forbidden/)
   })
 
   it('throws Forbidden for ReviewerApprover (lacks manageSystem)', async () => {
     setRole(Role.ReviewerApprover)
     await expect(
-      saveSystemConfig(BASE_CONFIG, 'reviewer-1', 'Reviewer'),
+      saveSystemConfig(BASE_CONFIG),
     ).rejects.toThrow(/Forbidden/)
   })
 
   it('normalises documentNumberPrefix to uppercase', async () => {
     setRole(Role.Administrator)
-    await saveSystemConfig({ ...BASE_CONFIG, documentNumberPrefix: 'abc' }, 'admin-1', 'Admin')
+    await saveSystemConfig({ ...BASE_CONFIG, documentNumberPrefix: 'abc' })
     const stored = await db.systemConfig.get('singleton')
     expect(stored?.documentNumberPrefix).toBe('ABC')
   })
@@ -217,7 +231,7 @@ describe('saveSystemConfig — function-level authorization', () => {
     const before = await db.systemConfig.get('singleton')
     expect(before).toBeUndefined()
 
-    await saveSystemConfig(BASE_CONFIG, 'admin-1', 'Admin')
+    await saveSystemConfig(BASE_CONFIG)
 
     const after = await db.systemConfig.get('singleton')
     expect(after?.id).toBe('singleton')
@@ -234,7 +248,7 @@ describe('saveSystemConfig — function-level authorization', () => {
       updatedBy: 'system',
     })
 
-    await saveSystemConfig({ ...BASE_CONFIG, orgName: 'Updated Org' }, 'admin-1', 'Admin')
+    await saveSystemConfig({ ...BASE_CONFIG, orgName: 'Updated Org' })
 
     const updated = await db.systemConfig.get('singleton')
     expect(updated?.orgName).toBe('Updated Org')

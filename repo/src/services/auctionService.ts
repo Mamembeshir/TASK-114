@@ -30,10 +30,11 @@ export interface CreateAuctionInput {
 
 export async function createAuction(
   input: CreateAuctionInput,
-  actorId: string,
-  actorName: string,
 ): Promise<Auction> {
   requirePermission('createAuction')
+  const currentUser = useAuthStore.getState().currentUser!
+  const actorId = currentUser.id
+  const actorName = currentUser.displayName
   const now = Date.now()
   const auction: Auction = {
     id: generateId(),
@@ -63,17 +64,17 @@ export async function createAuction(
 export async function updateAuction(
   id: string,
   changes: Partial<CreateAuctionInput>,
-  actorId: string,
-  actorName: string,
 ): Promise<void> {
   requirePermission('createAuction')
+  const currentUser = useAuthStore.getState().currentUser!
+  const actorId = currentUser.id
+  const actorName = currentUser.displayName
   const auction = await db.auctions.get(id)
   if (!auction) throw new Error('Auction not found')
   if (auction.status !== 'Draft') throw new Error('Only Draft auctions can be edited')
   // Object-level: editors may only update auctions they created;
   // manageAuctions bypasses this (admin override).
-  const actorRole = useAuthStore.getState().currentUser?.role
-  if (auction.createdBy !== actorId && !hasPermission(actorRole!, 'manageAuctions'))
+  if (auction.createdBy !== actorId && !hasPermission(currentUser.role, 'manageAuctions'))
     throw new Error('Forbidden: you can only edit auctions you created')
 
   await db.auctions.update(id, { ...changes, updatedAt: Date.now() })
@@ -91,10 +92,11 @@ export async function updateAuction(
 
 export async function publishAuction(
   id: string,
-  actorId: string,
-  actorName: string,
 ): Promise<void> {
   requirePermission('manageAuctions')
+  const currentUser = useAuthStore.getState().currentUser!
+  const actorId = currentUser.id
+  const actorName = currentUser.displayName
   const auction = await db.auctions.get(id)
   if (!auction) throw new Error('Auction not found')
   if (auction.status !== 'Draft') throw new Error('Only Draft auctions can be published')
@@ -113,8 +115,11 @@ export async function publishAuction(
 
 // ── Cancel ────────────────────────────────────────────────────────────────────
 
-export async function cancelAuction(id: string, actorId: string, actorName: string): Promise<void> {
+export async function cancelAuction(id: string): Promise<void> {
   requirePermission('manageAuctions')
+  const currentUser = useAuthStore.getState().currentUser!
+  const actorId = currentUser.id
+  const actorName = currentUser.displayName
   const auction = await db.auctions.get(id)
   if (!auction) throw new Error('Auction not found')
   if (auction.status === 'Awarded' || auction.status === 'NoSale') {

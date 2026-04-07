@@ -8,6 +8,7 @@
 
 import { db } from '@/db'
 import { generateId } from '@/crypto'
+import { useAuthStore } from '@/store/authStore'
 import type { NotificationType, OutboundChannel, NotificationTemplate } from '@/types'
 import { RETRY_DELAYS_MS } from '@/types'
 
@@ -75,9 +76,11 @@ export async function markNotificationRead(id: string, actorUserId: string): Pro
 
 /**
  * Mark all of a user's notifications as read.
- * @param actorUserId - must equal userId; throws if caller tries to mutate another user's notifications.
+ * Derives the caller identity from the auth store; throws if the authenticated
+ * user does not own the notifications.
  */
-export async function markAllNotificationsRead(userId: string, actorUserId: string): Promise<void> {
+export async function markAllNotificationsRead(userId: string): Promise<void> {
+  const actorUserId = useAuthStore.getState().currentUser?.id
   if (actorUserId !== userId)
     throw new Error('Forbidden: you can only mark your own notifications as read')
   await db.notifications
@@ -302,19 +305,20 @@ export interface SubscriptionUpdate {
   inApp?: boolean
   email?: boolean
   sms?: boolean
+  officialAccount?: boolean
 }
 
 /** Get a user's subscription preference for a given notification type. */
 export async function getSubscription(
   userId: string,
   notificationType: string,
-): Promise<{ inApp: boolean; email: boolean; sms: boolean }> {
+): Promise<{ inApp: boolean; email: boolean; sms: boolean; officialAccount: boolean }> {
   const pref = await db.notificationSubscriptions
     .where('userId')
     .equals(userId)
     .filter((s) => s.notificationType === notificationType)
     .first()
-  return pref ?? { inApp: true, email: false, sms: false }
+  return pref ?? { inApp: true, email: false, sms: false, officialAccount: false }
 }
 
 /** Upsert a user's subscription preference for a notification type. */
@@ -338,6 +342,7 @@ export async function setSubscription(
       inApp: update.inApp ?? true,
       email: update.email ?? false,
       sms: update.sms ?? false,
+      officialAccount: update.officialAccount ?? false,
       updatedAt: Date.now(),
     })
   }
@@ -383,10 +388,22 @@ export async function getReadReceipts(notificationId: string): Promise<string[]>
 // ── Convenience helpers (called from other services) ──────────────────────────
 
 /**
+ * Maps OutboundChannel values to their corresponding NotificationSubscription field names.
+ * An explicit map avoids the fragile `.toLowerCase()` approach which would break for
+ * multi-word channel names like 'OfficialAccount' → 'officialaccount' (wrong).
+ */
+const CHANNEL_PREF_KEY: Record<OutboundChannel, 'email' | 'sms' | 'officialAccount'> = {
+  Email: 'email',
+  SMS: 'sms',
+  OfficialAccount: 'officialAccount',
+} as const
+
+/**
  * Notify a user and optionally enqueue an outbound message.
  * Both in-app delivery and each outbound channel are gated on the user's
  * subscription preferences for the given notification type.
- * Defaults (when no preference row exists): inApp=true, email=false, sms=false.
+ * Defaults (when no preference row exists): inApp=true, email=false, sms=false,
+ * officialAccount=false.
  */
 export async function notify(
   input: CreateNotificationInput,
@@ -404,8 +421,8 @@ export async function notify(
   }
 
   if (outbound) {
-    const channelKey = outbound.channel.toLowerCase() as Lowercase<OutboundChannel>
-    const wantsOutbound = pref[channelKey as keyof typeof pref] === true
+    const prefKey = CHANNEL_PREF_KEY[outbound.channel]
+    const wantsOutbound = pref[prefKey] === true
     if (wantsOutbound) {
       await queueOutboundMessage({
         channel: outbound.channel,

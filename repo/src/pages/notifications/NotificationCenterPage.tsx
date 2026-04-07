@@ -58,6 +58,7 @@ interface Pref {
   inApp: boolean
   email: boolean
   sms: boolean
+  officialAccount: boolean
 }
 
 type PrefMap = Record<string, Pref>
@@ -84,7 +85,7 @@ function SubscriptionPrefsPanel({ userId }: SubscriptionPrefsPanelProps) {
   }, [userId])
 
   const handleToggle = async (type: string, channel: keyof Pref) => {
-    const current = prefs[type] ?? { inApp: true, email: false, sms: false }
+    const current = prefs[type] ?? { inApp: true, email: false, sms: false, officialAccount: false }
     const updated = { ...current, [channel]: !current[channel] }
     setSaving(`${type}-${channel}`)
     try {
@@ -101,8 +102,8 @@ function SubscriptionPrefsPanel({ userId }: SubscriptionPrefsPanelProps) {
     <div className="space-y-4">
       <p className="text-sm text-surface-500">
         Control which notification types you receive and on which channels.
-        In-app notifications are on by default. Email and SMS require an address
-        configured in your profile and will be queued for manual export.
+        In-app notifications are on by default. Email, SMS, and Official Account messages
+        require an address configured in your profile and will be queued for manual export.
       </p>
 
       <div className="overflow-x-auto">
@@ -113,17 +114,18 @@ function SubscriptionPrefsPanel({ userId }: SubscriptionPrefsPanelProps) {
               <th className="text-center pb-2 font-medium w-20">In-App</th>
               <th className="text-center pb-2 font-medium w-20">Email</th>
               <th className="text-center pb-2 font-medium w-20">SMS</th>
+              <th className="text-center pb-2 font-medium w-24">Official Acct</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-surface-800/50">
             {ALL_TYPES.map((type) => {
-              const pref = prefs[type] ?? { inApp: true, email: false, sms: false }
+              const pref = prefs[type] ?? { inApp: true, email: false, sms: false, officialAccount: false }
               return (
                 <tr key={type} className="hover:bg-surface-800/30 transition-colors">
                   <td className="py-2.5 pr-4 text-surface-300 text-xs font-medium">
                     {TYPE_LABELS[type]}
                   </td>
-                  {(['inApp', 'email', 'sms'] as (keyof Pref)[]).map((channel) => (
+                  {(['inApp', 'email', 'sms', 'officialAccount'] as (keyof Pref)[]).map((channel) => (
                     <td key={channel} className="py-2.5 text-center">
                       <button
                         onClick={() => void handleToggle(type, channel)}

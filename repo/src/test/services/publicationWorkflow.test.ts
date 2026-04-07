@@ -1,6 +1,9 @@
 /**
  * Integration tests for the publication approval workflow.
  * Tests: Draft → InReview → Approved | Rejected → Published
+ *
+ * Services now derive actor identity from useAuthStore — each test step
+ * sets the appropriate authenticated user before calling the service.
  */
 
 import { describe, it, expect, beforeEach } from 'vitest'
@@ -12,6 +15,27 @@ import {
   rejectPublication,
   publishPublication,
 } from '@/services/publicationService'
+import { useAuthStore } from '@/store/authStore'
+import { Role } from '@/types'
+
+// ── Auth helpers ──────────────────────────────────────────────────────────────
+
+function setUser(id: string, role: Role, displayName = id) {
+  useAuthStore.setState({
+    currentUser: {
+      id,
+      username: id,
+      displayName,
+      role,
+      isActive: true,
+      createdAt: Date.now(),
+    },
+  } as Parameters<typeof useAuthStore.setState>[0])
+}
+
+const setEditor   = (id = 'editor-1')   => setUser(id, Role.ContentEditor, 'Editor')
+const setReviewer = (id = 'reviewer-1') => setUser(id, Role.ReviewerApprover, 'Reviewer')
+const setAdmin    = (id = 'admin-1')    => setUser(id, Role.Administrator, 'Admin')
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -21,6 +45,9 @@ function pubPayload(overrides = {}) {
     type: 'Notice' as const,
     body: '<p>Content here</p>',
     attachmentUrls: [] as string[],
+    audienceRoles: [] as Role[],
+    audienceOrgs: [] as string[],
+    audienceTags: [] as string[],
     ...overrides,
   }
 }
@@ -36,19 +63,22 @@ beforeEach(async () => {
     db.auditLogs.clear(),
     db.users.clear(),
   ])
+  setEditor()
 })
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('publication workflow — Draft → InReview', () => {
   it('creates a publication in Draft status', async () => {
-    const pub = await createPublication(pubPayload(), 'editor-1', 'Editor')
+    setEditor()
+    const pub = await createPublication(pubPayload())
     expect(pub.status).toBe('Draft')
   })
 
   it('transitions to InReview on submitForReview', async () => {
-    const pub = await createPublication(pubPayload(), 'editor-1', 'Editor')
-    await submitForReview(pub.id, 'editor-1', 'Editor')
+    setEditor()
+    const pub = await createPublication(pubPayload())
+    await submitForReview(pub.id)
     const updated = await db.publications.get(pub.id)
     expect(updated?.status).toBe('InReview')
   })
@@ -60,12 +90,11 @@ describe('publication workflow — Draft → InReview', () => {
       createdBy: 'admin',
       createdAt: Date.now(),
     })
+    setEditor()
     const pub = await createPublication(
       pubPayload({ body: '<p>This is forbidden content</p>' }),
-      'editor-1',
-      'Editor',
     )
-    await expect(submitForReview(pub.id, 'editor-1', 'Editor')).rejects.toThrow(
+    await expect(submitForReview(pub.id)).rejects.toThrow(
       /sensitive.*word|moderation/i,
     )
   })
@@ -73,17 +102,21 @@ describe('publication workflow — Draft → InReview', () => {
 
 describe('publication workflow — InReview → Approved / Rejected', () => {
   it('transitions to Approved on approvePublication', async () => {
-    const pub = await createPublication(pubPayload(), 'editor-1', 'Editor')
-    await submitForReview(pub.id, 'editor-1', 'Editor')
-    await approvePublication(pub.id, 'reviewer-1', 'Reviewer', 'Looks good')
+    setEditor()
+    const pub = await createPublication(pubPayload())
+    await submitForReview(pub.id)
+    setReviewer()
+    await approvePublication(pub.id, 'Looks good')
     const updated = await db.publications.get(pub.id)
     expect(updated?.status).toBe('Approved')
   })
 
   it('notifies author on approval', async () => {
-    const pub = await createPublication(pubPayload(), 'editor-1', 'Editor')
-    await submitForReview(pub.id, 'editor-1', 'Editor')
-    await approvePublication(pub.id, 'reviewer-1', 'Reviewer')
+    setEditor()
+    const pub = await createPublication(pubPayload())
+    await submitForReview(pub.id)
+    setReviewer()
+    await approvePublication(pub.id)
 
     const notif = await db.notifications
       .where('userId')
@@ -94,17 +127,21 @@ describe('publication workflow — InReview → Approved / Rejected', () => {
   })
 
   it('transitions to Rejected on rejectPublication', async () => {
-    const pub = await createPublication(pubPayload(), 'editor-1', 'Editor')
-    await submitForReview(pub.id, 'editor-1', 'Editor')
-    await rejectPublication(pub.id, 'reviewer-1', 'Reviewer', 'Needs revision')
+    setEditor()
+    const pub = await createPublication(pubPayload())
+    await submitForReview(pub.id)
+    setReviewer()
+    await rejectPublication(pub.id, 'Needs revision')
     const updated = await db.publications.get(pub.id)
     expect(updated?.status).toBe('Rejected')
   })
 
   it('notifies author on rejection', async () => {
-    const pub = await createPublication(pubPayload(), 'editor-1', 'Editor')
-    await submitForReview(pub.id, 'editor-1', 'Editor')
-    await rejectPublication(pub.id, 'reviewer-1', 'Reviewer', 'Needs revision')
+    setEditor()
+    const pub = await createPublication(pubPayload())
+    await submitForReview(pub.id)
+    setReviewer()
+    await rejectPublication(pub.id, 'Needs revision')
 
     const notif = await db.notifications
       .where('userId')
@@ -115,17 +152,22 @@ describe('publication workflow — InReview → Approved / Rejected', () => {
   })
 
   it('rejects approval when not InReview', async () => {
-    const pub = await createPublication(pubPayload(), 'editor-1', 'Editor')
-    await expect(approvePublication(pub.id, 'reviewer-1', 'Reviewer')).rejects.toThrow()
+    setEditor()
+    const pub = await createPublication(pubPayload())
+    setReviewer()
+    await expect(approvePublication(pub.id)).rejects.toThrow()
   })
 })
 
 describe('publication workflow — Approved → Published', () => {
   it('transitions to Published on publishPublication', async () => {
-    const pub = await createPublication(pubPayload(), 'editor-1', 'Editor')
-    await submitForReview(pub.id, 'editor-1', 'Editor')
-    await approvePublication(pub.id, 'reviewer-1', 'Reviewer')
-    await publishPublication(pub.id, 'reviewer-1', 'Reviewer')
+    setEditor()
+    const pub = await createPublication(pubPayload())
+    await submitForReview(pub.id)
+    setReviewer()
+    await approvePublication(pub.id)
+    setAdmin()
+    await publishPublication(pub.id)
 
     const updated = await db.publications.get(pub.id)
     expect(updated?.status).toBe('Published')
@@ -133,15 +175,19 @@ describe('publication workflow — Approved → Published', () => {
   })
 
   it('rejects publishing when not Approved', async () => {
-    const pub = await createPublication(pubPayload(), 'editor-1', 'Editor')
-    await submitForReview(pub.id, 'editor-1', 'Editor')
-    await expect(publishPublication(pub.id, 'reviewer-1', 'Reviewer')).rejects.toThrow()
+    setEditor()
+    const pub = await createPublication(pubPayload())
+    await submitForReview(pub.id)
+    setAdmin()
+    await expect(publishPublication(pub.id)).rejects.toThrow()
   })
 
   it('saves a version snapshot at each status transition', async () => {
-    const pub = await createPublication(pubPayload(), 'editor-1', 'Editor')
-    await submitForReview(pub.id, 'editor-1', 'Editor')
-    await approvePublication(pub.id, 'reviewer-1', 'Reviewer')
+    setEditor()
+    const pub = await createPublication(pubPayload())
+    await submitForReview(pub.id)
+    setReviewer()
+    await approvePublication(pub.id)
 
     const versions = await db.publicationVersions.where('publicationId').equals(pub.id).toArray()
     // At least one version per transition (submit + approve)

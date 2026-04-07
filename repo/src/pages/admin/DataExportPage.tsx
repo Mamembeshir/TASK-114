@@ -7,7 +7,6 @@ import { Download } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/store/authStore'
 import { db } from '@/db'
-import { listDocuments, listAllDocumentVersions } from '@/services/documentService'
 import { Button, Card, CardHeader } from '@/components/ui'
 
 type Module =
@@ -69,8 +68,11 @@ async function gatherData(module: Module): Promise<Record<string, unknown[]>> {
         publications: await db.publications.toArray(),
         publicationVersions: await db.publicationVersions.toArray(),
         viewEvents: await db.viewEvents.toArray(),
-        documents: await listDocuments(),
-        documentVersions: await listAllDocumentVersions(),
+        // Read raw StoredDocument rows (ciphertext) so the backup preserves
+        // the encrypted-at-rest contract. listDocuments() would decrypt first,
+        // producing plaintext that the import side cannot re-encrypt faithfully.
+        documents: await db.documents.toArray(),
+        documentVersions: await db.documentVersions.toArray(),
         checkoutRecords: await db.checkoutRecords.toArray(),
         destructionApprovals: await db.destructionApprovals.toArray(),
         notifications: await db.notifications.toArray(),
@@ -102,8 +104,9 @@ async function gatherData(module: Module): Promise<Record<string, unknown[]>> {
       }
     case 'documents':
       return {
-        documents: await listDocuments(),
-        documentVersions: await listAllDocumentVersions(),
+        // Raw StoredDocument / StoredDocumentVersion rows (ciphertext) — see note above.
+        documents: await db.documents.toArray(),
+        documentVersions: await db.documentVersions.toArray(),
         checkoutRecords: await db.checkoutRecords.toArray(),
         destructionApprovals: await db.destructionApprovals.toArray(),
       }

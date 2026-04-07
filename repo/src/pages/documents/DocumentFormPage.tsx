@@ -153,17 +153,12 @@ export function DocumentFormPage({ editId, tabId }: Props) {
     setIsLoading(true)
     try {
       if (currentIdRef.current) {
-        await updateDocument(
-          currentIdRef.current,
-          buildInput(),
-          currentUser.id,
-          currentUser.displayName,
-        )
+        await updateDocument(currentIdRef.current, buildInput())
         const fresh = await getDocumentById(currentIdRef.current)
         if (fresh) setModerationFlags(fresh.moderationFlags)
         toast.success('Document saved')
       } else {
-        const created = await createDocument(buildInput(), currentUser.id, currentUser.displayName)
+        const created = await createDocument(buildInput())
         currentIdRef.current = created.id
         setModerationFlags(created.moderationFlags)
         toast.success('Draft created')
@@ -188,7 +183,7 @@ export function DocumentFormPage({ editId, tabId }: Props) {
     if (!currentIdRef.current) return
     setIsLoading(true)
     try {
-      await checkoutDocument(currentIdRef.current, currentUser.id, currentUser.displayName)
+      await checkoutDocument(currentIdRef.current)
       setIsCheckedOut(true)
       toast.success('Document checked out — you can now edit')
     } catch (err) {
@@ -202,7 +197,7 @@ export function DocumentFormPage({ editId, tabId }: Props) {
     if (!currentIdRef.current) return
     setIsLoading(true)
     try {
-      await checkinDocument(currentIdRef.current, currentUser.id, currentUser.displayName)
+      await checkinDocument(currentIdRef.current)
       setIsCheckedOut(false)
       toast.success('Document checked in')
       setDirty(false)
@@ -221,7 +216,7 @@ export function DocumentFormPage({ editId, tabId }: Props) {
     }
     setIsLoading(true)
     try {
-      await submitDocumentForReview(currentIdRef.current, currentUser.id, currentUser.displayName)
+      await submitDocumentForReview(currentIdRef.current)
       toast.success('Submitted for review')
       setDirty(false)
       if (tabId) closeTab(tabId)

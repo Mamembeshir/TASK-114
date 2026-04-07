@@ -35,8 +35,17 @@ export interface Notification {
   createdAt: number
 }
 
-export type OutboundChannel = 'Email' | 'SMS'
-export type OutboundStatus = 'Queued' | 'Sent' | 'Failed' | 'Retrying'
+/**
+ * Outbound channels for the offline message queue.
+ * Decision #11: no real sends — queue exported as CSV/JSON for manual processing.
+ *   - Email:          standard email via operator's mail system
+ *   - SMS:            text message via operator's telephony provider
+ *   - OfficialAccount: WeChat/WhatsApp/LINE official-account push message routed
+ *                      through the operator's registered channel; address field
+ *                      holds the platform-specific open-id / subscriber-id.
+ */
+export type OutboundChannel = 'Email' | 'SMS' | 'OfficialAccount'
+export type OutboundStatus = 'Scheduled' | 'Queued' | 'Sent' | 'Failed' | 'Retrying'
 
 /** Retry schedule (ms offsets from first failure): 1 min, 5 min, 15 min */
 export const RETRY_DELAYS_MS = [60_000, 5 * 60_000, 15 * 60_000] as const
@@ -63,6 +72,13 @@ export interface OutboundQueueItem {
   status: OutboundStatus
   /** Number of send attempts made (0 = never tried) */
   attemptCount: number
+  /**
+   * Epoch-ms delivery time set by the compose/schedule flow.
+   * While `status === 'Scheduled'` and `scheduledAt > Date.now()` the item
+   * is held and not included in manual-processing exports.
+   * `processScheduledQueue()` transitions it to `'Queued'` once the time passes.
+   */
+  scheduledAt?: number
   /** Timestamp of the next scheduled retry attempt (epoch ms) */
   nextRetryAt?: number
   queuedAt: number
@@ -110,6 +126,8 @@ export interface NotificationSubscription {
   email: boolean
   /** Whether the user wants SMS outbound messages */
   sms: boolean
+  /** Whether the user wants official-account (WeChat/WhatsApp/LINE) push messages */
+  officialAccount: boolean
   updatedAt: number
 }
 

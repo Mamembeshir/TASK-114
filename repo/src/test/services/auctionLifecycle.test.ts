@@ -9,6 +9,8 @@ import { createAuction, publishAuction, cancelAuction } from '@/services/auction
 import { closeAuction } from '@/services/auctionLifecycle' // used via endAndClose helper
 import { placeBid } from '@/services/biddingEngine'
 import { ensureWallet, creditWallet, getWallet } from '@/services/walletService'
+import { useAuthStore } from '@/store/authStore'
+import { Role } from '@/types'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -51,33 +53,45 @@ beforeEach(async () => {
     db.notifications.clear(),
     db.auditLogs.clear(),
   ])
+  // Services derive actor identity from the auth store.
+  // Set admin-1 as the authenticated user so auction creator id is predictable.
+  useAuthStore.setState({
+    currentUser: {
+      id: 'admin-1',
+      username: 'admin',
+      displayName: 'Admin',
+      role: Role.Administrator,
+      isActive: true,
+      createdAt: Date.now(),
+    },
+  } as Parameters<typeof useAuthStore.setState>[0])
 })
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('auction lifecycle — Draft → Active', () => {
   it('creates an auction in Draft status', async () => {
-    const auction = await createAuction(auctionPayload(), 'admin-1', 'Admin')
+    const auction = await createAuction(auctionPayload())
     expect(auction.status).toBe('Draft')
   })
 
   it('transitions Draft → Active on publish', async () => {
-    const auction = await createAuction(auctionPayload(), 'admin-1', 'Admin')
-    await publishAuction(auction.id, 'admin-1', 'Admin')
+    const auction = await createAuction(auctionPayload())
+    await publishAuction(auction.id)
     const updated = await db.auctions.get(auction.id)
     expect(updated?.status).toBe('Active')
   })
 
   it('rejects publishing when not in Draft', async () => {
-    const auction = await createAuction(auctionPayload(), 'admin-1', 'Admin')
-    await publishAuction(auction.id, 'admin-1', 'Admin')
-    await expect(publishAuction(auction.id, 'admin-1', 'Admin')).rejects.toThrow()
+    const auction = await createAuction(auctionPayload())
+    await publishAuction(auction.id)
+    await expect(publishAuction(auction.id)).rejects.toThrow()
   })
 
   it('can cancel an Active auction', async () => {
-    const auction = await createAuction(auctionPayload(), 'admin-1', 'Admin')
-    await publishAuction(auction.id, 'admin-1', 'Admin')
-    await cancelAuction(auction.id, 'admin-1', 'Admin')
+    const auction = await createAuction(auctionPayload())
+    await publishAuction(auction.id)
+    await cancelAuction(auction.id)
     const updated = await db.auctions.get(auction.id)
     expect(updated?.status).toBe('Cancelled')
   })
@@ -85,8 +99,8 @@ describe('auction lifecycle — Draft → Active', () => {
 
 describe('auction lifecycle — closeAuction with bids → Awarded', () => {
   it('marks auction as Awarded and assigns winner', async () => {
-    const auction = await createAuction(auctionPayload(), 'admin-1', 'Admin')
-    await publishAuction(auction.id, 'admin-1', 'Admin')
+    const auction = await createAuction(auctionPayload())
+    await publishAuction(auction.id)
     await seedWallet('bidder-1')
     await seedWallet('bidder-2')
 
@@ -100,8 +114,8 @@ describe('auction lifecycle — closeAuction with bids → Awarded', () => {
   })
 
   it('deducts deposit from winner wallet on close', async () => {
-    const auction = await createAuction(auctionPayload({ depositAmount: 200 }), 'admin-1', 'Admin')
-    await publishAuction(auction.id, 'admin-1', 'Admin')
+    const auction = await createAuction(auctionPayload({ depositAmount: 200 }))
+    await publishAuction(auction.id)
     await seedWallet('bidder-1', 10_000)
 
     await placeBid(auction.id, 'bidder-1', 'Alice', 110, 'k1', 200, 0)
@@ -113,8 +127,8 @@ describe('auction lifecycle — closeAuction with bids → Awarded', () => {
   })
 
   it('releases deposit hold for losing bidders', async () => {
-    const auction = await createAuction(auctionPayload({ depositAmount: 100 }), 'admin-1', 'Admin')
-    await publishAuction(auction.id, 'admin-1', 'Admin')
+    const auction = await createAuction(auctionPayload({ depositAmount: 100 }))
+    await publishAuction(auction.id)
     await seedWallet('bidder-1', 5_000)
     await seedWallet('bidder-2', 5_000)
 
@@ -128,8 +142,8 @@ describe('auction lifecycle — closeAuction with bids → Awarded', () => {
   })
 
   it('notifies winner and losers', async () => {
-    const auction = await createAuction(auctionPayload(), 'admin-1', 'Admin')
-    await publishAuction(auction.id, 'admin-1', 'Admin')
+    const auction = await createAuction(auctionPayload())
+    await publishAuction(auction.id)
     await seedWallet('bidder-1')
     await seedWallet('bidder-2')
 
@@ -155,8 +169,8 @@ describe('auction lifecycle — closeAuction with bids → Awarded', () => {
 
 describe('auction lifecycle — closeAuction with no bids → NoSale', () => {
   it('marks auction as NoSale when no bids', async () => {
-    const auction = await createAuction(auctionPayload(), 'admin-1', 'Admin')
-    await publishAuction(auction.id, 'admin-1', 'Admin')
+    const auction = await createAuction(auctionPayload())
+    await publishAuction(auction.id)
     await endAndClose(auction.id)
 
     const closed = await db.auctions.get(auction.id)
@@ -164,8 +178,8 @@ describe('auction lifecycle — closeAuction with no bids → NoSale', () => {
   })
 
   it('notifies seller on NoSale', async () => {
-    const auction = await createAuction(auctionPayload(), 'admin-1', 'Admin')
-    await publishAuction(auction.id, 'admin-1', 'Admin')
+    const auction = await createAuction(auctionPayload())
+    await publishAuction(auction.id)
     await endAndClose(auction.id)
 
     const notif = await db.notifications

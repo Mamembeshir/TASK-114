@@ -91,13 +91,11 @@ export function PublicationFormPage({ editId, tabId }: Props) {
         await updatePublication(
           currentIdRef.current,
           input,
-          currentUser.id,
-          currentUser.displayName,
         )
         const fresh = await db.publications.get(currentIdRef.current)
         if (fresh) setModerationFlags(fresh.moderationFlags)
       } else {
-        const pub = await createPublication(input, currentUser.id, currentUser.displayName)
+        const pub = await createPublication(input)
         currentIdRef.current = pub.id
         setModerationFlags(pub.moderationFlags)
         // Reopen as edit tab
@@ -147,7 +145,7 @@ export function PublicationFormPage({ editId, tabId }: Props) {
     }
     setIsLoading(true)
     try {
-      await submitForReview(currentIdRef.current, currentUser.id, currentUser.displayName)
+      await submitForReview(currentIdRef.current)
       toast.success('Submitted for review')
       setDirty(false)
       if (tabId) closeTab(tabId)

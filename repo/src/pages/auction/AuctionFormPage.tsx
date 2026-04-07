@@ -190,17 +190,17 @@ export function AuctionFormPage({ editId, tabId }: Props) {
       }
 
       if (editId) {
-        await updateAuction(editId, input, currentUser.id, currentUser.displayName)
+        await updateAuction(editId, input)
         if (andPublish) {
-          await publishAuction(editId, currentUser.id, currentUser.displayName)
+          await publishAuction(editId)
           toast.success('Auction published!')
         } else {
           toast.success('Auction saved')
         }
       } else {
-        const auction = await createAuction(input, currentUser.id, currentUser.displayName)
+        const auction = await createAuction(input)
         if (andPublish) {
-          await publishAuction(auction.id, currentUser.id, currentUser.displayName)
+          await publishAuction(auction.id)
           toast.success('Auction created and published!')
         } else {
           toast.success('Auction saved as Draft')

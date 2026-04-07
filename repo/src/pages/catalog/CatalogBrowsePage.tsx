@@ -152,11 +152,12 @@ function StarInput({ value, onChange }: { value: number; onChange: (n: number) =
 
 interface ReviewPanelProps {
   item: CatalogItem
+  // currentUserId is needed for the read-only getMyReview query (not for mutation actor identity).
+  // submitReview now derives actor identity from the auth store internally.
   currentUserId: string
-  currentUserName: string
 }
 
-function ReviewPanel({ item, currentUserId, currentUserName }: ReviewPanelProps) {
+function ReviewPanel({ item, currentUserId }: ReviewPanelProps) {
   const [reviews, setReviews] = useState<CatalogReview[]>([])
   const [myReview, setMyReview] = useState<CatalogReview | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -186,7 +187,7 @@ function ReviewPanel({ item, currentUserId, currentUserName }: ReviewPanelProps)
     if (!comment.trim()) { toast.error('Please enter a comment'); return }
     setSubmitting(true)
     try {
-      const result = await submitReview(item.id, rating, comment.trim(), currentUserId, currentUserName)
+      const result = await submitReview(item.id, rating, comment.trim())
       setMyReview(result)
       if (result.status === 'Flagged') {
         toast.warning('Review submitted but contains flagged content — awaiting moderator review')
@@ -805,7 +806,6 @@ export function CatalogBrowsePage() {
                     <ReviewPanel
                       item={item}
                       currentUserId={currentUser.id}
-                      currentUserName={currentUser.displayName}
                     />
                   )}
                 </Card>

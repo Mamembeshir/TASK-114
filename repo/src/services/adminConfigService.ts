@@ -11,6 +11,7 @@ import { db } from '@/db'
 import { generateId } from '@/crypto'
 import { writeAuditLog } from '@/utils/audit'
 import { requirePermission } from '@/utils/permissions'
+import { useAuthStore } from '@/store/authStore'
 import type { SystemConfig } from '@/types'
 
 // ── Sensitive words ────────────────────────────────────────────────────────────
@@ -23,10 +24,11 @@ export type EditableSystemConfig = Omit<SystemConfig, 'id' | 'documentNumberCoun
  */
 export async function addSensitiveWord(
   word: string,
-  actorId: string,
-  actorName: string,
 ): Promise<boolean> {
   requirePermission('manageSystem')
+  const currentUser = useAuthStore.getState().currentUser!
+  const actorId = currentUser.id
+  const actorName = currentUser.displayName
   const normalised = word.trim().toLowerCase()
   if (!normalised) throw new Error('Word must not be blank')
 
@@ -59,10 +61,11 @@ export async function addSensitiveWord(
 export async function deleteSensitiveWord(
   id: string,
   word: string,
-  actorId: string,
-  actorName: string,
 ): Promise<void> {
   requirePermission('manageSystem')
+  const currentUser = useAuthStore.getState().currentUser!
+  const actorId = currentUser.id
+  const actorName = currentUser.displayName
   await db.sensitiveWords.delete(id)
   await writeAuditLog({
     eventType: 'system.sensitive_word_removed',
@@ -82,10 +85,11 @@ export async function deleteSensitiveWord(
  */
 export async function saveSystemConfig(
   config: EditableSystemConfig,
-  actorId: string,
-  actorName: string,
 ): Promise<void> {
   requirePermission('manageSystem')
+  const currentUser = useAuthStore.getState().currentUser!
+  const actorId = currentUser.id
+  const actorName = currentUser.displayName
 
   const existing = await db.systemConfig.get('singleton')
   const updates: Omit<SystemConfig, 'id' | 'documentNumberCounter'> = {

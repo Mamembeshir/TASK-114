@@ -80,7 +80,7 @@ export function ReviewDetailPage({ publicationId }: Props) {
   const handleApprove = async () => {
     setIsActing(true)
     try {
-      await approvePublication(publicationId, currentUser.id, currentUser.displayName, comment)
+      await approvePublication(publicationId, comment)
       toast.success('Publication approved')
       void load()
     } catch (err) {
@@ -97,7 +97,7 @@ export function ReviewDetailPage({ publicationId }: Props) {
     }
     setIsActing(true)
     try {
-      await rejectPublication(publicationId, currentUser.id, currentUser.displayName, comment)
+      await rejectPublication(publicationId, comment)
       toast.success('Publication rejected')
       setShowRejectModal(false)
       setComment('')
@@ -112,7 +112,7 @@ export function ReviewDetailPage({ publicationId }: Props) {
   const handlePublish = async () => {
     setIsActing(true)
     try {
-      await publishPublication(publicationId, currentUser.id, currentUser.displayName)
+      await publishPublication(publicationId)
       toast.success('Publication published!')
       if (tabId) closeTab(tabId)
     } catch (err) {
@@ -125,7 +125,7 @@ export function ReviewDetailPage({ publicationId }: Props) {
   const handleRollback = async (versionId: string, versionNumber: number) => {
     setIsActing(true)
     try {
-      await rollbackToVersion(publicationId, versionId, currentUser.id, currentUser.displayName)
+      await rollbackToVersion(publicationId, versionId)
       toast.success(`Rolled back to version ${String(versionNumber)}`)
       void load()
     } catch (err) {

@@ -35,7 +35,7 @@ export function SensitiveWordListPage() {
     if (!word) return
     setIsActing(true)
     try {
-      const added = await addSensitiveWord(word, currentUser.id, currentUser.displayName)
+      const added = await addSensitiveWord(word)
       if (!added) {
         toast.error('Word already in list')
         return
@@ -53,7 +53,7 @@ export function SensitiveWordListPage() {
   const handleDelete = async (sw: SensitiveWord) => {
     setIsActing(true)
     try {
-      await deleteSensitiveWord(sw.id, sw.word, currentUser.id, currentUser.displayName)
+      await deleteSensitiveWord(sw.id, sw.word)
       toast.success(`"${sw.word}" removed`)
       void load()
     } catch (err) {

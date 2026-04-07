@@ -230,6 +230,14 @@ export async function runImport(
         continue
       }
 
+      // NOTE: for 'documents' and 'documentVersions', rows in the backup file
+      // are expected to be in the encrypted StoredDocument / StoredDocumentVersion
+      // shape (ciphertext strings for title/body/metadata). DataExportPage uses
+      // db.documents.toArray() / db.documentVersions.toArray() (raw IndexedDB
+      // reads) rather than listDocuments() / listAllDocumentVersions() (which
+      // decrypt before returning) to preserve this contract. Writing the rows
+      // back here as-is is correct — decryption happens on read via
+      // getDocumentById() → decryptDocument().
       const existing = await table.get(id)
       if (existing) {
         if (strategy === 'skip') {

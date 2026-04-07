@@ -62,7 +62,7 @@ export function ModerationQueuePage() {
   const handleApprove = async (id: string) => {
     setActing(id)
     try {
-      await approveModerationFlags(id, currentUser.id, currentUser.displayName)
+      await approveModerationFlags(id)
       toast.success('Flags approved — item may now be published')
       void load()
     } catch (err) {
@@ -75,7 +75,7 @@ export function ModerationQueuePage() {
   const handleReject = async (id: string) => {
     setActing(id)
     try {
-      await rejectModerationFlags(id, currentUser.id, currentUser.displayName)
+      await rejectModerationFlags(id)
       toast.success('Item rejected — editor must revise content')
       void load()
     } catch (err) {

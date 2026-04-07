@@ -105,7 +105,7 @@ export function DocumentDetailPage({ documentId }: Props) {
   const handleApprove = async () => {
     setIsActing(true)
     try {
-      await approveDocument(documentId, currentUser.id, currentUser.displayName, reviewComment)
+      await approveDocument(documentId, reviewComment)
       toast.success('Document approved and numbered')
       void load()
     } catch (err) {
@@ -122,7 +122,7 @@ export function DocumentDetailPage({ documentId }: Props) {
     }
     setIsActing(true)
     try {
-      await rejectDocument(documentId, currentUser.id, currentUser.displayName, reviewComment)
+      await rejectDocument(documentId, reviewComment)
       toast.success('Document rejected')
       setShowRejectModal(false)
       setReviewComment('')
@@ -141,7 +141,7 @@ export function DocumentDetailPage({ documentId }: Props) {
     }
     setIsActing(true)
     try {
-      await requestDestruction(documentId, destroyReason, currentUser.id, currentUser.displayName)
+      await requestDestruction(documentId, destroyReason)
       toast.success('Destruction request submitted')
       setShowDestroyModal(false)
       setDestroyReason('')
@@ -157,11 +157,7 @@ export function DocumentDetailPage({ documentId }: Props) {
     if (!destructionApproval) return
     setIsActing(true)
     try {
-      await reviewerApproveDestruction(
-        destructionApproval.id,
-        currentUser.id,
-        currentUser.displayName,
-      )
+      await reviewerApproveDestruction(destructionApproval.id)
       toast.success('Reviewer approval recorded')
       void load()
     } catch (err) {
@@ -175,7 +171,7 @@ export function DocumentDetailPage({ documentId }: Props) {
     if (!destructionApproval) return
     setIsActing(true)
     try {
-      await adminApproveDestruction(destructionApproval.id, currentUser.id, currentUser.displayName)
+      await adminApproveDestruction(destructionApproval.id)
       toast.success('Document destroyed')
       void load()
     } catch (err) {
@@ -189,12 +185,7 @@ export function DocumentDetailPage({ documentId }: Props) {
     if (!destructionApproval || !destroyReason.trim()) return
     setIsActing(true)
     try {
-      await rejectDestruction(
-        destructionApproval.id,
-        destroyReason,
-        currentUser.id,
-        currentUser.displayName,
-      )
+      await rejectDestruction(destructionApproval.id, destroyReason)
       toast.success('Destruction rejected')
       setShowDestroyModal(false)
       void load()

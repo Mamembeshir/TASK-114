@@ -1,5 +1,8 @@
 /**
  * Integration tests for document checkout/check-in locking.
+ *
+ * Services now derive actor identity from useAuthStore — each test step
+ * sets the appropriate authenticated user before calling the service.
  */
 
 import { describe, it, expect, beforeEach } from 'vitest'
@@ -10,6 +13,23 @@ import {
   checkinDocument,
   listDocumentVersions,
 } from '@/services/documentService'
+import { useAuthStore } from '@/store/authStore'
+import { Role } from '@/types'
+
+// ── Auth helpers ──────────────────────────────────────────────────────────────
+
+function setAuthUser(id: string, role: Role, displayName = id) {
+  useAuthStore.setState({
+    currentUser: {
+      id,
+      username: id,
+      displayName,
+      role,
+      isActive: true,
+      createdAt: Date.now(),
+    },
+  } as Parameters<typeof useAuthStore.setState>[0])
+}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -35,14 +55,16 @@ beforeEach(async () => {
     db.notifications.clear(),
     db.auditLogs.clear(),
   ])
+  setAuthUser('user-1', Role.ContentEditor, 'User One')
 })
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('document checkout locking', () => {
   it('allows a user to check out a document', async () => {
-    const doc = await createDocument(docPayload(), 'user-1', 'User One')
-    await checkoutDocument(doc.id, 'user-1', 'User One')
+    setAuthUser('user-1', Role.ContentEditor, 'User One')
+    const doc = await createDocument(docPayload())
+    await checkoutDocument(doc.id)
 
     const updated = await db.documents.get(doc.id)
     expect(updated?.checkedOutBy).toBe('user-1')
@@ -50,17 +72,20 @@ describe('document checkout locking', () => {
   })
 
   it('blocks a second user from checking out a locked document', async () => {
-    const doc = await createDocument(docPayload(), 'user-1', 'User One')
-    await checkoutDocument(doc.id, 'user-1', 'User One')
+    setAuthUser('user-1', Role.ContentEditor, 'User One')
+    const doc = await createDocument(docPayload())
+    await checkoutDocument(doc.id)
 
-    await expect(checkoutDocument(doc.id, 'user-2', 'User Two')).rejects.toThrow(
+    setAuthUser('user-2', Role.ContentEditor, 'User Two')
+    await expect(checkoutDocument(doc.id)).rejects.toThrow(
       /checked out by another user/i,
     )
   })
 
   it('creates a checkout record in the audit trail', async () => {
-    const doc = await createDocument(docPayload(), 'user-1', 'User One')
-    await checkoutDocument(doc.id, 'user-1', 'User One')
+    setAuthUser('user-1', Role.ContentEditor, 'User One')
+    const doc = await createDocument(docPayload())
+    await checkoutDocument(doc.id)
 
     const record = await db.checkoutRecords
       .where('documentId')
@@ -74,18 +99,20 @@ describe('document checkout locking', () => {
 
 describe('document check-in', () => {
   it('releases the lock on check-in', async () => {
-    const doc = await createDocument(docPayload(), 'user-1', 'User One')
-    await checkoutDocument(doc.id, 'user-1', 'User One')
-    await checkinDocument(doc.id, 'user-1', 'User One')
+    setAuthUser('user-1', Role.ContentEditor, 'User One')
+    const doc = await createDocument(docPayload())
+    await checkoutDocument(doc.id)
+    await checkinDocument(doc.id)
 
     const updated = await db.documents.get(doc.id)
     expect(updated?.checkedOutBy).toBeUndefined()
   })
 
   it('saves a version snapshot on check-in', async () => {
-    const doc = await createDocument(docPayload(), 'user-1', 'User One')
-    await checkoutDocument(doc.id, 'user-1', 'User One')
-    await checkinDocument(doc.id, 'user-1', 'User One')
+    setAuthUser('user-1', Role.ContentEditor, 'User One')
+    const doc = await createDocument(docPayload())
+    await checkoutDocument(doc.id)
+    await checkinDocument(doc.id)
 
     const versions = await listDocumentVersions(doc.id)
     expect(versions.length).toBeGreaterThanOrEqual(1)
@@ -96,18 +123,21 @@ describe('document check-in', () => {
   })
 
   it('allows a different user to check out after check-in', async () => {
-    const doc = await createDocument(docPayload(), 'user-1', 'User One')
-    await checkoutDocument(doc.id, 'user-1', 'User One')
-    await checkinDocument(doc.id, 'user-1', 'User One')
+    setAuthUser('user-1', Role.ContentEditor, 'User One')
+    const doc = await createDocument(docPayload())
+    await checkoutDocument(doc.id)
+    await checkinDocument(doc.id)
 
-    await expect(checkoutDocument(doc.id, 'user-2', 'User Two')).resolves.not.toThrow()
+    setAuthUser('user-2', Role.ContentEditor, 'User Two')
+    await expect(checkoutDocument(doc.id)).resolves.not.toThrow()
   })
 })
 
 describe('expired checkout auto-release', () => {
   it('auto-releases an expired checkout when another user tries to check out', async () => {
-    const doc = await createDocument(docPayload(), 'user-1', 'User One')
-    await checkoutDocument(doc.id, 'user-1', 'User One')
+    setAuthUser('user-1', Role.ContentEditor, 'User One')
+    const doc = await createDocument(docPayload())
+    await checkoutDocument(doc.id)
 
     // Simulate expiry by back-dating the checkout
     await db.documents.update(doc.id, {
@@ -115,7 +145,8 @@ describe('expired checkout auto-release', () => {
     })
 
     // user-2 should be able to check out (auto-release fires)
-    await expect(checkoutDocument(doc.id, 'user-2', 'User Two')).resolves.not.toThrow()
+    setAuthUser('user-2', Role.ContentEditor, 'User Two')
+    await expect(checkoutDocument(doc.id)).resolves.not.toThrow()
 
     const updated = await db.documents.get(doc.id)
     expect(updated?.checkedOutBy).toBe('user-2')

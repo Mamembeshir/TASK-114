@@ -87,10 +87,11 @@ export interface CreatePublicationInput {
 
 export async function createPublication(
   input: CreatePublicationInput,
-  actorId: string,
-  actorName: string,
 ): Promise<Publication> {
   requirePermission('createPublication')
+  const currentUser = useAuthStore.getState().currentUser!
+  const actorId = currentUser.id
+  const actorName = currentUser.displayName
   const moderationFlags = await moderateContent([input.title, input.body])
   const id = generateId()
   const now = Date.now()
@@ -138,18 +139,18 @@ export async function createPublication(
 export async function updatePublication(
   id: string,
   updates: Partial<CreatePublicationInput>,
-  actorId: string,
-  actorName: string,
 ): Promise<void> {
   requirePermission('createPublication')
+  const currentUser = useAuthStore.getState().currentUser!
+  const actorId = currentUser.id
+  const actorName = currentUser.displayName
   const pub = await db.publications.get(id)
   if (!pub) throw new Error('Publication not found')
   if (pub.status !== 'Draft' && pub.status !== 'Rejected')
     throw new Error('Only Draft or Rejected publications can be edited')
   // Object-level: editors may only update their own publications;
   // managePublications bypasses this (admin override).
-  const actorRole = useAuthStore.getState().currentUser?.role
-  if (pub.createdBy !== actorId && !hasPermission(actorRole!, 'managePublications'))
+  if (pub.createdBy !== actorId && !hasPermission(currentUser.role, 'managePublications'))
     throw new Error('Forbidden: you can only edit publications you created')
 
   const textsToCheck = [updates.title ?? pub.title, updates.body ?? pub.body]
@@ -174,10 +175,11 @@ export async function updatePublication(
 
 export async function submitForReview(
   id: string,
-  actorId: string,
-  actorName: string,
 ): Promise<void> {
   requirePermission('createPublication')
+  const currentUser = useAuthStore.getState().currentUser!
+  const actorId = currentUser.id
+  const actorName = currentUser.displayName
   const pub = await db.publications.get(id)
   if (!pub) throw new Error('Publication not found')
   if (pub.status !== 'Draft' && pub.status !== 'Rejected')
@@ -213,11 +215,12 @@ export async function submitForReview(
 
 export async function approvePublication(
   id: string,
-  actorId: string,
-  actorName: string,
   comment?: string,
 ): Promise<void> {
   requirePermission('approvePublication')
+  const currentUser = useAuthStore.getState().currentUser!
+  const actorId = currentUser.id
+  const actorName = currentUser.displayName
   const pub = await db.publications.get(id)
   if (!pub) throw new Error('Publication not found')
   if (pub.status !== 'InReview') throw new Error('Publication is not in review')
@@ -253,11 +256,12 @@ export async function approvePublication(
 
 export async function rejectPublication(
   id: string,
-  actorId: string,
-  actorName: string,
   comment: string,
 ): Promise<void> {
   requirePermission('approvePublication')
+  const currentUser = useAuthStore.getState().currentUser!
+  const actorId = currentUser.id
+  const actorName = currentUser.displayName
   const pub = await db.publications.get(id)
   if (!pub) throw new Error('Publication not found')
   if (pub.status !== 'InReview') throw new Error('Publication is not in review')
@@ -293,10 +297,11 @@ export async function rejectPublication(
 
 export async function publishPublication(
   id: string,
-  actorId: string,
-  actorName: string,
 ): Promise<void> {
   requirePermission('managePublications')
+  const currentUser = useAuthStore.getState().currentUser!
+  const actorId = currentUser.id
+  const actorName = currentUser.displayName
   const pub = await db.publications.get(id)
   if (!pub) throw new Error('Publication not found')
   if (pub.status !== 'Approved') throw new Error('Only Approved publications can be published')
@@ -352,10 +357,11 @@ export async function publishPublication(
 export async function rollbackToVersion(
   publicationId: string,
   versionId: string,
-  actorId: string,
-  actorName: string,
 ): Promise<void> {
   requirePermission('managePublications')
+  const currentUser = useAuthStore.getState().currentUser!
+  const actorId = currentUser.id
+  const actorName = currentUser.displayName
   const [pub, version] = await Promise.all([
     db.publications.get(publicationId),
     db.publicationVersions.get(versionId),

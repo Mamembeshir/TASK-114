@@ -411,6 +411,7 @@ export function OutboundQueuePage() {
               >
                 <option value="Email">Email</option>
                 <option value="SMS">SMS</option>
+                <option value="OfficialAccount">Official Account</option>
               </select>
             </div>
 
@@ -431,15 +432,25 @@ export function OutboundQueuePage() {
             {/* Recipient address */}
             <div className="space-y-1">
               <label className="text-xs text-surface-400 font-medium">
-                {composeChannel === 'Email' ? 'Email Address' : 'Phone Number'}
+                {composeChannel === 'Email'
+                  ? 'Email Address'
+                  : composeChannel === 'SMS'
+                  ? 'Phone Number'
+                  : 'Open ID / Subscriber ID'}
               </label>
               <input
-                type={composeChannel === 'Email' ? 'email' : 'tel'}
+                type={composeChannel === 'Email' ? 'email' : 'text'}
                 value={composeRecipientAddress}
                 onChange={(e) => {
                   setComposeRecipientAddress(e.target.value)
                 }}
-                placeholder={composeChannel === 'Email' ? 'user@example.com' : '+1 555 000 0000'}
+                placeholder={
+                  composeChannel === 'Email'
+                    ? 'user@example.com'
+                    : composeChannel === 'SMS'
+                    ? '+1 555 000 0000'
+                    : 'wechat_open_id / subscriber_id'
+                }
                 className="w-full bg-surface-900 border border-surface-700 text-surface-100 placeholder-surface-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
               />
             </div>

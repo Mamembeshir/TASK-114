@@ -94,11 +94,11 @@ export function CatalogItemFormPage({ editId, tabId }: Props) {
     setIsLoading(true)
     try {
       if (editId) {
-        await updateCatalogItem(editId, buildInput(), currentUser.id, currentUser.displayName)
+        await updateCatalogItem(editId, buildInput())
         await refreshFlags(editId)
         toast.success('Item updated')
       } else {
-        const item = await createCatalogItem(buildInput(), currentUser.id, currentUser.displayName)
+        const item = await createCatalogItem(buildInput())
         setModerationFlags(item.moderationFlags)
         if (item.moderationFlags.length > 0) {
           toast.warning('Draft saved with moderation flags — resolve before publishing')
@@ -129,12 +129,12 @@ export function CatalogItemFormPage({ editId, tabId }: Props) {
     try {
       let id = editId
       if (!id) {
-        const item = await createCatalogItem(buildInput(), currentUser.id, currentUser.displayName)
+        const item = await createCatalogItem(buildInput())
         id = item.id
       } else {
-        await updateCatalogItem(id, buildInput(), currentUser.id, currentUser.displayName)
+        await updateCatalogItem(id, buildInput())
       }
-      await publishCatalogItem(id, currentUser.id, currentUser.displayName)
+      await publishCatalogItem(id)
       toast.success('Item published successfully')
       setDirty(false)
       if (tabId) closeTab(tabId)

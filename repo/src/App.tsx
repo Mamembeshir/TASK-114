@@ -3,11 +3,13 @@ import { Toaster } from 'sonner'
 import { Loader2 } from 'lucide-react'
 import { useAuthStore, seedDefaultAdmin } from '@/store/authStore'
 import { seedDefaultCategories } from '@/db/seeds'
+import { db } from '@/db'
 import { startAuctionLifecycleTimer } from '@/services/auctionLifecycle'
 import { startNotificationSync, useNotificationStore } from '@/store/notificationStore'
 import { startOutboundRetryTimer } from '@/services/notificationService'
 import { LoginPage } from '@/pages/LoginPage'
 import { RegisterPage } from '@/pages/RegisterPage'
+import { BootstrapAdminPage } from '@/pages/BootstrapAdminPage'
 import { ForcePasswordChangePage } from '@/pages/ForcePasswordChangePage'
 import { AppShell } from '@/components/layout/AppShell'
 
@@ -16,6 +18,8 @@ export default function App() {
   const isLoading = useAuthStore((s) => s.isLoading)
   const refreshNotifications = useNotificationStore((s) => s.refresh)
   const [view, setView] = useState<'login' | 'register'>('login')
+  // True when the users table is empty and a first Administrator must be created.
+  const [needsBootstrap, setNeedsBootstrap] = useState(false)
 
   // On mount: seed defaults, restore session, start auction timer
   useEffect(() => {
@@ -31,6 +35,14 @@ export default function App() {
         }
         await seedDefaultCategories()
         await useAuthStore.getState().restoreSession()
+
+        // First-run bootstrap check: if no users exist after seeding/restore,
+        // show the BootstrapAdminPage so a production install can create its
+        // initial Administrator without any build-time flags.
+        const userCount = await db.users.count()
+        if (userCount === 0) {
+          setNeedsBootstrap(true)
+        }
       } catch (err) {
         // Log message only — never log the raw error object in case it contains
         // crypto or DB internals (stack traces, key material references, etc.)
@@ -73,6 +85,18 @@ export default function App() {
 
   // ── Not authenticated ─────────────────────────────────────────────────────
   if (!currentUser) {
+    // First-run: no users exist — show the admin bootstrap wizard.
+    // Once the administrator is created and logged in, currentUser becomes
+    // non-null and this branch is skipped forever.
+    if (needsBootstrap) {
+      return (
+        <>
+          <Toaster position="top-right" richColors />
+          <BootstrapAdminPage />
+        </>
+      )
+    }
+
     return (
       <>
         <Toaster position="top-right" richColors />

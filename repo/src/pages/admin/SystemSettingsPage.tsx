@@ -67,7 +67,7 @@ export function SystemSettingsPage() {
     if (!validate()) return
     setIsSaving(true)
     try {
-      await saveSystemConfig(config, currentUser.id, currentUser.displayName)
+      await saveSystemConfig(config)
       toast.success('Settings saved')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to save')

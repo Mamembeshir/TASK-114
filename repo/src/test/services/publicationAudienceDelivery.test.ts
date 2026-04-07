@@ -6,6 +6,9 @@
  * An empty array for any dimension means "no restriction" (global broadcast
  * for that dimension).
  *
+ * Services now derive actor identity from useAuthStore — each step
+ * sets the appropriate authenticated user before calling the service.
+ *
  * Evidence: src/services/publicationService.ts:327
  */
 
@@ -17,6 +20,7 @@ import {
   approvePublication,
   publishPublication,
 } from '@/services/publicationService'
+import { useAuthStore } from '@/store/authStore'
 import { Role } from '@/types'
 import type { User } from '@/types/auth'
 
@@ -55,6 +59,21 @@ const DAVE  = makeUser('dave',  Role.Administrator, 'hr',      undefined)
 
 const ALL_USERS = [ALICE, BOB, CAROL, DAVE]
 
+// ── Auth helpers ──────────────────────────────────────────────────────────────
+
+function setAuthUser(id: string, role: Role, displayName = id) {
+  useAuthStore.setState({
+    currentUser: {
+      id,
+      username: id,
+      displayName,
+      role,
+      isActive: true,
+      createdAt: Date.now(),
+    },
+  } as Parameters<typeof useAuthStore.setState>[0])
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 interface AudienceParams {
@@ -65,22 +84,26 @@ interface AudienceParams {
 
 /** Create → submit → approve → publish; return sorted list of notified user IDs. */
 async function publishWithAudience(params: AudienceParams): Promise<string[]> {
-  const pub = await createPublication(
-    {
-      title: 'Audience Test',
-      type: 'Notice' as const,
-      body: '<p>body</p>',
-      attachmentUrls: [],
-      audienceRoles: params.audienceRoles ?? [],
-      audienceOrgs:  params.audienceOrgs  ?? [],
-      audienceTags:  params.audienceTags  ?? [],
-    },
-    'editor-1',
-    'Editor',
-  )
-  await submitForReview(pub.id, 'editor-1', 'Editor')
-  await approvePublication(pub.id, 'reviewer-1', 'Reviewer')
-  await publishPublication(pub.id, PUBLISHER_ID, 'Publisher')
+  // Step 1: editor creates and submits
+  setAuthUser('editor-1', Role.ContentEditor, 'Editor')
+  const pub = await createPublication({
+    title: 'Audience Test',
+    type: 'Notice' as const,
+    body: '<p>body</p>',
+    attachmentUrls: [],
+    audienceRoles: params.audienceRoles ?? [],
+    audienceOrgs:  params.audienceOrgs  ?? [],
+    audienceTags:  params.audienceTags  ?? [],
+  })
+  await submitForReview(pub.id)
+
+  // Step 2: reviewer approves
+  setAuthUser('reviewer-1', Role.ReviewerApprover, 'Reviewer')
+  await approvePublication(pub.id)
+
+  // Step 3: admin publishes
+  setAuthUser(PUBLISHER_ID, Role.Administrator, 'Publisher')
+  await publishPublication(pub.id)
 
   const notifs = await db.notifications
     .where('type')
@@ -101,6 +124,8 @@ beforeEach(async () => {
     db.sensitiveWords.clear(),
   ])
   await db.users.bulkAdd(ALL_USERS)
+  // Default auth: editor (overridden per step inside publishWithAudience)
+  setAuthUser('editor-1', Role.ContentEditor, 'Editor')
 })
 
 // ── Tests ─────────────────────────────────────────────────────────────────────

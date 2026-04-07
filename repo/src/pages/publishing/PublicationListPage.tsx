@@ -56,7 +56,7 @@ export function PublicationListPage() {
 
   const handlePublish = async (id: string) => {
     try {
-      await publishPublication(id, currentUser.id, currentUser.displayName)
+      await publishPublication(id)
       toast.success('Published!')
       void load()
     } catch (err) {

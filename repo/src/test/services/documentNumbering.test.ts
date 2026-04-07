@@ -1,10 +1,36 @@
 /**
  * Unit tests for document numbering and retention date calculation.
+ *
+ * Services now derive actor identity from useAuthStore — creator uses
+ * ContentEditor role and approver uses ReviewerApprover role to satisfy
+ * the self-review prevention constraint.
  */
 
 import { describe, it, expect, beforeEach } from 'vitest'
 import { db } from '@/db'
 import { createDocument, approveDocument } from '@/services/documentService'
+import { useAuthStore } from '@/store/authStore'
+import { Role } from '@/types'
+
+// ── Auth helpers ──────────────────────────────────────────────────────────────
+
+function setAuthUser(id: string, role: Role, displayName = id) {
+  useAuthStore.setState({
+    currentUser: {
+      id,
+      username: id,
+      displayName,
+      role,
+      isActive: true,
+      createdAt: Date.now(),
+    },
+  } as Parameters<typeof useAuthStore.setState>[0])
+}
+
+const setEditor   = () => setAuthUser('user-1',     Role.ContentEditor,    'User One')
+const setReviewer = () => setAuthUser('reviewer-1', Role.ReviewerApprover, 'Reviewer One')
+
+// ── Setup ─────────────────────────────────────────────────────────────────────
 
 beforeEach(async () => {
   await Promise.all([
@@ -15,45 +41,43 @@ beforeEach(async () => {
     db.notifications.clear(),
     db.users.clear(),
   ])
+  setEditor()
 })
+
+// ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('document numbering', () => {
   it('does not assign a document number on creation (Draft)', async () => {
-    const doc = await createDocument(
-      {
-        title: 'Test Doc',
-        type: 'Policy',
-        categoryId: 'cat-1',
-        body: 'Body text',
-        attachmentUrls: [],
-        retentionYears: 7,
-      },
-      'user-1',
-      'User One',
-    )
+    setEditor()
+    const doc = await createDocument({
+      title: 'Test Doc',
+      type: 'Policy',
+      categoryId: 'cat-1',
+      body: 'Body text',
+      attachmentUrls: [],
+      retentionYears: 7,
+    })
 
     expect(doc.documentNumber).toBeUndefined()
     expect(doc.status).toBe('Draft')
   })
 
   it('assigns a formatted document number on approval', async () => {
-    const doc = await createDocument(
-      {
-        title: 'Approval Test',
-        type: 'Policy',
-        categoryId: 'cat-1',
-        body: 'Body text',
-        attachmentUrls: [],
-        retentionYears: 5,
-      },
-      'user-1',
-      'User One',
-    )
+    setEditor()
+    const doc = await createDocument({
+      title: 'Approval Test',
+      type: 'Policy',
+      categoryId: 'cat-1',
+      body: 'Body text',
+      attachmentUrls: [],
+      retentionYears: 5,
+    })
 
     // Move to InReview first
     await db.documents.update(doc.id, { status: 'InReview' })
 
-    await approveDocument(doc.id, 'reviewer-1', 'Reviewer One')
+    setReviewer()
+    await approveDocument(doc.id)
 
     const approved = await db.documents.get(doc.id)
     expect(approved?.status).toBe('Approved')
@@ -61,27 +85,25 @@ describe('document numbering', () => {
   })
 
   it('assigns sequential document numbers', async () => {
-    const createAndApprove = async (title: string): Promise<string> => {
-      const doc = await createDocument(
-        {
-          title,
-          type: 'Policy',
-          categoryId: 'c',
-          body: 'b',
-          attachmentUrls: [],
-          retentionYears: 7,
-        },
-        'u1',
-        'User',
-      )
+    const createAndApprove = async (title: string, creatorId: string, reviewerId: string): Promise<string> => {
+      setAuthUser(creatorId, Role.ContentEditor, 'Creator')
+      const doc = await createDocument({
+        title,
+        type: 'Policy',
+        categoryId: 'c',
+        body: 'b',
+        attachmentUrls: [],
+        retentionYears: 7,
+      })
       await db.documents.update(doc.id, { status: 'InReview' })
-      await approveDocument(doc.id, 'r1', 'Reviewer')
+      setAuthUser(reviewerId, Role.ReviewerApprover, 'Reviewer')
+      await approveDocument(doc.id)
       const approved = await db.documents.get(doc.id)
       return approved?.documentNumber ?? ''
     }
 
-    const num1 = await createAndApprove('Doc A')
-    const num2 = await createAndApprove('Doc B')
+    const num1 = await createAndApprove('Doc A', 'u1', 'r1')
+    const num2 = await createAndApprove('Doc B', 'u2', 'r2')
 
     // Extract the counter from the end of the document number
     const counter1 = Number(num1.split('-')[2])
@@ -93,22 +115,20 @@ describe('document numbering', () => {
 describe('retention date calculation', () => {
   it('sets retentionDueDate to approvalTime + retentionYears * 365.25 days', async () => {
     const retentionYears = 7
-    const doc = await createDocument(
-      {
-        title: 'Retention Test',
-        type: 'Policy',
-        categoryId: 'cat-1',
-        body: 'Body',
-        attachmentUrls: [],
-        retentionYears,
-      },
-      'user-1',
-      'User One',
-    )
+    setEditor()
+    const doc = await createDocument({
+      title: 'Retention Test',
+      type: 'Policy',
+      categoryId: 'cat-1',
+      body: 'Body',
+      attachmentUrls: [],
+      retentionYears,
+    })
 
     await db.documents.update(doc.id, { status: 'InReview' })
     const beforeApproval = Date.now()
-    await approveDocument(doc.id, 'reviewer-1', 'Reviewer One')
+    setReviewer()
+    await approveDocument(doc.id)
     const afterApproval = Date.now()
 
     const approved = await db.documents.get(doc.id)
