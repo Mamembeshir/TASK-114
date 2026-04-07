@@ -287,6 +287,8 @@ export function CatalogBrowsePage() {
   const [minPrice, setMinPrice] = useState('')
   const [maxPrice, setMaxPrice] = useState('')
   const [tagFilter, setTagFilter] = useState('')
+  /** Active spec filter: { [specKey]: selectedValue } — each entry constrains results */
+  const [specFilters, setSpecFilters] = useState<Record<string, string>>({})
   const [sort, setSort] = useState<SortOption>('newest')
 
   // Recent searches UI
@@ -354,6 +356,26 @@ export function CatalogBrowsePage() {
     return [...s].sort()
   }, [items])
 
+  /**
+   * Spec facets: { [specKey]: Set<string> } — all distinct values per spec key
+   * observed across currently-loaded Active items. Keys are sorted alphabetically;
+   * values within each key are also sorted.
+   */
+  const specFacets = useMemo(() => {
+    const map = new Map<string, Set<string>>()
+    items.forEach((item) => {
+      if (!item.specs) return
+      Object.entries(item.specs).forEach(([k, v]) => {
+        if (!map.has(k)) map.set(k, new Set())
+        map.get(k)!.add(v)
+      })
+    })
+    // Return sorted array of [key, sortedValues[]] pairs
+    return [...map.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, valueSet]) => ({ key, values: [...valueSet].sort() }))
+  }, [items])
+
   const filtered = useMemo(() => {
     const q = debouncedQuery.toLowerCase().trim()
     let result = [...items]
@@ -381,13 +403,21 @@ export function CatalogBrowsePage() {
     if (min !== null && !isNaN(min)) result = result.filter((item) => item.price >= min)
     if (max !== null && !isNaN(max)) result = result.filter((item) => item.price <= max)
 
+    // Spec filters: all active spec constraints must match
+    const activeSpecEntries = Object.entries(specFilters).filter(([, v]) => v !== '')
+    if (activeSpecEntries.length > 0) {
+      result = result.filter((item) =>
+        activeSpecEntries.every(([k, v]) => item.specs?.[k] === v),
+      )
+    }
+
     if (sort === 'price_asc') result.sort((a, b) => a.price - b.price)
     else if (sort === 'price_desc') result.sort((a, b) => b.price - a.price)
     else if (sort === 'top_sellers') result.sort((a, b) => b.salesCount - a.salesCount)
     else result.sort((a, b) => b.createdAt - a.createdAt)
 
     return result
-  }, [items, debouncedQuery, categoryFilter, brandFilter, tagFilter, minPrice, maxPrice, sort])
+  }, [items, debouncedQuery, categoryFilter, brandFilter, tagFilter, minPrice, maxPrice, specFilters, sort])
 
   return (
     <div className="p-6 space-y-6">
@@ -637,6 +667,53 @@ export function CatalogBrowsePage() {
               </div>
             </div>
           )}
+
+          {/* Spec facets */}
+          {specFacets.map(({ key, values }) => (
+            <div key={key}>
+              <p className="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-2 capitalize">
+                {key}
+              </p>
+              <div className="space-y-1">
+                <button
+                  onClick={() => {
+                    setSpecFilters((prev) => {
+                      const next = { ...prev }
+                      delete next[key]
+                      return next
+                    })
+                  }}
+                  className={[
+                    'w-full text-left text-sm px-2 py-1 rounded',
+                    !specFilters[key]
+                      ? 'text-primary-400 font-medium'
+                      : 'text-surface-400 hover:text-surface-200',
+                  ].join(' ')}
+                >
+                  All
+                </button>
+                {values.map((val) => (
+                  <button
+                    key={val}
+                    onClick={() => {
+                      setSpecFilters((prev) => ({
+                        ...prev,
+                        [key]: prev[key] === val ? '' : val,
+                      }))
+                    }}
+                    className={[
+                      'w-full text-left text-sm px-2 py-1 rounded truncate',
+                      specFilters[key] === val
+                        ? 'text-primary-400 font-medium'
+                        : 'text-surface-400 hover:text-surface-200',
+                    ].join(' ')}
+                  >
+                    {val}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
         </aside>
 
         {/* Results grid */}
@@ -683,6 +760,18 @@ export function CatalogBrowsePage() {
                       <p className="text-surface-400 text-xs mt-1 line-clamp-2">
                         {item.description}
                       </p>
+                    )}
+                    {item.specs && Object.keys(item.specs).length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1.5">
+                        {Object.entries(item.specs).map(([k, v]) => (
+                          <span
+                            key={k}
+                            className="px-1.5 py-0.5 rounded text-xs bg-surface-700/60 text-surface-400 font-mono"
+                          >
+                            {k}: {v}
+                          </span>
+                        ))}
+                      </div>
                     )}
                     {item.tags.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-2">

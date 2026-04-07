@@ -8,7 +8,7 @@
 
 import { db } from '@/db'
 import { generateId } from '@/crypto'
-import type { NotificationType, OutboundChannel } from '@/types'
+import type { NotificationType, OutboundChannel, NotificationTemplate } from '@/types'
 import { RETRY_DELAYS_MS } from '@/types'
 
 // ── In-app notifications ───────────────────────────────────────────────────────
@@ -101,6 +101,25 @@ export async function getUnreadCount(userId: string): Promise<number> {
     .count()
 }
 
+// ── Template rendering ────────────────────────────────────────────────────────
+
+/**
+ * Render a NotificationTemplate by substituting `{{variableName}}` placeholders
+ * with the provided values.  Unmatched placeholders are left as-is so errors
+ * in variable names are visible in the rendered output.
+ */
+export function renderTemplate(
+  template: NotificationTemplate,
+  variables: Record<string, string>,
+): { subject: string; body: string } {
+  const render = (tpl: string) =>
+    tpl.replace(/\{\{(\w+)\}\}/g, (_, key: string) => variables[key] ?? `{{${key}}}`)
+  return {
+    subject: render(template.subjectTemplate),
+    body: render(template.bodyTemplate),
+  }
+}
+
 // ── Outbound queue ─────────────────────────────────────────────────────────────
 
 export interface QueueOutboundInput {
@@ -108,18 +127,61 @@ export interface QueueOutboundInput {
   recipientUserId: string
   recipientAddress: string
   subject?: string
-  body: string
+  /** Message body. May be omitted when templateKey + templateVariables are provided. */
+  body?: string
   relatedEntityType?: string
   relatedEntityId?: string
+  /**
+   * Template key to use for rendering subject/body.
+   * When provided the template is fetched from DB, rendered with
+   * `templateVariables`, and its output overrides any `subject`/`body` fields.
+   */
+  templateKey?: string
+  /** Variable values for template rendering (required when templateKey is set). */
+  templateVariables?: Record<string, string>
+  /**
+   * Optional epoch-ms delivery timestamp.
+   * If set and in the future, the item is created with `status: 'Scheduled'`
+   * and held until `processScheduledQueue()` releases it.
+   */
+  scheduledAt?: number
 }
 
 export async function queueOutboundMessage(input: QueueOutboundInput): Promise<void> {
+  let subject = input.subject
+  let body = input.body ?? ''
+
+  // Render template when a key is provided
+  if (input.templateKey) {
+    const template = await db.notificationTemplates
+      .where('key')
+      .equals(input.templateKey)
+      .filter((t) => t.isActive)
+      .first()
+    if (template) {
+      const rendered = renderTemplate(template, input.templateVariables ?? {})
+      subject = rendered.subject
+      body = rendered.body
+    }
+  }
+
+  const now = Date.now()
+  const isScheduled = input.scheduledAt !== undefined && input.scheduledAt > now
+
   await db.outboundQueue.add({
     id: generateId(),
-    ...input,
-    status: 'Queued',
+    channel: input.channel,
+    recipientUserId: input.recipientUserId,
+    recipientAddress: input.recipientAddress,
+    subject,
+    body,
+    templateKey: input.templateKey,
+    relatedEntityType: input.relatedEntityType,
+    relatedEntityId: input.relatedEntityId,
+    status: isScheduled ? 'Scheduled' : 'Queued',
+    scheduledAt: input.scheduledAt,
     attemptCount: 0,
-    queuedAt: Date.now(),
+    queuedAt: now,
   })
 }
 
@@ -155,11 +217,12 @@ export async function markOutboundFailed(id: string): Promise<void> {
   }
 }
 
-/** Manually re-queue a Failed item, resetting its attempt counter. */
+/** Manually re-queue a Failed or Scheduled item, resetting its attempt counter. */
 export async function requeueOutbound(id: string): Promise<void> {
   await db.outboundQueue.update(id, {
     status: 'Queued',
     attemptCount: 0,
+    scheduledAt: undefined,
     sentAt: undefined,
     nextRetryAt: undefined,
     lastFailedAt: undefined,
@@ -181,13 +244,28 @@ export async function processRetryQueue(): Promise<void> {
     .modify({ status: 'Queued', nextRetryAt: undefined })
 }
 
+/**
+ * Scheduled-delivery worker — promotes `Scheduled` items to `Queued` once
+ * their `scheduledAt` timestamp has passed.
+ * Called by the outbound retry timer every minute.
+ */
+export async function processScheduledQueue(): Promise<void> {
+  const now = Date.now()
+  await db.outboundQueue
+    .where('status')
+    .equals('Scheduled')
+    .filter((item) => (item.scheduledAt ?? 0) <= now)
+    .modify({ status: 'Queued', scheduledAt: undefined })
+}
+
 let retryTimerId: ReturnType<typeof setInterval> | null = null
 
-/** Start the retry worker (idempotent — only one timer runs at a time). */
+/** Start the retry + scheduled-delivery workers (idempotent — only one timer runs at a time). */
 export function startOutboundRetryTimer(): void {
   if (retryTimerId !== null) return
   retryTimerId = setInterval(() => {
     void processRetryQueue()
+    void processScheduledQueue()
   }, 60_000)
 }
 

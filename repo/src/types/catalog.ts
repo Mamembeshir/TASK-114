@@ -22,6 +22,11 @@ export interface CatalogItem {
   categoryId: string
   /** Multi-entry indexed for fast tag filtering */
   tags: string[]
+  /**
+   * Structured key-value specification dimensions (e.g. { color: 'red', size: 'M' }).
+   * Used for faceted "spec" filtering in the catalog browse UI.
+   */
+  specs?: Record<string, string>
   price: number
   stock: number
   imageUrls: string[]

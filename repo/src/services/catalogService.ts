@@ -21,6 +21,8 @@ export interface CatalogItemInput {
   description: string
   categoryId: string
   tags: string[]
+  /** Optional structured spec dimensions used for faceted filtering (e.g. { color: 'red', size: 'M' }) */
+  specs?: Record<string, string>
   price: number
   stock: number
   imageUrls: string[]
