@@ -7,6 +7,28 @@ import type { Table } from 'dexie'
 import { db } from '@/db'
 import { writeAuditLog } from '@/utils/audit'
 import { requirePermission } from '@/utils/permissions'
+import type { User } from '@/types/auth'
+import type { AuditLog } from '@/types/audit'
+import type { Auction, Bid, ProxyBid, Wallet, WalletTransaction } from '@/types/auction'
+import type { CatalogItem, Category, Tag } from '@/types/catalog'
+import type { Publication, PublicationVersion, ViewEvent } from '@/types/publication'
+import type {
+  Document,
+  DocumentTemplate,
+  DocumentVersion,
+  CheckoutRecord,
+  RetentionPolicy,
+  DestructionApproval,
+} from '@/types/document'
+import type {
+  Notification,
+  OutboundQueueItem,
+  NotificationTemplate,
+  NotificationSubscription,
+  MessageReadReceipt,
+} from '@/types/notification'
+import type { TrainingCourse, TrainingProgress } from '@/types/training'
+import type { SystemConfig, SensitiveWord } from '@/types/system'
 
 // Tables that can be restored (in dependency order)
 export const IMPORTABLE_TABLES = [
@@ -46,12 +68,48 @@ export type ImportableTable = (typeof IMPORTABLE_TABLES)[number]
 export const SKIP_ALWAYS: ReadonlySet<string> = new Set(['sessions'])
 
 /**
- * Typed table map eliminates (db as any) access in this security-sensitive
- * restore path, giving compile-time guarantees that every ImportableTable
- * name resolves to a real Dexie Table instance.
+ * Concrete row type for each importable table.
+ * Used to type TABLE_MAP without resorting to Table<any>.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const TABLE_MAP: Record<ImportableTable, Table<any>> = {
+type TableRowMap = {
+  users: User
+  auctions: Auction
+  bids: Bid
+  proxyBids: ProxyBid
+  wallets: Wallet
+  walletTransactions: WalletTransaction
+  catalogItems: CatalogItem
+  categories: Category
+  tags: Tag
+  publications: Publication
+  publicationVersions: PublicationVersion
+  viewEvents: ViewEvent
+  documents: Document
+  documentVersions: DocumentVersion
+  checkoutRecords: CheckoutRecord
+  retentionPolicies: RetentionPolicy
+  destructionApprovals: DestructionApproval
+  documentTemplates: DocumentTemplate
+  notifications: Notification
+  outboundQueue: OutboundQueueItem
+  notificationTemplates: NotificationTemplate
+  notificationSubscriptions: NotificationSubscription
+  messageReadReceipts: MessageReadReceipt
+  trainingCourses: TrainingCourse
+  trainingProgress: TrainingProgress
+  auditLogs: AuditLog
+  systemConfig: SystemConfig
+  sensitiveWords: SensitiveWord
+}
+
+/** Row type union for the generic restore loop — replaces Table<any> at call sites. */
+type AnyTableRow = TableRowMap[ImportableTable]
+
+/**
+ * Typed table map: every ImportableTable name is statically verified to resolve
+ * to its exact Dexie Table<RowType>, eliminating Table<any> entirely.
+ */
+const TABLE_MAP: { [K in ImportableTable]: Table<TableRowMap[K]> } = {
   users: db.users,
   auctions: db.auctions,
   bids: db.bids,
@@ -166,11 +224,11 @@ export async function runImport(
         if (strategy === 'skip') {
           skipped++
         } else {
-          await table.put(record)
+          await table.put(record as AnyTableRow)
           overwritten++
         }
       } else {
-        await table.add(record)
+        await table.add(record as AnyTableRow)
         inserted++
       }
     }
