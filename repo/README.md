@@ -1,22 +1,18 @@
 # Meridian Portal
 
-## Startup
+## Option A — Docker (no local toolchain required)
 
-Run the following command from the project root. Docker will build and serve the app automatically — no local Node.js or pnpm required.
+Run the following command from the project root. Docker will build and serve the app automatically — no local Node.js or npm required.
 
 ```bash
 docker compose up
 ```
-
-## Access
 
 Once the container is running, open the portal in your browser:
 
 ```
 http://localhost:4173
 ```
-
-## Verification
 
 Confirm the app is serving correctly:
 
@@ -25,6 +21,25 @@ curl -I http://localhost:4173
 ```
 
 Expected response: `HTTP/1.1 200 OK`
+
+## Option B — Local development (Node.js 20+)
+
+```bash
+# 1. Install dependencies
+npm install
+
+# 2. Start the dev server (hot-reload, http://localhost:5173)
+npm run dev
+
+# 3. Run the test suite
+npm test
+
+# 4. Build for production (output: dist/)
+npm run build
+```
+
+> **Node version:** 20 or later is required. Use [nvm](https://github.com/nvm-sh/nvm) or
+> [fnm](https://github.com/Schniz/fnm) to manage Node versions if needed.
 
 ## Seeded Accounts
 
