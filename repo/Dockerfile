@@ -9,8 +9,9 @@ WORKDIR /app
 # Copy manifests + .npmrc (supportedArchitectures config)
 COPY package.json pnpm-lock.yaml* .npmrc ./
 
-# Fetch all packages (incl. cross-platform optional deps) then install from store
-RUN pnpm fetch && pnpm install --offline
+# Install deps — no frozen-lockfile so pnpm resolves correct native binaries
+# for the container platform (linux x64 glibc)
+RUN pnpm install
 
 # ── Stage 2: build ───────────────────────────────────────────────────────────
 FROM deps AS builder
