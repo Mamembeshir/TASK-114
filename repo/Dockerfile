@@ -6,8 +6,8 @@ RUN npm install -g pnpm@10.23.0
 
 WORKDIR /app
 
-# Copy manifests only — cache layer invalidates only when deps change
-COPY package.json pnpm-lock.yaml* ./
+# Copy manifests + .npmrc (contains supportedArchitectures for musl/linux)
+COPY package.json pnpm-lock.yaml* .npmrc ./
 
 RUN pnpm install --frozen-lockfile
 
