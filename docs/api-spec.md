@@ -197,4 +197,4 @@ Role-to-permission mapping is defined in `src/auth/permissions.ts`. UI gates use
 
 ---
 
-*For product intent and resolved product decisions, see `design.md` and `repo/SPEC.md`.*
+*For product intent and resolved product decisions, see `design.md` and `SPEC.md`.*

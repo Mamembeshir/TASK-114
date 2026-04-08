@@ -4,10 +4,10 @@
 
 Always read these files in order before starting any work:
 
-1. `SPEC.md` — full project specification
-2. `questions.md` — open questions and clarifications
+1. `../docs/SPEC.md` — full project specification
+2. `../docs/questions.md` — open questions and clarifications
 3. `CLAUDE.md` — this file (project rules)
-4. `PLAN.md` — current implementation plan and progress
+4. `../docs/PLAN.md` — current implementation plan and progress
 
 ---
 
@@ -35,7 +35,7 @@ Always read these files in order before starting any work:
 ### Task Discipline
 
 - Do ONLY ONE small, focused task per response
-- After finishing each task: update `PLAN.md` and commit with a clear, descriptive message
+- After finishing each task: update `../docs/PLAN.md` and commit with a clear, descriptive message
 
 ### UI/UX Standards
 

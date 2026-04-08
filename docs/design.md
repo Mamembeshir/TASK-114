@@ -126,4 +126,4 @@ Schema is versioned in Dexie; v1 declares tables up front with indexes for query
 
 ---
 
-*This design aligns with `repo/SPEC.md`, `repo/CLAUDE.md`, and the implementation under `repo/src/`.*
+*This design aligns with `SPEC.md`, `repo/CLAUDE.md`, and the implementation under `repo/src/`.*
