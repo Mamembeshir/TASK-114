@@ -1,19 +1,23 @@
 # ── Stage 1: deps ────────────────────────────────────────────────────────────
 FROM node:20-slim AS deps
 
+# Install pnpm (pinned; avoids corepack downloading from registry at build time)
+RUN npm install -g pnpm@10.23.0
+
 WORKDIR /app
 
-# Copy manifests
-COPY package.json package-lock.json* ./
+# Copy manifests + .npmrc (supportedArchitectures config)
+COPY package.json pnpm-lock.yaml* .npmrc ./
 
-RUN npm ci
+# Fetch all packages (incl. cross-platform optional deps) then install from store
+RUN pnpm fetch && pnpm install --offline
 
 # ── Stage 2: build ───────────────────────────────────────────────────────────
 FROM deps AS builder
 
 COPY . .
 
-RUN npm run build
+RUN pnpm build
 
 # ── Stage 3: serve (production) ──────────────────────────────────────────────
 # Use a minimal static server — vite is a devDependency and not available
@@ -37,4 +41,4 @@ COPY . .
 
 EXPOSE 5173
 
-CMD ["npx", "vite", "--host", "0.0.0.0", "--port", "5173"]
+CMD ["pnpm", "dev"]
