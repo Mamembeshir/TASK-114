@@ -1,11 +1,17 @@
 # Dedicated image for CI test runs
-# node_modules are mounted from the host at runtime (no network access in this environment)
 FROM node:20-slim
+
+RUN npm install -g pnpm@10.23.0
 
 WORKDIR /app
 
-# Copy all source files (node_modules excluded via .dockerignore)
+# Copy manifests + .npmrc first (layer caching)
+COPY package.json pnpm-lock.yaml* .npmrc ./
+
+RUN pnpm install
+
+# Copy all source files
 COPY . .
 
-# Default: run tests once (CI mode) using the host-mounted node_modules
-CMD ["node_modules/.bin/vitest", "run"]
+# Default: run tests once (CI mode)
+CMD ["pnpm", "test"]
