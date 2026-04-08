@@ -1,15 +1,16 @@
 # ── Stage 1: deps ────────────────────────────────────────────────────────────
-FROM node:22-alpine AS deps
+FROM node:20-slim AS deps
 
 # Install pnpm (pinned; avoids corepack downloading from registry at build time)
 RUN npm install -g pnpm@10.23.0
 
 WORKDIR /app
 
-# Copy manifests + .npmrc (contains supportedArchitectures for musl/linux)
+# Copy manifests + .npmrc
 COPY package.json pnpm-lock.yaml* .npmrc ./
 
 RUN pnpm install --frozen-lockfile
+RUN pnpm rebuild
 
 # ── Stage 2: build ───────────────────────────────────────────────────────────
 FROM deps AS builder
@@ -21,7 +22,7 @@ RUN pnpm build
 # ── Stage 3: serve (production) ──────────────────────────────────────────────
 # Use a minimal static server — vite is a devDependency and not available
 # after --prod install. `serve` handles SPA fallback via --single flag.
-FROM node:22-alpine AS runner
+FROM node:20-slim AS runner
 
 RUN npm install -g serve@14
 

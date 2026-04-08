@@ -18,7 +18,7 @@ services:
       - '4173:4173'
     restart: unless-stopped
     healthcheck:
-      test: ['CMD', 'wget', '-qO-', 'http://localhost:4173']
+      test: ['CMD', 'node', '-e', "require('http').get('http://localhost:4173',r=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))"]
       interval: 30s
       timeout: 10s
       retries: 3
