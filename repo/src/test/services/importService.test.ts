@@ -94,7 +94,7 @@ describe('runImport — user credential filtering', () => {
       }],
     })
 
-    const results = await runImport(backup, 'skip', 'admin-1', 'Admin')
+    const results = await runImport(backup, 'skip')
     const userResult = results.find((r) => r.table === 'users')
     expect(userResult?.inserted).toBe(1)
     expect(userResult?.skipped).toBe(0)
@@ -114,7 +114,7 @@ describe('runImport — user credential filtering', () => {
       }],
     })
 
-    const results = await runImport(backup, 'skip', 'admin-1', 'Admin')
+    const results = await runImport(backup, 'skip')
     const userResult = results.find((r) => r.table === 'users')
     expect(userResult?.inserted).toBe(0)
     expect(userResult?.skipped).toBe(1)
@@ -133,7 +133,7 @@ describe('runImport — user credential filtering', () => {
       }],
     })
 
-    const results = await runImport(backup, 'skip', 'admin-1', 'Admin')
+    const results = await runImport(backup, 'skip')
     const userResult = results.find((r) => r.table === 'users')
     expect(userResult?.skipped).toBe(1)
 
@@ -162,7 +162,7 @@ describe('runImport — existing users never overwritten', () => {
       }],
     })
 
-    const results = await runImport(backup, 'overwrite', 'admin-1', 'Admin')
+    const results = await runImport(backup, 'overwrite')
     const userResult = results.find((r) => r.table === 'users')
     expect(userResult?.skipped).toBe(1)
     expect(userResult?.overwritten).toBe(0)
@@ -185,7 +185,7 @@ describe('runImport — conflict strategy (categories)', () => {
 
   it('skip strategy leaves conflicting row untouched', async () => {
     const backup = makeBackup({ categories: [updated] })
-    const results = await runImport(backup, 'skip', 'admin-1', 'Admin')
+    const results = await runImport(backup, 'skip')
     const r = results.find((r) => r.table === 'categories')
     expect(r?.skipped).toBe(1)
     expect(r?.overwritten).toBe(0)
@@ -196,7 +196,7 @@ describe('runImport — conflict strategy (categories)', () => {
 
   it('overwrite strategy replaces conflicting row', async () => {
     const backup = makeBackup({ categories: [updated] })
-    const results = await runImport(backup, 'overwrite', 'admin-1', 'Admin')
+    const results = await runImport(backup, 'overwrite')
     const r = results.find((r) => r.table === 'categories')
     expect(r?.overwritten).toBe(1)
     expect(r?.skipped).toBe(0)
@@ -207,7 +207,7 @@ describe('runImport — conflict strategy (categories)', () => {
 
   it('inserts new rows regardless of conflict strategy', async () => {
     const backup = makeBackup({ categories: [{ id: 'cat-new', name: 'Brand New', createdAt: 0 }] })
-    const results = await runImport(backup, 'skip', 'admin-1', 'Admin')
+    const results = await runImport(backup, 'skip')
     const r = results.find((r) => r.table === 'categories')
     expect(r?.inserted).toBe(1)
   })
@@ -232,7 +232,7 @@ describe('runImport — auditLogs append-only', () => {
       ],
     })
 
-    const results = await runImport(backup, 'overwrite', 'admin-1', 'Admin') // strategy ignored for logs
+    const results = await runImport(backup, 'overwrite') // strategy ignored for logs
     const r = results.find((r) => r.table === 'auditLogs')
     expect(r?.inserted).toBe(1)   // log-2 inserted
     expect(r?.skipped).toBe(1)    // log-1 skipped
@@ -253,7 +253,7 @@ describe('runImport — sessions always skipped', () => {
       categories: [{ id: 'cat-ok', name: 'OK', createdAt: 0 }],
     })
 
-    await runImport(backup, 'skip', 'admin-1', 'Admin')
+    await runImport(backup, 'skip')
 
     // sessions table is not indexed by IMPORTABLE_TABLES — no result row for it
     const allCategories = await db.categories.toArray()
@@ -267,12 +267,12 @@ describe('runImport — permission guard', () => {
   it('throws Forbidden for a ContentEditor', async () => {
     seedAuthStore(Role.ContentEditor)
     const backup = makeBackup({ categories: [{ id: 'x', name: 'X', createdAt: 0 }] })
-    await expect(runImport(backup, 'skip', 'editor-1', 'Editor')).rejects.toThrow(/Forbidden/)
+    await expect(runImport(backup, 'skip')).rejects.toThrow(/Forbidden/)
   })
 
   it('throws Forbidden for a Participant', async () => {
     seedAuthStore(Role.Participant)
     const backup = makeBackup({ categories: [{ id: 'x', name: 'X', createdAt: 0 }] })
-    await expect(runImport(backup, 'skip', 'part-1', 'Part')).rejects.toThrow(/Forbidden/)
+    await expect(runImport(backup, 'skip')).rejects.toThrow(/Forbidden/)
   })
 })

@@ -41,6 +41,7 @@ function docPayload(overrides = {}) {
     body: '<p>Body</p>',
     attachmentUrls: [] as string[],
     retentionYears: 7,
+    tags: [] as string[],
     ...overrides,
   }
 }

@@ -56,6 +56,19 @@ async function seedWallet(userId: string): Promise<void> {
   await creditWallet(userId, 10_000, 'Seed')
 }
 
+function setBidder(id: string, name: string) {
+  useAuthStore.setState({
+    currentUser: {
+      id,
+      username: id,
+      displayName: name,
+      role: Role.Participant,
+      isActive: true,
+      createdAt: Date.now(),
+    },
+  } as Parameters<typeof useAuthStore.setState>[0])
+}
+
 function makeConfig(overrides: Partial<SystemConfig> = {}): SystemConfig {
   return {
     id: 'singleton',
@@ -85,6 +98,7 @@ beforeEach(async () => {
     db.auditLogs.clear(),
     db.systemConfig.clear(),
     db.auctionLocks.clear(),
+    db.auctionExtensionEvents.clear(),
   ])
   // creditWallet requires manageWallets permission — set Administrator for wallet seeding
   useAuthStore.setState({
@@ -107,6 +121,7 @@ describe('anti-sniping — no systemConfig (uses defaults)', () => {
     const nearEnd = Date.now() + 15_000 // 15 s left → inside 30 s window
     await seedAuction({ endTime: nearEnd })
     await seedWallet('bidder-1')
+    setBidder('bidder-1', 'Alice')
 
     const result = await placeBid('auction-cfg', 'bidder-1', 'Alice', 110, 'cfg-key-1', 50, 0)
 
@@ -123,6 +138,7 @@ describe('anti-sniping — no systemConfig (uses defaults)', () => {
     // 60 s left — outside the default 30 s snipe window
     await seedAuction({ endTime: Date.now() + 60_000 })
     await seedWallet('bidder-1')
+    setBidder('bidder-1', 'Alice')
 
     const result = await placeBid('auction-cfg', 'bidder-1', 'Alice', 110, 'cfg-key-2', 50, 0)
 
@@ -140,6 +156,7 @@ describe('anti-sniping — custom window from systemConfig', () => {
     const nearEnd = Date.now() + 45_000
     await seedAuction({ endTime: nearEnd })
     await seedWallet('bidder-1')
+    setBidder('bidder-1', 'Alice')
 
     const result = await placeBid('auction-cfg', 'bidder-1', 'Alice', 110, 'cfg-key-3', 50, 0)
 
@@ -154,6 +171,7 @@ describe('anti-sniping — custom window from systemConfig', () => {
     // 90 s left — outside even the custom 60 s window
     await seedAuction({ endTime: Date.now() + 90_000 })
     await seedWallet('bidder-1')
+    setBidder('bidder-1', 'Alice')
 
     const result = await placeBid('auction-cfg', 'bidder-1', 'Alice', 110, 'cfg-key-4', 50, 0)
 
@@ -170,6 +188,7 @@ describe('anti-sniping — custom extension duration from systemConfig', () => {
     const nearEnd = Date.now() + 15_000 // 15 s — inside 30 s window
     await seedAuction({ endTime: nearEnd })
     await seedWallet('bidder-1')
+    setBidder('bidder-1', 'Alice')
 
     const result = await placeBid('auction-cfg', 'bidder-1', 'Alice', 110, 'cfg-key-5', 50, 0)
 
@@ -187,6 +206,7 @@ describe('anti-sniping — custom extension duration from systemConfig', () => {
     const nearEnd = Date.now() + 10_000
     await seedAuction({ endTime: nearEnd })
     await seedWallet('bidder-1')
+    setBidder('bidder-1', 'Alice')
 
     const result = await placeBid('auction-cfg', 'bidder-1', 'Alice', 110, 'cfg-key-6', 50, 0)
 

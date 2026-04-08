@@ -152,12 +152,9 @@ function StarInput({ value, onChange }: { value: number; onChange: (n: number) =
 
 interface ReviewPanelProps {
   item: CatalogItem
-  // currentUserId is needed for the read-only getMyReview query (not for mutation actor identity).
-  // submitReview now derives actor identity from the auth store internally.
-  currentUserId: string
 }
 
-function ReviewPanel({ item, currentUserId }: ReviewPanelProps) {
+function ReviewPanel({ item }: ReviewPanelProps) {
   const [reviews, setReviews] = useState<CatalogReview[]>([])
   const [myReview, setMyReview] = useState<CatalogReview | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -169,7 +166,7 @@ function ReviewPanel({ item, currentUserId }: ReviewPanelProps) {
     const load = async () => {
       const [approved, mine] = await Promise.all([
         listItemReviews(item.id),
-        getMyReview(item.id, currentUserId),
+        getMyReview(item.id),
       ])
       setReviews(approved)
       setMyReview(mine)
@@ -180,7 +177,7 @@ function ReviewPanel({ item, currentUserId }: ReviewPanelProps) {
       setIsLoading(false)
     }
     void load()
-  }, [item.id, currentUserId])
+  }, [item.id])
 
   const handleSubmit = async () => {
     if (rating === 0) { toast.error('Please select a rating'); return }
@@ -802,7 +799,6 @@ export function CatalogBrowsePage() {
                   {expandedReviewId === item.id && currentUser && (
                     <ReviewPanel
                       item={item}
-                      currentUserId={currentUser.id}
                     />
                   )}
                 </Card>

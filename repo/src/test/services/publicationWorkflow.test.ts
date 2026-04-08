@@ -10,6 +10,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { db } from '@/db'
 import {
   createPublication,
+  updatePublication,
   submitForReview,
   approvePublication,
   rejectPublication,
@@ -97,6 +98,22 @@ describe('publication workflow — Draft → InReview', () => {
     await expect(submitForReview(pub.id)).rejects.toThrow(
       /sensitive.*word|moderation/i,
     )
+  })
+})
+
+describe('publication workflow — updatePublication audit trail', () => {
+  it('writes publication.updated (not publication.created) to the audit log', async () => {
+    setEditor()
+    const pub = await createPublication(pubPayload())
+    await updatePublication(pub.id, { title: 'Updated Title' })
+
+    const logs = await db.auditLogs
+      .where('entityId')
+      .equals(pub.id)
+      .toArray()
+    const updateLog = logs.find((l) => l.description.includes('updated'))
+    expect(updateLog).toBeDefined()
+    expect(updateLog!.eventType).toBe('publication.updated')
   })
 })
 

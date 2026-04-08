@@ -250,12 +250,10 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
  * portal is immediately usable. Buyer (Participant) accounts are created via
  * the self-registration form on the login screen.
  *
- * All accounts use the same pattern:  password = <username>Pass1!
- *
  * | Username  | Role               | Password        |
  * | --------- | ------------------ | --------------- |
- * | admin     | Administrator      | adminPass1!     |
- * | editor    | ContentEditor      | editorPass1!    |
+ * | admin     | Administrator      | adminPass1!@2   |
+ * | editor    | ContentEditor      | editorPass1!@   |
  * | reviewer  | ReviewerApprover   | reviewerPass1!  |
  */
 export async function seedDefaultAdmin(): Promise<void> {
@@ -273,14 +271,14 @@ export async function seedDefaultAdmin(): Promise<void> {
       username: 'admin',
       displayName: 'Admin User',
       email: 'admin@meridian.internal',
-      password: 'adminPass1!',
+      password: 'adminPass1!@2',
       role: Role.Administrator,
     },
     {
       username: 'editor',
       displayName: 'Content Editor',
       email: 'editor@meridian.internal',
-      password: 'editorPass1!',
+      password: 'editorPass1!@',
       role: Role.ContentEditor,
     },
     {

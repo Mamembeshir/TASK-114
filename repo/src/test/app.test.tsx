@@ -1,10 +1,13 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { describe, it, expect } from 'vitest'
 import App from '../App'
 
 describe('App', () => {
-  it('renders the Meridian Portal heading', () => {
+  it('renders the Meridian Portal heading', async () => {
+    // App starts unauthenticated and renders the LoginPage after init
     render(<App />)
-    expect(screen.getByText('Meridian Portal')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByText('Meridian Portal')).toBeInTheDocument()
+    })
   })
 })

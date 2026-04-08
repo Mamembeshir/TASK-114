@@ -19,6 +19,7 @@ import { encrypt, decrypt } from '@/crypto/encryption'
 import { getAppKey } from '@/crypto/appKey'
 import { useAuthStore } from '@/store/authStore'
 import { requirePermission } from '@/utils/permissions'
+import { hasPermission } from '@/auth/permissions'
 import type { Wallet, WalletDecrypted, WalletTransactionType } from '@/types'
 
 // ── Encryption helpers ────────────────────────────────────────────────────────
@@ -83,8 +84,13 @@ export async function ensureWallet(userId: string): Promise<void> {
   }
 }
 
-/** Return the decrypted wallet for a user, or null if none exists. */
+/** Return the decrypted wallet for a user, or null if none exists.
+ *  Callers must be the wallet owner or have `manageWallets` permission. */
 export async function getWallet(userId: string): Promise<WalletDecrypted | null> {
+  const currentUser = useAuthStore.getState().currentUser
+  if (!currentUser) throw new Error('Forbidden: not authenticated')
+  if (currentUser.id !== userId && !hasPermission(currentUser.role, 'manageWallets'))
+    throw new Error('Forbidden: you can only view your own wallet')
   const w = await db.wallets.where('userId').equals(userId).first()
   return w ? decryptWallet(w) : null
 }
@@ -166,20 +172,49 @@ export interface PreparedReservation {
 }
 
 /**
+ * Compute the current reservation held by a user for a specific auction by
+ * summing persisted wallet transactions (Reserve minus Release) keyed by
+ * auction + user.  This is the authoritative source — never trust UI state.
+ */
+export async function getCurrentReservation(
+  userId: string,
+  auctionId: string,
+): Promise<number> {
+  const txns = await db.walletTransactions
+    .where('relatedAuctionId')
+    .equals(auctionId)
+    .filter((t) => t.userId === userId && (t.type === 'Reserve' || t.type === 'Release'))
+    .toArray()
+  let held = 0
+  for (const t of txns) {
+    if (t.type === 'Reserve') held += t.amount
+    else if (t.type === 'Release') held -= t.amount
+  }
+  return Math.max(held, 0)
+}
+
+/**
  * Compute the encrypted wallet reservation update for a bid deposit hold — NO DB writes.
  *
  * Call this BEFORE entering a Dexie transaction so Web Crypto Promises run
  * outside the transaction zone (avoids `PrematureCommitError`).
+ *
+ * `previousReserveAmount` is now computed service-side from persisted wallet
+ * transactions when not provided, making the operation idempotent regardless
+ * of what the UI reports.
  */
 export async function prepareReservation(
   userId: string,
   auctionId: string,
   newReserveAmount: number,
-  previousReserveAmount: number,
+  _previousReserveAmount?: number,
 ): Promise<PreparedReservation> {
   const wallet = await db.wallets.where('userId').equals(userId).first()
   if (!wallet) throw new Error('Wallet not found')
   const plain = await decryptWallet(wallet)
+
+  // Authoritative prior hold from persisted transactions — ignore UI-supplied value
+  const previousReserveAmount = await getCurrentReservation(userId, auctionId)
 
   const delta = newReserveAmount - previousReserveAmount
   const available = plain.balance - plain.reservedAmount

@@ -248,10 +248,10 @@ function matchRoute(path: string): React.ReactNode {
     )
   }
 
-  // /auctions (list)
+  // /auctions (management list — staff only; participants use /auctions/browse)
   if (path === '/auctions')
     return (
-      <PermissionGuard permission="viewAuctions">
+      <PermissionGuard permission="manageAuctions">
         <AuctionListPage />
       </PermissionGuard>
     )
@@ -396,7 +396,7 @@ function matchRoute(path: string): React.ReactNode {
   if (docDetailMatch) {
     const [, id] = docDetailMatch
     return (
-      <PermissionGuard permission="checkoutDocument">
+      <PermissionGuard permission="viewDocuments">
         <DocumentDetailPage documentId={id} />
       </PermissionGuard>
     )
@@ -405,7 +405,7 @@ function matchRoute(path: string): React.ReactNode {
   // /documents (list)
   if (path === '/documents')
     return (
-      <PermissionGuard permission="checkoutDocument">
+      <PermissionGuard permission="viewDocuments">
         <DocumentListPage />
       </PermissionGuard>
     )

@@ -3,18 +3,17 @@ import { toast } from 'sonner'
 import { Gavel, TrendingUp } from 'lucide-react'
 import { generateId } from '@/crypto'
 import { placeBid, setProxyBid } from '@/services/biddingEngine'
+import { getMinimumIncrement } from '@/utils/increment'
 import { useAuthStore } from '@/store/authStore'
 import { Button, Input } from '@/components/ui'
 import type { Auction } from '@/types'
 
 interface Props {
   auction: Auction
-  /** Amount the current user already has reserved for this auction (0 if first bid) */
-  userDepositHeld: number
   onBidPlaced: () => void
 }
 
-export function BidForm({ auction, userDepositHeld, onBidPlaced }: Props) {
+export function BidForm({ auction, onBidPlaced }: Props) {
   const currentUser = useAuthStore((s) => s.currentUser)
   const [tab, setTab] = useState<'manual' | 'proxy'>('manual')
   const [amount, setAmount] = useState('')
@@ -23,7 +22,12 @@ export function BidForm({ auction, userDepositHeld, onBidPlaced }: Props) {
 
   if (!currentUser) return null
 
-  const minBid = auction.currentPrice + auction.minimumIncrement
+  const resolvedIncrement = getMinimumIncrement(
+    auction.currentPrice,
+    auction.incrementTiers,
+    auction.minimumIncrement,
+  )
+  const minBid = auction.currentPrice + resolvedIncrement
   const isOpen = auction.status === 'Active' || auction.status === 'Extended'
 
   const handleManualBid = async () => {
@@ -42,7 +46,6 @@ export function BidForm({ auction, userDepositHeld, onBidPlaced }: Props) {
         parsed,
         generateId(),
         auction.depositAmount,
-        userDepositHeld,
       )
       if (result.success) {
         toast.success(result.message)
@@ -74,7 +77,6 @@ export function BidForm({ auction, userDepositHeld, onBidPlaced }: Props) {
         currentUser.displayName,
         parsed,
         auction.depositAmount,
-        userDepositHeld,
       )
       if (result.success) {
         toast.success(result.message)
@@ -126,13 +128,13 @@ export function BidForm({ auction, userDepositHeld, onBidPlaced }: Props) {
             label="Your bid"
             type="number"
             min={minBid}
-            step={auction.minimumIncrement}
+            step={resolvedIncrement}
             value={amount}
             onChange={(e) => {
               setAmount(e.target.value)
             }}
             placeholder={`Min: ${String(minBid)}`}
-            hint={`Current price: ${String(auction.currentPrice)} · Min increment: ${String(auction.minimumIncrement)}`}
+            hint={`Current price: ${String(auction.currentPrice)} · Min increment: ${String(resolvedIncrement)}`}
             leftIcon={<Gavel className="w-4 h-4" />}
           />
           <Button
@@ -151,7 +153,7 @@ export function BidForm({ auction, userDepositHeld, onBidPlaced }: Props) {
             label="Maximum proxy amount"
             type="number"
             min={minBid}
-            step={auction.minimumIncrement}
+            step={resolvedIncrement}
             value={proxyMax}
             onChange={(e) => {
               setProxyMax(e.target.value)

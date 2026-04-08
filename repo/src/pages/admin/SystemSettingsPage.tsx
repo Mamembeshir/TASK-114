@@ -19,7 +19,7 @@ const DEFAULTS: EditableConfig = {
   defaultRetentionYears: 7,
   antiSnipingWindowSeconds: 30,
   antiSnipingExtensionMinutes: 2,
-  defaultMinimumIncrement: 100,
+  defaultMinimumIncrement: 1,
 }
 
 export function SystemSettingsPage() {
@@ -157,7 +157,7 @@ export function SystemSettingsPage() {
               setConfig((c) => ({ ...c, antiSnipingExtensionMinutes: Number(e.target.value) }))
             }}
             error={errors.antiSnipingExtensionMinutes}
-            hint="Minutes added to end time. Triggered only once per auction."
+            hint="Minutes added to end time each time a bid lands in the snipe window. No cap on extensions."
           />
         </div>
       </Card>

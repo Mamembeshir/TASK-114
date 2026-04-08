@@ -15,7 +15,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { db } from '@/db'
 import {
-  queueOutboundMessage,
+  composeOutboundMessage,
   processScheduledQueue,
   requeueOutbound,
 } from '@/services/notificationService'
@@ -41,10 +41,10 @@ beforeEach(async () => {
 
 // ── Scheduling on queue creation ──────────────────────────────────────────────
 
-describe('queueOutboundMessage — scheduled delivery', () => {
+describe('composeOutboundMessage — scheduled delivery', () => {
   it('creates a Scheduled item when scheduledAt is in the future', async () => {
     const future = Date.now() + 60_000 // 1 minute from now
-    await queueOutboundMessage({
+    await composeOutboundMessage({
       channel: 'Email',
       recipientUserId: 'u1',
       recipientAddress: 'u1@example.com',
@@ -59,7 +59,7 @@ describe('queueOutboundMessage — scheduled delivery', () => {
 
   it('creates a Queued item when scheduledAt is in the past', async () => {
     const past = Date.now() - 60_000
-    await queueOutboundMessage({
+    await composeOutboundMessage({
       channel: 'Email',
       recipientUserId: 'u2',
       recipientAddress: 'u2@example.com',
@@ -72,7 +72,7 @@ describe('queueOutboundMessage — scheduled delivery', () => {
   })
 
   it('creates a Queued item when no scheduledAt is provided', async () => {
-    await queueOutboundMessage({
+    await composeOutboundMessage({
       channel: 'SMS',
       recipientUserId: 'u3',
       recipientAddress: '+15550000000',
@@ -90,7 +90,7 @@ describe('queueOutboundMessage — scheduled delivery', () => {
 describe('processScheduledQueue', () => {
   it('promotes a Scheduled item to Queued when scheduledAt has passed', async () => {
     const past = Date.now() - 5_000
-    await queueOutboundMessage({
+    await composeOutboundMessage({
       channel: 'Email',
       recipientUserId: 'u4',
       recipientAddress: 'u4@example.com',
@@ -111,7 +111,7 @@ describe('processScheduledQueue', () => {
 
   it('does NOT promote a Scheduled item whose scheduledAt is still in the future', async () => {
     const future = Date.now() + 300_000 // 5 minutes away
-    await queueOutboundMessage({
+    await composeOutboundMessage({
       channel: 'Email',
       recipientUserId: 'u5',
       recipientAddress: 'u5@example.com',
@@ -171,7 +171,7 @@ describe('processScheduledQueue', () => {
   })
 
   it('is a no-op when there are no Scheduled items', async () => {
-    await queueOutboundMessage({
+    await composeOutboundMessage({
       channel: 'Email',
       recipientUserId: 'u8',
       recipientAddress: 'u8@example.com',

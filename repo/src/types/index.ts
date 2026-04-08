@@ -6,6 +6,7 @@ export type { AuditLog, AuditEventType } from './audit'
 
 export type {
   Auction,
+  AuctionExtensionEvent,
   AuctionLock,
   AuctionStatus,
   Bid,

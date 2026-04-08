@@ -1,7 +1,7 @@
 import Dexie, { type Table } from 'dexie'
 import type { User, Session } from '@/types/auth'
 import type { AuditLog } from '@/types/audit'
-import type { Auction, AuctionLock, Bid, ProxyBid, Wallet, WalletTransaction } from '@/types/auction'
+import type { Auction, AuctionExtensionEvent, AuctionLock, Bid, ProxyBid, Wallet, WalletTransaction } from '@/types/auction'
 import type { CatalogItem, CatalogReview, Category, Tag } from '@/types/catalog'
 import type { Publication, PublicationVersion, ViewEvent } from '@/types/publication'
 import type {
@@ -53,6 +53,7 @@ export class MeridianDB extends Dexie {
    * See `bidLockManager.ts` for acquire/release semantics.
    */
   auctionLocks!: Table<AuctionLock>
+  auctionExtensionEvents!: Table<AuctionExtensionEvent>
 
   // ── Catalog ────────────────────────────────────────────────────────────────
   catalogItems!: Table<CatalogItem>
@@ -245,6 +246,11 @@ export class MeridianDB extends Dexie {
     this.version(7).stores({
       // &auctionId — unique index enforces one active lock per auction at a time
       auctionLocks: 'id, &auctionId, acquiredAt, expiresAt',
+    })
+
+    // Version 8: first-class anti-sniping extension event records for full timeline tracing.
+    this.version(8).stores({
+      auctionExtensionEvents: 'id, auctionId, createdAt',
     })
   }
 }

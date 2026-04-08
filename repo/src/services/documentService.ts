@@ -19,9 +19,10 @@ import { getAppKey } from '@/crypto/appKey'
 import { writeAuditLog } from '@/utils/audit'
 import { moderateContent } from '@/utils/moderation'
 import { requirePermission } from '@/utils/permissions'
+import { isExternalUrl } from '@/utils/fileUtils'
 import { useAuthStore } from '@/store/authStore'
 import { hasPermission } from '@/auth/permissions'
-import { createNotification, createNotificationForMany } from './notificationService'
+import { notify, notifyMany } from './notificationService'
 import { Role } from '@/types'
 import type { Document, DocumentTemplate, DocumentVersion } from '@/types'
 
@@ -109,23 +110,60 @@ async function readDoc(id: string): Promise<Document | null> {
   return raw ? decryptDocument(raw as unknown as StoredDocument) : null
 }
 
-// ── Public read helpers ───────────────────────────────────────────────────────
+// ── Object/status scoping ────────────────────────────────────────────────────
 
-/** Return a decrypted document by id, or null if not found. */
-export async function getDocumentById(id: string): Promise<Document | null> {
-  return readDoc(id)
+/** Statuses visible to non-admin, non-reviewer roles (approved lifecycle). */
+const PUBLIC_STATUSES: string[] = ['Approved', 'Archived']
+
+/** Statuses a reviewer may additionally see (anything in their workflow). */
+const REVIEWER_STATUSES: string[] = ['InReview', 'Approved', 'PendingDestruction', 'Archived']
+
+/**
+ * Returns true when `doc` should be visible to the current user.
+ *
+ * Scoping rules:
+ *  - Administrator (manageDocuments): sees all documents.
+ *  - Reviewer (approveDocument): sees own docs + docs in review/approved/pending-destruction/archived.
+ *  - ContentEditor (createDocument): sees own docs + approved/archived docs.
+ */
+function isDocumentVisible(doc: Document, userId: string, role: Role): boolean {
+  if (hasPermission(role, 'manageDocuments')) return true
+  if (doc.createdBy === userId) return true
+  if (hasPermission(role, 'approveDocument')) {
+    return REVIEWER_STATUSES.includes(doc.status)
+  }
+  return PUBLIC_STATUSES.includes(doc.status)
 }
 
-/** Return all documents with sensitive fields decrypted, newest-first. */
+// ── Public read helpers ───────────────────────────────────────────────────────
+
+/** Return a decrypted document by id, or null if not visible to the current user. */
+export async function getDocumentById(id: string): Promise<Document | null> {
+  requirePermission('viewDocuments')
+  const doc = await readDoc(id)
+  if (!doc) return null
+  const currentUser = useAuthStore.getState().currentUser!
+  if (!isDocumentVisible(doc, currentUser.id, currentUser.role)) return null
+  return doc
+}
+
+/** Return all documents visible to the current user, newest-first. */
 export async function listDocuments(): Promise<Document[]> {
-  // updatedAt is not a Dexie index; fetch all rows then sort in-memory.
+  requirePermission('viewDocuments')
+  const currentUser = useAuthStore.getState().currentUser!
   const raws = await db.documents.toArray()
   const docs = await Promise.all((raws as unknown as StoredDocument[]).map(decryptDocument))
-  return docs.sort((a, b) => b.updatedAt - a.updatedAt)
+  return docs
+    .filter((doc) => isDocumentVisible(doc, currentUser.id, currentUser.role))
+    .sort((a, b) => b.updatedAt - a.updatedAt)
 }
 
 /** Return all versions for a specific document with sensitive fields decrypted. */
 export async function listDocumentVersions(documentId: string): Promise<DocumentVersion[]> {
+  requirePermission('viewDocuments')
+  // Enforce object-level visibility on the parent document
+  const doc = await getDocumentById(documentId)
+  if (!doc) return []
   const raws = await db.documentVersions
     .where('documentId')
     .equals(documentId)
@@ -135,8 +173,19 @@ export async function listDocumentVersions(documentId: string): Promise<Document
 
 /** Return ALL document versions across all documents with sensitive fields decrypted. */
 export async function listAllDocumentVersions(): Promise<DocumentVersion[]> {
+  requirePermission('viewDocuments')
+  const currentUser = useAuthStore.getState().currentUser!
+  // Build a set of visible document IDs using object-level checks
+  const allDocs = await db.documents.toArray()
+  const decryptedDocs = await Promise.all((allDocs as unknown as StoredDocument[]).map(decryptDocument))
+  const visibleDocIds = new Set(
+    decryptedDocs
+      .filter((doc) => isDocumentVisible(doc, currentUser.id, currentUser.role))
+      .map((doc) => doc.id),
+  )
   const raws = await db.documentVersions.toArray()
-  return Promise.all(raws.map(decryptDocFields))
+  const filtered = raws.filter((v) => visibleDocIds.has(v.documentId))
+  return Promise.all(filtered.map(decryptDocFields))
 }
 
 // ── Watermark ─────────────────────────────────────────────────────────────────
@@ -160,7 +209,7 @@ async function assignDocumentNumber(): Promise<string> {
         defaultRetentionYears: 7,
         antiSnipingWindowSeconds: 30,
         antiSnipingExtensionMinutes: 2,
-        defaultMinimumIncrement: 100,
+        defaultMinimumIncrement: 1,
         updatedAt: Date.now(),
         updatedBy: 'system',
       }
@@ -230,10 +279,12 @@ export async function createDocumentTemplate(
 }
 
 export async function listDocumentTemplates(): Promise<DocumentTemplate[]> {
+  requirePermission('createDocument')
   return db.documentTemplates.orderBy('createdAt').reverse().toArray()
 }
 
 export async function getDocumentTemplate(id: string): Promise<DocumentTemplate | null> {
+  requirePermission('createDocument')
   return (await db.documentTemplates.get(id)) ?? null
 }
 
@@ -248,6 +299,7 @@ export async function searchDocuments(criteria: {
   type?: string
   tag?: string
 }): Promise<Document[]> {
+  requirePermission('viewDocuments')
   let raws: Document[]
 
   if (criteria.tag) {
@@ -284,6 +336,10 @@ export async function searchDocuments(criteria: {
     )
   }
 
+  // Enforce object-level visibility
+  const currentUser = useAuthStore.getState().currentUser!
+  results = results.filter((d) => isDocumentVisible(d, currentUser.id, currentUser.role))
+
   // Exclude destroyed documents unless explicitly requested
   if (!criteria.status || criteria.status === 'All') {
     results = results.filter((d) => d.status !== 'Destroyed')
@@ -299,10 +355,14 @@ export async function createDocument(
   const currentUser = useAuthStore.getState().currentUser!
   const actorId = currentUser.id
   const actorName = currentUser.displayName
+  if (input.attachmentUrls.some(isExternalUrl)) {
+    throw new Error('External URLs are not allowed — upload files from your device')
+  }
   const moderationFlags = await moderateContent([input.title, input.body])
   const doc: Document = {
     id: generateId(),
     ...input,
+    metadata: input.metadata ?? {},
     status: 'Draft',
     moderationFlags,
     createdBy: actorId,
@@ -330,6 +390,9 @@ export async function updateDocument(
   const currentUser = useAuthStore.getState().currentUser!
   const actorId = currentUser.id
   const actorName = currentUser.displayName
+  if (updates.attachmentUrls?.some(isExternalUrl)) {
+    throw new Error('External URLs are not allowed — upload files from your device')
+  }
   const doc = await readDoc(id)
   if (!doc) throw new Error('Document not found')
   if (doc.checkedOutBy && doc.checkedOutBy !== actorId)
@@ -601,7 +664,7 @@ export async function approveDocument(
     description: `${actorName} approved document "${doc.title}" → ${documentNumber}`,
   })
 
-  await createNotification({
+  await notify({
     userId: doc.createdBy,
     type: 'DocumentApproved',
     title: 'Document Approved',
@@ -636,7 +699,7 @@ export async function rejectDocument(
     description: `${actorName} rejected document "${doc.title}" — ${comment}`,
   })
 
-  await createNotification({
+  await notify({
     userId: doc.createdBy,
     type: 'DocumentRejected',
     title: 'Document Rejected',
@@ -660,6 +723,8 @@ export async function requestDestruction(
   if (!doc) throw new Error('Document not found')
   if (!['Approved', 'Archived'].includes(doc.status))
     throw new Error('Only Approved or Archived documents can be flagged for destruction')
+  if (doc.retentionDueDate && doc.retentionDueDate > Date.now())
+    throw new Error('Document cannot be destroyed before its retention period has elapsed')
 
   await db.destructionApprovals.add({
     id: generateId(),
@@ -684,7 +749,7 @@ export async function requestDestruction(
   // Notify all Administrators that a destruction request needs their approval
   const admins = await db.users.filter((u) => u.role === Role.Administrator && u.isActive).toArray()
   const adminIds = admins.map((u) => u.id)
-  await createNotificationForMany(adminIds, {
+  await notifyMany(adminIds, {
     type: 'DocumentDestructionRequested',
     title: 'Destruction Request Pending',
     message: `Document "${doc.title}" has been flagged for destruction by ${actorName} and requires reviewer then admin approval.`,

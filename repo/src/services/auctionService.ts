@@ -7,6 +7,7 @@ import { db } from '@/db'
 import { generateId } from '@/crypto'
 import { writeAuditLog } from '@/utils/audit'
 import { requirePermission } from '@/utils/permissions'
+import { isExternalUrl } from '@/utils/fileUtils'
 import { useAuthStore } from '@/store/authStore'
 import { hasPermission } from '@/auth/permissions'
 import type { Auction, AuctionStatus, IncrementTier } from '@/types'
@@ -35,6 +36,9 @@ export async function createAuction(
   const currentUser = useAuthStore.getState().currentUser!
   const actorId = currentUser.id
   const actorName = currentUser.displayName
+  if (input.imageUrls.some(isExternalUrl)) {
+    throw new Error('External URLs are not allowed — upload images from your device')
+  }
   const now = Date.now()
   const auction: Auction = {
     id: generateId(),
@@ -69,6 +73,9 @@ export async function updateAuction(
   const currentUser = useAuthStore.getState().currentUser!
   const actorId = currentUser.id
   const actorName = currentUser.displayName
+  if (changes.imageUrls?.some(isExternalUrl)) {
+    throw new Error('External URLs are not allowed — upload images from your device')
+  }
   const auction = await db.auctions.get(id)
   if (!auction) throw new Error('Auction not found')
   if (auction.status !== 'Draft') throw new Error('Only Draft auctions can be edited')
@@ -102,14 +109,38 @@ export async function publishAuction(
   if (auction.status !== 'Draft') throw new Error('Only Draft auctions can be published')
   if (auction.endTime <= Date.now()) throw new Error('Auction end time must be in the future')
 
-  await db.auctions.update(id, { status: 'Active', updatedAt: Date.now() })
+  const newStatus: AuctionStatus = auction.startTime > Date.now() ? 'Scheduled' : 'Active'
+  await db.auctions.update(id, { status: newStatus, updatedAt: Date.now() })
   await writeAuditLog({
     eventType: 'auction.published',
     actorId,
     actorName,
     entityType: 'Auction',
     entityId: id,
-    description: `${actorName} published auction "${auction.title}"`,
+    description: `${actorName} published auction "${auction.title}" (${newStatus})`,
+  })
+}
+
+// ── Scheduled → Active transition ────────────────────────────────────────────
+
+/**
+ * Transition a Scheduled auction to Active if its startTime has arrived.
+ * This is safe to call from read paths (e.g. detail page load) — it is a
+ * no-op when the auction is not Scheduled or the start time is still future.
+ */
+export async function activateIfDue(id: string): Promise<void> {
+  const auction = await db.auctions.get(id)
+  if (!auction || auction.status !== 'Scheduled') return
+  if (Date.now() < auction.startTime) return
+
+  await db.auctions.update(id, { status: 'Active', updatedAt: Date.now() })
+  await writeAuditLog({
+    eventType: 'auction.activated',
+    actorId: 'system',
+    actorName: 'System',
+    entityType: 'Auction',
+    entityId: id,
+    description: `Auction "${auction.title}" automatically activated at scheduled start time`,
   })
 }
 
@@ -142,14 +173,36 @@ export async function cancelAuction(id: string): Promise<void> {
 
 // ── Queries ────────────────────────────────────────────────────────────────────
 
+/** Statuses visible to all users with viewAuctions. Staff see all statuses. */
+const PUBLIC_STATUSES: ReadonlySet<string> = new Set<AuctionStatus>([
+  'Scheduled',
+  'Active',
+  'Extended',
+  'Ended',
+  'Awarded',
+  'NoSale',
+])
+
+/** Returns true when the calling user can see the given auction status. */
+function isStatusVisible(status: AuctionStatus): boolean {
+  const role = useAuthStore.getState().currentUser?.role
+  if (role && hasPermission(role, 'manageAuctions')) return true
+  return PUBLIC_STATUSES.has(status)
+}
+
 export async function getAuction(id: string): Promise<Auction | undefined> {
-  return db.auctions.get(id)
+  requirePermission('viewAuctions')
+  const auction = await db.auctions.get(id)
+  if (!auction) return undefined
+  if (!isStatusVisible(auction.status)) return undefined
+  return auction
 }
 
 export async function listAuctions(filters?: {
   status?: AuctionStatus
   categoryId?: string
 }): Promise<Auction[]> {
+  requirePermission('viewAuctions')
   let query = db.auctions.toCollection()
 
   if (filters?.status) {
@@ -157,9 +210,12 @@ export async function listAuctions(filters?: {
   }
 
   const results = await query.sortBy('createdAt')
-  const filtered = filters?.categoryId
+  let filtered = filters?.categoryId
     ? results.filter((a) => a.categoryId === filters.categoryId)
     : results
+
+  // Apply status visibility filtering for non-staff users
+  filtered = filtered.filter((a) => isStatusVisible(a.status))
 
   return filtered.reverse()
 }

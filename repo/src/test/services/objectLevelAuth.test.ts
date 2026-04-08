@@ -96,14 +96,12 @@ describe('catalogService — object-level authorization', () => {
     setAuth(EDITOR_A)
     const item = await createCatalogItem(
       { title: 'My Item', description: 'Desc', categoryId: 'cat-1', tags: [], price: 100, stock: 5, imageUrls: [] },
-      EDITOR_A.id,
-      EDITOR_A.displayName,
     )
 
     // Editor B tries to update it
     setAuth(EDITOR_B)
     await expect(
-      updateCatalogItem(item.id, { title: 'Hijacked' }, EDITOR_B.id, EDITOR_B.displayName),
+      updateCatalogItem(item.id, { title: 'Hijacked' }),
     ).rejects.toThrow(/Forbidden/)
   })
 
@@ -111,12 +109,10 @@ describe('catalogService — object-level authorization', () => {
     setAuth(EDITOR_A)
     const item = await createCatalogItem(
       { title: 'My Item', description: 'Desc', categoryId: 'cat-1', tags: [], price: 100, stock: 5, imageUrls: [] },
-      EDITOR_A.id,
-      EDITOR_A.displayName,
     )
 
     await expect(
-      updateCatalogItem(item.id, { title: 'Updated' }, EDITOR_A.id, EDITOR_A.displayName),
+      updateCatalogItem(item.id, { title: 'Updated' }),
     ).resolves.not.toThrow()
   })
 
@@ -124,13 +120,11 @@ describe('catalogService — object-level authorization', () => {
     setAuth(EDITOR_A)
     const item = await createCatalogItem(
       { title: 'Their Item', description: 'Desc', categoryId: 'cat-1', tags: [], price: 100, stock: 5, imageUrls: [] },
-      EDITOR_A.id,
-      EDITOR_A.displayName,
     )
 
     setAuth(ADMIN)
     await expect(
-      updateCatalogItem(item.id, { title: 'Admin Override' }, ADMIN.id, ADMIN.displayName),
+      updateCatalogItem(item.id, { title: 'Admin Override' }),
     ).resolves.not.toThrow()
   })
 })
@@ -150,20 +144,20 @@ const pubPayload = () => ({
 describe('publicationService — updatePublication ownership', () => {
   it('blocks editor from updating another editor\'s publication', async () => {
     setAuth(EDITOR_A)
-    const pub = await createPublication(pubPayload(), EDITOR_A.id, EDITOR_A.displayName)
+    const pub = await createPublication(pubPayload())
 
     setAuth(EDITOR_B)
     await expect(
-      updatePublication(pub.id, { title: 'Hijacked' }, EDITOR_B.id, EDITOR_B.displayName),
+      updatePublication(pub.id, { title: 'Hijacked' }),
     ).rejects.toThrow(/Forbidden/)
   })
 
   it('allows editor to update their own publication', async () => {
     setAuth(EDITOR_A)
-    const pub = await createPublication(pubPayload(), EDITOR_A.id, EDITOR_A.displayName)
+    const pub = await createPublication(pubPayload())
 
     await expect(
-      updatePublication(pub.id, { title: 'My Update' }, EDITOR_A.id, EDITOR_A.displayName),
+      updatePublication(pub.id, { title: 'My Update' }),
     ).resolves.not.toThrow()
   })
 })
@@ -171,11 +165,11 @@ describe('publicationService — updatePublication ownership', () => {
 describe('publicationService — submitForReview author-only', () => {
   it('blocks a non-author from submitting another user\'s publication for review', async () => {
     setAuth(EDITOR_A)
-    const pub = await createPublication(pubPayload(), EDITOR_A.id, EDITOR_A.displayName)
+    const pub = await createPublication(pubPayload())
 
     setAuth(EDITOR_B)
     await expect(
-      submitForReview(pub.id, EDITOR_B.id, EDITOR_B.displayName),
+      submitForReview(pub.id),
     ).rejects.toThrow(/Forbidden/)
   })
 })
@@ -183,37 +177,35 @@ describe('publicationService — submitForReview author-only', () => {
 describe('publicationService — self-review prevention', () => {
   it('blocks the author from approving their own publication', async () => {
     setAuth(EDITOR_A)
-    const pub = await createPublication(pubPayload(), EDITOR_A.id, EDITOR_A.displayName)
-    await submitForReview(pub.id, EDITOR_A.id, EDITOR_A.displayName)
+    const pub = await createPublication(pubPayload())
+    await submitForReview(pub.id)
 
-    // Editor A (author) attempts self-approval — auth store must have approvePublication
-    setAuth(ADMIN) // admin has approvePublication but is also the "author" here? No — pub was created by EDITOR_A
-    // Re-attempt with the actual author ID
-    setAuth({ ...EDITOR_A, role: Role.ReviewerApprover }) // temporarily elevate role to have approvePublication
+    // Temporarily elevate role to have approvePublication permission, keeping same identity
+    setAuth({ ...EDITOR_A, role: Role.ReviewerApprover })
     await expect(
-      approvePublication(pub.id, EDITOR_A.id, EDITOR_A.displayName),
+      approvePublication(pub.id),
     ).rejects.toThrow(/Forbidden/)
   })
 
   it('blocks the author from rejecting their own publication', async () => {
     setAuth(EDITOR_A)
-    const pub = await createPublication(pubPayload(), EDITOR_A.id, EDITOR_A.displayName)
-    await submitForReview(pub.id, EDITOR_A.id, EDITOR_A.displayName)
+    const pub = await createPublication(pubPayload())
+    await submitForReview(pub.id)
 
     setAuth({ ...EDITOR_A, role: Role.ReviewerApprover })
     await expect(
-      rejectPublication(pub.id, EDITOR_A.id, EDITOR_A.displayName, 'Self rejection attempt'),
+      rejectPublication(pub.id, 'Self rejection attempt'),
     ).rejects.toThrow(/Forbidden/)
   })
 
   it('allows a different reviewer to approve the publication', async () => {
     setAuth(EDITOR_A)
-    const pub = await createPublication(pubPayload(), EDITOR_A.id, EDITOR_A.displayName)
-    await submitForReview(pub.id, EDITOR_A.id, EDITOR_A.displayName)
+    const pub = await createPublication(pubPayload())
+    await submitForReview(pub.id)
 
     setAuth(REVIEWER)
     await expect(
-      approvePublication(pub.id, REVIEWER.id, REVIEWER.displayName),
+      approvePublication(pub.id),
     ).resolves.not.toThrow()
   })
 })
@@ -234,20 +226,20 @@ const docPayload = () => ({
 describe('documentService — updateDocument ownership', () => {
   it('blocks editor from updating a document they did not create', async () => {
     setAuth(EDITOR_A)
-    const doc = await createDocument(docPayload(), EDITOR_A.id, EDITOR_A.displayName)
+    const doc = await createDocument(docPayload())
 
     setAuth(EDITOR_B)
     await expect(
-      updateDocument(doc.id, { title: 'Hijacked' }, EDITOR_B.id, EDITOR_B.displayName),
+      updateDocument(doc.id, { title: 'Hijacked' }),
     ).rejects.toThrow(/Forbidden/)
   })
 
   it('allows editor to update their own document', async () => {
     setAuth(EDITOR_A)
-    const doc = await createDocument(docPayload(), EDITOR_A.id, EDITOR_A.displayName)
+    const doc = await createDocument(docPayload())
 
     await expect(
-      updateDocument(doc.id, { title: 'My Update' }, EDITOR_A.id, EDITOR_A.displayName),
+      updateDocument(doc.id, { title: 'My Update' }),
     ).resolves.not.toThrow()
   })
 })
@@ -255,11 +247,11 @@ describe('documentService — updateDocument ownership', () => {
 describe('documentService — submitDocumentForReview author-only', () => {
   it('blocks a non-author from submitting another user\'s document for review', async () => {
     setAuth(EDITOR_A)
-    const doc = await createDocument(docPayload(), EDITOR_A.id, EDITOR_A.displayName)
+    const doc = await createDocument(docPayload())
 
     setAuth(EDITOR_B)
     await expect(
-      submitDocumentForReview(doc.id, EDITOR_B.id, EDITOR_B.displayName),
+      submitDocumentForReview(doc.id),
     ).rejects.toThrow(/Forbidden/)
   })
 })
@@ -267,35 +259,35 @@ describe('documentService — submitDocumentForReview author-only', () => {
 describe('documentService — self-review prevention', () => {
   it('blocks the author from approving their own document', async () => {
     setAuth(EDITOR_A)
-    const doc = await createDocument(docPayload(), EDITOR_A.id, EDITOR_A.displayName)
-    await submitDocumentForReview(doc.id, EDITOR_A.id, EDITOR_A.displayName)
+    const doc = await createDocument(docPayload())
+    await submitDocumentForReview(doc.id)
 
     // Give editor-a the reviewer role in auth store to have approveDocument permission
     setAuth({ ...EDITOR_A, role: Role.ReviewerApprover })
     await expect(
-      approveDocument(doc.id, EDITOR_A.id, EDITOR_A.displayName),
+      approveDocument(doc.id),
     ).rejects.toThrow(/Forbidden/)
   })
 
   it('blocks the author from rejecting their own document', async () => {
     setAuth(EDITOR_A)
-    const doc = await createDocument(docPayload(), EDITOR_A.id, EDITOR_A.displayName)
-    await submitDocumentForReview(doc.id, EDITOR_A.id, EDITOR_A.displayName)
+    const doc = await createDocument(docPayload())
+    await submitDocumentForReview(doc.id)
 
     setAuth({ ...EDITOR_A, role: Role.ReviewerApprover })
     await expect(
-      rejectDocument(doc.id, EDITOR_A.id, EDITOR_A.displayName, 'Self rejection attempt'),
+      rejectDocument(doc.id, 'Self rejection attempt'),
     ).rejects.toThrow(/Forbidden/)
   })
 
   it('allows a different reviewer to approve the document', async () => {
     setAuth(EDITOR_A)
-    const doc = await createDocument(docPayload(), EDITOR_A.id, EDITOR_A.displayName)
-    await submitDocumentForReview(doc.id, EDITOR_A.id, EDITOR_A.displayName)
+    const doc = await createDocument(docPayload())
+    await submitDocumentForReview(doc.id)
 
     setAuth(REVIEWER)
     await expect(
-      approveDocument(doc.id, REVIEWER.id, REVIEWER.displayName),
+      approveDocument(doc.id),
     ).resolves.not.toThrow()
   })
 })

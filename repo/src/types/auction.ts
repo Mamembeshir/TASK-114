@@ -15,6 +15,7 @@ export interface IncrementTier {
 
 export type AuctionStatus =
   | 'Draft'
+  | 'Scheduled' // published but startTime is in the future
   | 'Active'
   | 'Extended' // anti-sniping triggered; end time extended by 2 min per snipe bid
   | 'Ended'
@@ -125,6 +126,19 @@ export interface AuctionLock {
   acquiredAt: number
   /** Epoch-ms deadline: if now > expiresAt the lock is stale and may be stolen */
   expiresAt: number
+}
+
+/** First-class record of an anti-sniping extension event for timeline tracing. */
+export interface AuctionExtensionEvent {
+  id: string
+  auctionId: string
+  /** The bid that triggered the extension */
+  triggeringBidId: string
+  /** Previous end time before this extension */
+  previousEndTime: number
+  /** New end time after this extension */
+  newEndTime: number
+  createdAt: number
 }
 
 export interface WalletTransaction {

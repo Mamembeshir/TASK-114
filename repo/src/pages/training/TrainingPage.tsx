@@ -52,8 +52,6 @@ export function TrainingPage() {
         currentUser.id,
         courseId,
         sectionIndex,
-        currentUser.id,
-        currentUser.displayName,
       )
       await reload()
       toast.success('Section marked complete!')

@@ -15,6 +15,7 @@ export type AuditEventType =
   | 'auction.updated'
   | 'auction.published'
   | 'auction.cancelled'
+  | 'auction.activated'
   | 'auction.closed'
   | 'auction.no_sale'
   // Bid events
@@ -38,6 +39,7 @@ export type AuditEventType =
   | 'catalog.review_removed'
   // Publication events
   | 'publication.created'
+  | 'publication.updated'
   | 'publication.submitted'
   | 'publication.approved'
   | 'publication.rejected'
@@ -57,6 +59,13 @@ export type AuditEventType =
   | 'document.destruction_admin_approved'
   | 'document.destruction_rejected'
   | 'document.destroyed'
+  | 'document.template_created'
+  // Training events
+  | 'training.course_created'
+  | 'training.course_updated'
+  | 'training.course_deactivated'
+  | 'training.section_completed'
+  | 'training.course_completed'
   // System events
   | 'system.config_updated'
   | 'system.sensitive_word_added'

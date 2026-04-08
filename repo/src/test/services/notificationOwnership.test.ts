@@ -2,33 +2,48 @@
  * Notification ownership tests.
  *
  * Verifies that markNotificationRead, deleteNotification, and recordReadReceipt
- * all reject cross-user operations (object-level authorization).
- *
- * Evidence: src/services/notificationService.ts:64, :76, :249, :264
+ * all derive actor identity from useAuthStore and reject cross-user operations.
  */
 
 import { describe, it, expect, beforeEach } from 'vitest'
 import { db } from '@/db'
+import { useAuthStore } from '@/store/authStore'
 import {
-  createNotification,
+  notify,
   markNotificationRead,
   deleteNotification,
   recordReadReceipt,
 } from '@/services/notificationService'
+import { Role } from '@/types'
+import type { User } from '@/types'
 
-// ── Setup ─────────────────────────────────────────────────────────────────────
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
-beforeEach(async () => {
-  await Promise.all([
-    db.notifications.clear(),
-    db.messageReadReceipts.clear(),
-  ])
-})
+function makeUser(id: string): User {
+  return {
+    id,
+    username: id,
+    displayName: id,
+    role: Role.ContentEditor,
+    email: `${id}@test`,
+    passwordHash: '',
+    passwordSalt: '',
+    isActive: true,
+    isTemporaryPassword: false,
+    createdAt: 0,
+    updatedAt: 0,
+    createdBy: 'system',
+  }
+}
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+function setAuth(userId: string) {
+  useAuthStore.setState({ currentUser: makeUser(userId), isLoading: false })
+}
 
 async function seedNotification(userId: string): Promise<string> {
-  await createNotification({
+  // Ensure auth context exists for the guarded notify call
+  setAuth(userId)
+  await notify({
     userId,
     type: 'PublicationPublished',
     title: 'Test',
@@ -39,56 +54,72 @@ async function seedNotification(userId: string): Promise<string> {
   return notif.id
 }
 
-// ── markNotificationRead ──────────────────────────────────────────────────────
+// ── Setup ────────────────────────────────────────────────────────────────────
+
+beforeEach(async () => {
+  await Promise.all([
+    db.notifications.clear(),
+    db.messageReadReceipts.clear(),
+  ])
+})
+
+// ── markNotificationRead ─────────────────────────────────────────────────────
 
 describe('markNotificationRead — ownership guard', () => {
   it('allows the notification owner to mark it read', async () => {
     const id = await seedNotification('alice')
-    await expect(markNotificationRead(id, 'alice')).resolves.toBeUndefined()
+    setAuth('alice')
+    await expect(markNotificationRead(id)).resolves.toBeUndefined()
     const updated = await db.notifications.get(id)
     expect(updated?.isRead).toBe(true)
   })
 
   it('throws Forbidden when a different user tries to mark it read', async () => {
     const id = await seedNotification('alice')
-    await expect(markNotificationRead(id, 'bob')).rejects.toThrow(/Forbidden/)
+    setAuth('bob')
+    await expect(markNotificationRead(id)).rejects.toThrow(/Forbidden/)
     // Notification remains unread
     const unchanged = await db.notifications.get(id)
     expect(unchanged?.isRead).toBe(false)
   })
 
   it('is idempotent when the notification has already been deleted', async () => {
-    await expect(markNotificationRead('nonexistent-id', 'alice')).resolves.toBeUndefined()
+    setAuth('alice')
+    await expect(markNotificationRead('nonexistent-id')).resolves.toBeUndefined()
   })
 })
 
-// ── deleteNotification ────────────────────────────────────────────────────────
+// ── deleteNotification ───────────────────────────────────────────────────────
 
 describe('deleteNotification — ownership guard', () => {
   it('allows the notification owner to delete their notification', async () => {
     const id = await seedNotification('alice')
-    await expect(deleteNotification(id, 'alice')).resolves.toBeUndefined()
+    setAuth('alice')
+    await expect(deleteNotification(id)).resolves.toBeUndefined()
     expect(await db.notifications.get(id)).toBeUndefined()
   })
 
   it('throws Forbidden when a different user tries to delete', async () => {
     const id = await seedNotification('alice')
-    await expect(deleteNotification(id, 'carol')).rejects.toThrow(/Forbidden/)
+    setAuth('carol')
+    await expect(deleteNotification(id)).rejects.toThrow(/Forbidden/)
     // Notification still exists
     expect(await db.notifications.get(id)).toBeDefined()
   })
 
   it('is idempotent when the notification has already been deleted', async () => {
-    await expect(deleteNotification('nonexistent-id', 'alice')).resolves.toBeUndefined()
+    setAuth('alice')
+    await expect(deleteNotification('nonexistent-id')).resolves.toBeUndefined()
   })
 })
 
-// ── recordReadReceipt ─────────────────────────────────────────────────────────
+// ── recordReadReceipt ────────────────────────────────────────────────────────
 
 describe('recordReadReceipt — ownership guard', () => {
   it('allows the notification owner to record a read receipt', async () => {
     const id = await seedNotification('alice')
-    await expect(recordReadReceipt(id, 'alice')).resolves.toBeUndefined()
+    setAuth('alice')
+    await expect(recordReadReceipt(id)).resolves.toBeUndefined()
 
     const receipt = await db.messageReadReceipts
       .where('notificationId')
@@ -103,7 +134,8 @@ describe('recordReadReceipt — ownership guard', () => {
 
   it('throws Forbidden when a different user tries to record a read receipt', async () => {
     const id = await seedNotification('alice')
-    await expect(recordReadReceipt(id, 'eve')).rejects.toThrow(/Forbidden/)
+    setAuth('eve')
+    await expect(recordReadReceipt(id)).rejects.toThrow(/Forbidden/)
 
     // No receipt written
     const receipt = await db.messageReadReceipts
@@ -120,8 +152,9 @@ describe('recordReadReceipt — ownership guard', () => {
 
   it('is idempotent — a second receipt call for the same user does not duplicate', async () => {
     const id = await seedNotification('alice')
-    await recordReadReceipt(id, 'alice')
-    await recordReadReceipt(id, 'alice')
+    setAuth('alice')
+    await recordReadReceipt(id)
+    await recordReadReceipt(id)
 
     const receipts = await db.messageReadReceipts
       .where('notificationId')

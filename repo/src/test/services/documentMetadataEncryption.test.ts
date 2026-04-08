@@ -11,6 +11,8 @@
 
 import { describe, it, expect, beforeEach } from 'vitest'
 import { db } from '@/db'
+import { useAuthStore } from '@/store/authStore'
+import { Role } from '@/types'
 import {
   createDocument,
   getDocumentById,
@@ -39,6 +41,14 @@ function baseInput(metadata: Record<string, string> = {}) {
 // ── Setup ─────────────────────────────────────────────────────────────────────
 
 beforeEach(async () => {
+  useAuthStore.setState({
+    currentUser: {
+      id: ACTOR_ID, username: 'actor', displayName: ACTOR_NAME, role: Role.Administrator,
+      email: 'actor@test', passwordHash: '', passwordSalt: '', isActive: true, isTemporaryPassword: false,
+      createdAt: 0, updatedAt: 0, createdBy: 'system',
+    },
+    isLoading: false,
+  })
   await Promise.all([
     db.documents.clear(),
     db.documentVersions.clear(),
@@ -53,7 +63,7 @@ beforeEach(async () => {
 describe('Document.metadata — encryption at rest', () => {
   it('stores metadata as ciphertext, not plaintext', async () => {
     const meta = { owner: 'alice', classification: 'CONFIDENTIAL', department: 'Legal' }
-    const doc = await createDocument(baseInput(meta), ACTOR_ID, ACTOR_NAME)
+    const doc = await createDocument(baseInput(meta))
 
     // Read the raw IndexedDB row directly (bypassing decryption)
     const rawRow = await db.documents.get(doc.id)
@@ -70,7 +80,7 @@ describe('Document.metadata — encryption at rest', () => {
 
   it('decrypts metadata correctly on read via getDocumentById', async () => {
     const meta = { owner: 'alice', classification: 'CONFIDENTIAL' }
-    const created = await createDocument(baseInput(meta), ACTOR_ID, ACTOR_NAME)
+    const created = await createDocument(baseInput(meta))
 
     const fetched = await getDocumentById(created.id)
     expect(fetched).not.toBeNull()
@@ -78,14 +88,14 @@ describe('Document.metadata — encryption at rest', () => {
   })
 
   it('round-trips empty metadata object without error', async () => {
-    const doc = await createDocument(baseInput({}), ACTOR_ID, ACTOR_NAME)
+    const doc = await createDocument(baseInput({}))
     const fetched = await getDocumentById(doc.id)
     expect(fetched!.metadata).toEqual({})
   })
 
   it('decrypts metadata correctly in listDocuments', async () => {
     const meta = { project: 'Alpha', sensitivity: 'HIGH' }
-    const doc = await createDocument(baseInput(meta), ACTOR_ID, ACTOR_NAME)
+    const doc = await createDocument(baseInput(meta))
 
     const list = await listDocuments()
     const found = list.find((d) => d.id === doc.id)
@@ -95,10 +105,10 @@ describe('Document.metadata — encryption at rest', () => {
 
   it('encrypts updated metadata on updateDocument', async () => {
     const original = { owner: 'alice' }
-    const doc = await createDocument(baseInput(original), ACTOR_ID, ACTOR_NAME)
+    const doc = await createDocument(baseInput(original))
 
     const updated = { owner: 'bob', classification: 'PUBLIC' }
-    await updateDocument(doc.id, { metadata: updated }, ACTOR_ID, ACTOR_NAME)
+    await updateDocument(doc.id, { metadata: updated })
 
     // Raw stored value must still be ciphertext
     const rawRow = await db.documents.get(doc.id)
@@ -113,7 +123,7 @@ describe('Document.metadata — encryption at rest', () => {
 
   it('title and body remain encrypted alongside metadata', async () => {
     const meta = { key: 'value' }
-    const doc = await createDocument(baseInput(meta), ACTOR_ID, ACTOR_NAME)
+    const doc = await createDocument(baseInput(meta))
 
     const rawRow = await db.documents.get(doc.id) as unknown as { title: string; body: string; metadata: string }
     expect(rawRow.title).not.toBe('Test Document')

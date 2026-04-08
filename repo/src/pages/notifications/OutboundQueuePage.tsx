@@ -15,7 +15,6 @@ import {
   markOutboundSent,
   requeueOutbound,
   composeOutboundMessage,
-  renderTemplate,
 } from '@/services/notificationService'
 import { Badge, Button, EmptyState, Table } from '@/components/ui'
 import type { ColumnDef } from '@/components/ui'

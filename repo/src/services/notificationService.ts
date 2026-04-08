@@ -10,8 +10,21 @@ import { db } from '@/db'
 import { generateId } from '@/crypto'
 import { useAuthStore } from '@/store/authStore'
 import { requirePermission } from '@/utils/permissions'
+import { hasPermission } from '@/auth/permissions'
 import type { NotificationType, OutboundChannel, NotificationTemplate } from '@/types'
 import { RETRY_DELAYS_MS } from '@/types'
+
+// ── Auth guard for internal primitives ────────────────────────────────────────
+
+/**
+ * Ensures a valid authenticated session exists. Internal notification/queue
+ * primitives call this so they cannot be invoked from unauthenticated contexts.
+ */
+function requireAuthenticated(): void {
+  if (!useAuthStore.getState().currentUser) {
+    throw new Error('Not authenticated')
+  }
+}
 
 // ── In-app notifications ───────────────────────────────────────────────────────
 
@@ -24,7 +37,8 @@ export interface CreateNotificationInput {
   relatedEntityId?: string
 }
 
-export async function createNotification(input: CreateNotificationInput): Promise<void> {
+async function createNotification(input: CreateNotificationInput): Promise<void> {
+  requireAuthenticated()
   await db.notifications.add({
     id: generateId(),
     ...input,
@@ -37,10 +51,11 @@ export async function createNotification(input: CreateNotificationInput): Promis
  *  Respects each user's inApp subscription preference — users who have opted
  *  out of inApp for this notification type will not receive it.
  */
-export async function createNotificationForMany(
+async function createNotificationForMany(
   userIds: string[],
   fields: Omit<CreateNotificationInput, 'userId'>,
 ): Promise<void> {
+  requireAuthenticated()
   // Filter to users who have inApp enabled for this type (default: true)
   const eligible = await Promise.all(
     userIds.map(async (userId) => {
@@ -65,9 +80,11 @@ export async function createNotificationForMany(
 
 /**
  * Mark a notification as read.
- * @param actorUserId - must be the owner of the notification; throws if not.
+ * Derives actor identity from the auth store; rejects cross-user operations.
  */
-export async function markNotificationRead(id: string, actorUserId: string): Promise<void> {
+export async function markNotificationRead(id: string): Promise<void> {
+  const actorUserId = useAuthStore.getState().currentUser?.id
+  if (!actorUserId) throw new Error('Not authenticated')
   const notif = await db.notifications.get(id)
   if (!notif) return // idempotent — already deleted
   if (notif.userId !== actorUserId)
@@ -93,9 +110,11 @@ export async function markAllNotificationsRead(userId: string): Promise<void> {
 
 /**
  * Delete a notification.
- * @param actorUserId - must be the owner of the notification; throws if not.
+ * Derives actor identity from the auth store; rejects cross-user operations.
  */
-export async function deleteNotification(id: string, actorUserId: string): Promise<void> {
+export async function deleteNotification(id: string): Promise<void> {
+  const actorUserId = useAuthStore.getState().currentUser?.id
+  if (!actorUserId) throw new Error('Not authenticated')
   const notif = await db.notifications.get(id)
   if (!notif) return // idempotent — already deleted
   if (notif.userId !== actorUserId)
@@ -104,6 +123,9 @@ export async function deleteNotification(id: string, actorUserId: string): Promi
 }
 
 export async function getUnreadCount(userId: string): Promise<number> {
+  const callerId = useAuthStore.getState().currentUser?.id
+  if (callerId !== userId)
+    throw new Error('Forbidden: you can only query your own notification count')
   return db.notifications
     .where('userId')
     .equals(userId)
@@ -157,7 +179,8 @@ export interface QueueOutboundInput {
   scheduledAt?: number
 }
 
-export async function queueOutboundMessage(input: QueueOutboundInput): Promise<void> {
+async function queueOutboundMessage(input: QueueOutboundInput): Promise<void> {
+  requireAuthenticated()
   let subject = input.subject
   let body = input.body ?? ''
 
@@ -326,8 +349,8 @@ export interface SubscriptionUpdate {
   officialAccount?: boolean
 }
 
-/** Get a user's subscription preference for a given notification type. */
-export async function getSubscription(
+/** Get a user's subscription preference for a given notification type (internal — no auth check). */
+async function getSubscription(
   userId: string,
   notificationType: string,
 ): Promise<{ inApp: boolean; email: boolean; sms: boolean; officialAccount: boolean }> {
@@ -339,12 +362,32 @@ export async function getSubscription(
   return pref ?? { inApp: true, email: false, sms: false, officialAccount: false }
 }
 
+/**
+ * Public API to read a user's subscription preference.
+ * Enforces actor identity: callers may only read their own preferences
+ * unless they hold the `manageMessages` permission.
+ */
+export async function getOwnSubscription(
+  userId: string,
+  notificationType: string,
+): Promise<{ inApp: boolean; email: boolean; sms: boolean; officialAccount: boolean }> {
+  const currentUser = useAuthStore.getState().currentUser
+  if (!currentUser) throw new Error('Forbidden: not authenticated')
+  if (currentUser.id !== userId && !hasPermission(currentUser.role, 'manageMessages'))
+    throw new Error('Forbidden: you can only read your own subscription preferences')
+  return getSubscription(userId, notificationType)
+}
+
 /** Upsert a user's subscription preference for a notification type. */
 export async function setSubscription(
   userId: string,
   notificationType: string,
   update: SubscriptionUpdate,
 ): Promise<void> {
+  const currentUser = useAuthStore.getState().currentUser
+  if (!currentUser) throw new Error('Forbidden: not authenticated')
+  if (currentUser.id !== userId && !hasPermission(currentUser.role, 'manageMessages'))
+    throw new Error('Forbidden: you can only update your own notification preferences')
   const existing = await db.notificationSubscriptions
     .where('userId')
     .equals(userId)
@@ -369,10 +412,12 @@ export async function setSubscription(
 // ── Read receipts ──────────────────────────────────────────────────────────────
 
 /**
- * Record that a user has read a specific notification (idempotent).
- * Verifies that the notification belongs to `userId` before writing.
+ * Record that the current user has read a specific notification (idempotent).
+ * Derives actor identity from the auth store; rejects cross-user operations.
  */
-export async function recordReadReceipt(notificationId: string, userId: string): Promise<void> {
+export async function recordReadReceipt(notificationId: string): Promise<void> {
+  const userId = useAuthStore.getState().currentUser?.id
+  if (!userId) throw new Error('Not authenticated')
   const notif = await db.notifications.get(notificationId)
   if (notif && notif.userId !== userId)
     throw new Error('Forbidden: you can only record a read receipt for your own notifications')
@@ -391,11 +436,19 @@ export async function recordReadReceipt(notificationId: string, userId: string):
     })
   }
   // Also mark the in-app notification as read — ownership already verified above
-  await markNotificationRead(notificationId, userId)
+  await markNotificationRead(notificationId)
 }
 
-/** Get the list of user IDs who have read a notification (for sent confirmations). */
+/**
+ * Get the list of user IDs who have read a notification (for sent confirmations).
+ * Only the notification owner or users with `manageMessages` may view read receipts.
+ */
 export async function getReadReceipts(notificationId: string): Promise<string[]> {
+  const currentUser = useAuthStore.getState().currentUser
+  if (!currentUser) throw new Error('Forbidden: not authenticated')
+  const notif = await db.notifications.get(notificationId)
+  if (notif && notif.userId !== currentUser.id && !hasPermission(currentUser.role, 'manageMessages'))
+    throw new Error('Forbidden: you can only view read receipts for your own notifications')
   const receipts = await db.messageReadReceipts
     .where('notificationId')
     .equals(notificationId)
@@ -453,4 +506,17 @@ export async function notify(
       })
     }
   }
+}
+
+/**
+ * Notify multiple users at once (in-app only).
+ * Respects each user's inApp subscription preference.
+ * This is the public batch API — internal `createNotificationForMany` is not exported.
+ */
+export async function notifyMany(
+  userIds: string[],
+  fields: Omit<CreateNotificationInput, 'userId'>,
+): Promise<void> {
+  requireAuthenticated()
+  await createNotificationForMany(userIds, fields)
 }

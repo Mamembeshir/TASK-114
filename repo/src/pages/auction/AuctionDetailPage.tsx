@@ -4,16 +4,19 @@ import { db } from '@/db'
 import { useAuthStore } from '@/store/authStore'
 import { usePermission } from '@/hooks/usePermission'
 import { subscribeToBidEvents } from '@/services/biddingEngine'
-import { Badge, Card, CardHeader, Spinner } from '@/components/ui'
+import { getAuction as getAuctionService, activateIfDue } from '@/services/auctionService'
+import { getMinimumIncrement } from '@/utils/increment'
+import { Badge, Button, Card, CardHeader, Modal, Spinner } from '@/components/ui'
 import { CountdownTimer } from '@/components/auction/CountdownTimer'
 import { BidForm } from '@/components/auction/BidForm'
-import type { Auction, AuctionStatus, Bid } from '@/types'
+import type { Auction, AuctionExtensionEvent, AuctionStatus, Bid } from '@/types'
 
 const STATUS_VARIANTS: Record<
   AuctionStatus,
   'default' | 'primary' | 'success' | 'warning' | 'danger' | 'info'
 > = {
   Draft: 'default',
+  Scheduled: 'info',
   Active: 'success',
   Extended: 'warning',
   Ended: 'default',
@@ -32,25 +35,23 @@ export function AuctionDetailPage({ auctionId }: Props) {
 
   const [auction, setAuction] = useState<Auction | null>(null)
   const [bids, setBids] = useState<Bid[]>([])
-  const [userDepositHeld, setUserDepositHeld] = useState(0)
+  const [extensionEvents, setExtensionEvents] = useState<AuctionExtensionEvent[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [showBidModal, setShowBidModal] = useState(false)
 
   const loadAuction = useCallback(async () => {
-    const [a, allBids] = await Promise.all([
-      db.auctions.get(auctionId),
+    // Transition Scheduled → Active if start time has arrived
+    await activateIfDue(auctionId)
+    const [a, allBids, extensions] = await Promise.all([
+      getAuctionService(auctionId),
       db.bids.where('auctionId').equals(auctionId).sortBy('createdAt'),
+      db.auctionExtensionEvents.where('auctionId').equals(auctionId).sortBy('createdAt'),
     ])
     if (a) setAuction(a)
     setBids(allBids.reverse())
-
-    // Check if current user has a deposit reserved
-    if (currentUser) {
-      const wallet = await db.wallets.where('userId').equals(currentUser.id).first()
-      const hasActiveBid = allBids.some((b) => b.bidderId === currentUser.id)
-      setUserDepositHeld(hasActiveBid && wallet ? (a?.depositAmount ?? 0) : 0)
-    }
+    setExtensionEvents(extensions)
     setIsLoading(false)
-  }, [auctionId, currentUser])
+  }, [auctionId])
 
   useEffect(() => {
     void loadAuction()
@@ -121,7 +122,7 @@ export function AuctionDetailPage({ auctionId }: Props) {
               <div>
                 <p className="text-xs text-surface-500 mb-1">Min Increment</p>
                 <p className="text-lg font-semibold text-surface-300 font-mono">
-                  +{auction.minimumIncrement}
+                  +{getMinimumIncrement(auction.currentPrice, auction.incrementTiers, auction.minimumIncrement)}
                 </p>
               </div>
               <div>
@@ -136,14 +137,28 @@ export function AuctionDetailPage({ auctionId }: Props) {
             </div>
 
             {canBid && isOpen && (
+              <Button
+                onClick={() => { setShowBidModal(true) }}
+              >
+                Place Bid
+              </Button>
+            )}
+
+            {/* Bid Modal */}
+            <Modal
+              open={showBidModal}
+              onClose={() => { setShowBidModal(false) }}
+              title="Place a Bid"
+              description={`Current price: ${String(auction.currentPrice)} · Deposit: ${String(auction.depositAmount)}`}
+            >
               <BidForm
                 auction={auction}
-                userDepositHeld={userDepositHeld}
                 onBidPlaced={() => {
+                  setShowBidModal(false)
                   void loadAuction()
                 }}
               />
-            )}
+            </Modal>
           </Card>
 
           {/* Bid history */}
@@ -154,13 +169,8 @@ export function AuctionDetailPage({ auctionId }: Props) {
             ) : (
               <div className="space-y-2">
                 {bids.map((bid, i) => {
-                  // Insert synthetic extension row after the bid that triggered anti-sniping
-                  const extensionTs = auction.antiSnipingTriggeredAt
-                  const showExtensionAfter =
-                    auction.antiSnipingTriggered &&
-                    extensionTs !== undefined &&
-                    bid.createdAt >= extensionTs &&
-                    (i === bids.length - 1 || bids[i + 1].createdAt < extensionTs)
+                  // Find extension events triggered by this bid
+                  const extensions = extensionEvents.filter((e) => e.triggeringBidId === bid.id)
 
                   return (
                     <div key={bid.id}>
@@ -197,15 +207,15 @@ export function AuctionDetailPage({ auctionId }: Props) {
                           </span>
                         </div>
                       </div>
-                      {showExtensionAfter && (
-                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/5 border border-amber-500/20 text-amber-400 text-xs mt-2">
+                      {extensions.map((ext) => (
+                        <div key={ext.id} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/5 border border-amber-500/20 text-amber-400 text-xs mt-2">
                           <Clock className="w-3.5 h-3.5 shrink-0" />
                           <span>Auction extended +2 min (anti-sniping)</span>
                           <span className="ml-auto text-amber-500/60">
-                            {new Date(extensionTs).toLocaleTimeString()}
+                            {new Date(ext.createdAt).toLocaleTimeString()}
                           </span>
                         </div>
-                      )}
+                      ))}
                     </div>
                   )
                 })}

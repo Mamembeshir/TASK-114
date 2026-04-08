@@ -26,6 +26,32 @@ async function seedWallet(userId: string, balance = 10_000): Promise<void> {
   if (balance > 0) await creditWallet(userId, balance, 'Test seed')
 }
 
+function setAdmin() {
+  useAuthStore.setState({
+    currentUser: {
+      id: 'admin-1',
+      username: 'admin',
+      displayName: 'Admin',
+      role: Role.Administrator,
+      isActive: true,
+      createdAt: Date.now(),
+    },
+  } as Parameters<typeof useAuthStore.setState>[0])
+}
+
+function setBidder(id: string, name: string) {
+  useAuthStore.setState({
+    currentUser: {
+      id,
+      username: id,
+      displayName: name,
+      role: Role.Participant,
+      isActive: true,
+      createdAt: Date.now(),
+    },
+  } as Parameters<typeof useAuthStore.setState>[0])
+}
+
 function auctionPayload(overrides = {}) {
   return {
     title: 'Integration Auction',
@@ -55,16 +81,7 @@ beforeEach(async () => {
   ])
   // Services derive actor identity from the auth store.
   // Set admin-1 as the authenticated user so auction creator id is predictable.
-  useAuthStore.setState({
-    currentUser: {
-      id: 'admin-1',
-      username: 'admin',
-      displayName: 'Admin',
-      role: Role.Administrator,
-      isActive: true,
-      createdAt: Date.now(),
-    },
-  } as Parameters<typeof useAuthStore.setState>[0])
+  setAdmin()
 })
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -104,8 +121,11 @@ describe('auction lifecycle — closeAuction with bids → Awarded', () => {
     await seedWallet('bidder-1')
     await seedWallet('bidder-2')
 
+    setBidder('bidder-1', 'Alice')
     await placeBid(auction.id, 'bidder-1', 'Alice', 110, 'k1', 50, 0)
+    setBidder('bidder-2', 'Bob')
     await placeBid(auction.id, 'bidder-2', 'Bob', 130, 'k2', 50, 0)
+    setAdmin()
     await endAndClose(auction.id)
 
     const closed = await db.auctions.get(auction.id)
@@ -118,7 +138,9 @@ describe('auction lifecycle — closeAuction with bids → Awarded', () => {
     await publishAuction(auction.id)
     await seedWallet('bidder-1', 10_000)
 
+    setBidder('bidder-1', 'Alice')
     await placeBid(auction.id, 'bidder-1', 'Alice', 110, 'k1', 200, 0)
+    setAdmin()
     await endAndClose(auction.id)
 
     const wallet = await getWallet('bidder-1')
@@ -132,8 +154,11 @@ describe('auction lifecycle — closeAuction with bids → Awarded', () => {
     await seedWallet('bidder-1', 5_000)
     await seedWallet('bidder-2', 5_000)
 
+    setBidder('bidder-1', 'Alice')
     await placeBid(auction.id, 'bidder-1', 'Alice', 110, 'k1', 100, 0)
+    setBidder('bidder-2', 'Bob')
     await placeBid(auction.id, 'bidder-2', 'Bob', 130, 'k2', 100, 0)
+    setAdmin()
     await endAndClose(auction.id)
 
     // Loser (bidder-1) should have reservedAmount = 0
@@ -147,8 +172,11 @@ describe('auction lifecycle — closeAuction with bids → Awarded', () => {
     await seedWallet('bidder-1')
     await seedWallet('bidder-2')
 
+    setBidder('bidder-1', 'Alice')
     await placeBid(auction.id, 'bidder-1', 'Alice', 110, 'k1', 50, 0)
+    setBidder('bidder-2', 'Bob')
     await placeBid(auction.id, 'bidder-2', 'Bob', 130, 'k2', 50, 0)
+    setAdmin()
     await endAndClose(auction.id)
 
     const winnerNotif = await db.notifications

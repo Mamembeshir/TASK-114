@@ -13,7 +13,7 @@
  * Separate keys would add ceremony without meaningfully reducing that risk.
  */
 
-import { generateEncryptionKey, exportKey, importKey } from './encryption'
+import { generateEncryptionKey, exportKey, importKey, encrypt, decrypt } from './encryption'
 
 const LS_ENC_KEY = 'meridian_enc_key'
 
@@ -44,4 +44,66 @@ export async function getAppKey(): Promise<CryptoKey> {
     return _cached as CryptoKey
   })()
   return _pending
+}
+
+// ── Passphrase-protected key export/import for backup portability ────────────
+
+/**
+ * Derive a wrapping key from a passphrase using PBKDF2.
+ * Returns both the CryptoKey and the random salt used.
+ */
+async function deriveWrappingKey(
+  passphrase: string,
+  salt: Uint8Array,
+): Promise<CryptoKey> {
+  const enc = new TextEncoder()
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    enc.encode(passphrase),
+    'PBKDF2',
+    false,
+    ['deriveKey'],
+  )
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt, iterations: 310_000, hash: 'SHA-256' },
+    keyMaterial,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt'],
+  )
+}
+
+/**
+ * Export the app encryption key wrapped (encrypted) with a user-supplied passphrase.
+ * Returns a JSON string containing salt + ciphertext, safe to embed in a backup file.
+ */
+export async function wrapAppKey(passphrase: string): Promise<string> {
+  const appKey = await getAppKey()
+  const rawB64 = await exportKey(appKey)
+  const salt = crypto.getRandomValues(new Uint8Array(16))
+  const wrappingKey = await deriveWrappingKey(passphrase, salt)
+  const ciphertext = await encrypt(rawB64, wrappingKey)
+
+  // Encode salt as hex for safe JSON transport
+  const saltHex = Array.from(salt).map((b) => b.toString(16).padStart(2, '0')).join('')
+  return JSON.stringify({ saltHex, ciphertext })
+}
+
+/**
+ * Unwrap a previously exported app key using the same passphrase.
+ * On success, installs the key as the active app key (LocalStorage + cache).
+ */
+export async function unwrapAppKey(wrapped: string, passphrase: string): Promise<void> {
+  const { saltHex, ciphertext } = JSON.parse(wrapped) as { saltHex: string; ciphertext: string }
+  const salt = new Uint8Array(
+    (saltHex.match(/.{2}/g) ?? []).map((h: string) => parseInt(h, 16)),
+  )
+  const wrappingKey = await deriveWrappingKey(passphrase, salt)
+  const rawB64 = await decrypt(ciphertext, wrappingKey)
+
+  // Validate the unwrapped key material can be imported
+  const restored = await importKey(rawB64)
+  // Persist and cache
+  localStorage.setItem(LS_ENC_KEY, await exportKey(restored))
+  _cached = restored
 }

@@ -48,6 +48,32 @@ async function seedWallet(userId: string): Promise<void> {
   await creditWallet(userId, 10_000, 'Test seed')
 }
 
+function setAdmin() {
+  useAuthStore.setState({
+    currentUser: {
+      id: 'admin-1',
+      username: 'admin',
+      displayName: 'Admin',
+      role: Role.Administrator,
+      isActive: true,
+      createdAt: Date.now(),
+    },
+  } as Parameters<typeof useAuthStore.setState>[0])
+}
+
+function setBidder(id: string, name: string) {
+  useAuthStore.setState({
+    currentUser: {
+      id,
+      username: id,
+      displayName: name,
+      role: Role.Participant,
+      isActive: true,
+      createdAt: Date.now(),
+    },
+  } as Parameters<typeof useAuthStore.setState>[0])
+}
+
 // ── Setup ─────────────────────────────────────────────────────────────────────
 
 beforeEach(async () => {
@@ -61,18 +87,10 @@ beforeEach(async () => {
     db.notifications.clear(),
     db.auditLogs.clear(),
     db.auctionLocks.clear(),
+    db.auctionExtensionEvents.clear(),
   ])
   // creditWallet requires manageWallets permission — set Administrator for wallet seeding
-  useAuthStore.setState({
-    currentUser: {
-      id: 'admin-1',
-      username: 'admin',
-      displayName: 'Admin',
-      role: Role.Administrator,
-      isActive: true,
-      createdAt: Date.now(),
-    },
-  } as Parameters<typeof useAuthStore.setState>[0])
+  setAdmin()
 })
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -81,6 +99,7 @@ describe('placeBid — minimum increment validation', () => {
   it('rejects a bid below the minimum required amount', async () => {
     await seedAuction()
     await seedWallet('bidder-1')
+    setBidder('bidder-1', 'Alice')
 
     const result = await placeBid('auction-1', 'bidder-1', 'Alice', 105, 'key-1', 50, 0)
 
@@ -91,6 +110,7 @@ describe('placeBid — minimum increment validation', () => {
   it('accepts a bid exactly at the minimum required amount', async () => {
     await seedAuction() // currentPrice=100, minimumIncrement=10 → min=110
     await seedWallet('bidder-1')
+    setBidder('bidder-1', 'Alice')
 
     const result = await placeBid('auction-1', 'bidder-1', 'Alice', 110, 'key-1', 50, 0)
 
@@ -101,6 +121,7 @@ describe('placeBid — minimum increment validation', () => {
 
 describe('placeBid — auction state guards', () => {
   it('rejects bids on a non-existent auction', async () => {
+    setBidder('bidder-1', 'Alice')
     const result = await placeBid('no-such-auction', 'bidder-1', 'Alice', 200, 'key-x', 50, 0)
     expect(result.success).toBe(false)
     expect(result.message).toBe('Auction not found')
@@ -109,6 +130,7 @@ describe('placeBid — auction state guards', () => {
   it('rejects bids on an Ended auction', async () => {
     await seedAuction({ status: 'Ended' })
     await seedWallet('bidder-1')
+    setBidder('bidder-1', 'Alice')
 
     const result = await placeBid('auction-1', 'bidder-1', 'Alice', 200, 'key-2', 50, 0)
     expect(result.success).toBe(false)
@@ -118,6 +140,7 @@ describe('placeBid — auction state guards', () => {
   it('rejects bids after the end time has passed', async () => {
     await seedAuction({ endTime: Date.now() - 1000 }) // already ended
     await seedWallet('bidder-1')
+    setBidder('bidder-1', 'Alice')
 
     const result = await placeBid('auction-1', 'bidder-1', 'Alice', 200, 'key-3', 50, 0)
     expect(result.success).toBe(false)
@@ -129,6 +152,7 @@ describe('placeBid — idempotency', () => {
   it('returns "Already placed" when the same idempotency key is resubmitted', async () => {
     await seedAuction() // currentPrice=100
     await seedWallet('bidder-1')
+    setBidder('bidder-1', 'Alice')
 
     // First call — succeeds, price moves to 110
     const first = await placeBid('auction-1', 'bidder-1', 'Alice', 110, 'idem-key', 50, 0)
@@ -154,6 +178,7 @@ describe('placeBid — anti-sniping', () => {
     const nearEnd = Date.now() + 15_000 // 15 s left — inside snipe window
     await seedAuction({ endTime: nearEnd })
     await seedWallet('bidder-1')
+    setBidder('bidder-1', 'Alice')
 
     const result = await placeBid('auction-1', 'bidder-1', 'Alice', 110, 'key-snipe', 50, 0)
 
@@ -172,6 +197,7 @@ describe('placeBid — anti-sniping', () => {
     const nearEnd = Date.now() + 15_000
     await seedAuction({ endTime: nearEnd, antiSnipingTriggered: true, status: 'Extended' })
     await seedWallet('bidder-1')
+    setBidder('bidder-1', 'Alice')
 
     const result = await placeBid('auction-1', 'bidder-1', 'Alice', 110, 'key-a', 50, 0)
 
@@ -183,6 +209,7 @@ describe('placeBid — anti-sniping', () => {
   it('does NOT extend when bid is outside the 30-second snipe window', async () => {
     await seedAuction({ endTime: Date.now() + 60_000 }) // 60 s left — outside window
     await seedWallet('bidder-1')
+    setBidder('bidder-1', 'Alice')
 
     const result = await placeBid('auction-1', 'bidder-1', 'Alice', 110, 'key-no-snipe', 50, 0)
 
@@ -199,9 +226,11 @@ describe('proxy bid resolution', () => {
     await seedWallet('manual-user')
 
     // Set a proxy max of 200 for proxy-user
+    setBidder('proxy-user', 'Proxy User')
     await setProxyBid('auction-1', 'proxy-user', 'Proxy User', 200, 50, 0)
 
     // Manual bidder bids 120 — proxy should counter to 130 (120 + increment of 10)
+    setBidder('manual-user', 'Manual')
     const result = await placeBid('auction-1', 'manual-user', 'Manual', 120, 'key-m', 50, 0)
 
     expect(result.success).toBe(true)
@@ -215,6 +244,7 @@ describe('proxy bid resolution', () => {
     await seedWallet('manual-user')
 
     // Proxy max is 150
+    setBidder('proxy-user', 'Proxy User')
     await setProxyBid('auction-1', 'proxy-user', 'Proxy User', 150, 50, 0)
 
     // After setProxyBid, current price may have moved — get the fresh auction
@@ -223,6 +253,7 @@ describe('proxy bid resolution', () => {
     const minBid = freshPrice + 10
 
     // Manual bidder bids above proxy max
+    setBidder('manual-user', 'Manual')
     const winAmount = Math.max(minBid, 160)
     const result = await placeBid('auction-1', 'manual-user', 'Manual', winAmount, 'key-win', 50, 0)
 

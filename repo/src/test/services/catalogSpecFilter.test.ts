@@ -67,21 +67,21 @@ beforeEach(async () => {
 describe('CatalogItem.specs — data model', () => {
   it('persists specs when provided', async () => {
     const specs = { color: 'red', size: 'M', material: 'cotton' }
-    const item = await createCatalogItem(baseInput({ specs }), ACTOR_ID, ACTOR_NAME)
+    const item = await createCatalogItem(baseInput({ specs }))
 
     const stored = await db.catalogItems.get(item.id)
     expect(stored?.specs).toEqual(specs)
   })
 
   it('creates item without specs (undefined) without error', async () => {
-    const item = await createCatalogItem(baseInput(), ACTOR_ID, ACTOR_NAME)
+    const item = await createCatalogItem(baseInput())
 
     const stored = await db.catalogItems.get(item.id)
     expect(stored?.specs).toBeUndefined()
   })
 
   it('persists empty specs object', async () => {
-    const item = await createCatalogItem(baseInput({ specs: {} }), ACTOR_ID, ACTOR_NAME)
+    const item = await createCatalogItem(baseInput({ specs: {} }))
 
     const stored = await db.catalogItems.get(item.id)
     expect(stored?.specs).toEqual({})
@@ -90,11 +90,9 @@ describe('CatalogItem.specs — data model', () => {
   it('updateCatalogItem overwrites specs when provided in updates', async () => {
     const item = await createCatalogItem(
       baseInput({ specs: { color: 'blue', size: 'L' } }),
-      ACTOR_ID,
-      ACTOR_NAME,
     )
 
-    await updateCatalogItem(item.id, { specs: { color: 'green', size: 'S' } }, ACTOR_ID, ACTOR_NAME)
+    await updateCatalogItem(item.id, { specs: { color: 'green', size: 'S' } })
 
     const updated = await db.catalogItems.get(item.id)
     expect(updated?.specs).toEqual({ color: 'green', size: 'S' })
@@ -102,10 +100,10 @@ describe('CatalogItem.specs — data model', () => {
 
   it('updateCatalogItem preserves existing specs when specs not included in update', async () => {
     const specs = { color: 'red', size: 'M' }
-    const item = await createCatalogItem(baseInput({ specs }), ACTOR_ID, ACTOR_NAME)
+    const item = await createCatalogItem(baseInput({ specs }))
 
     // Update only title — specs must survive
-    await updateCatalogItem(item.id, { title: 'New Title' }, ACTOR_ID, ACTOR_NAME)
+    await updateCatalogItem(item.id, { title: 'New Title' })
 
     const updated = await db.catalogItems.get(item.id)
     expect(updated?.specs).toEqual(specs)

@@ -12,6 +12,7 @@ import { writeAuditLog } from '@/utils/audit'
 import { generateId } from '@/crypto'
 import { deductDeposit, releaseReservation } from './walletService'
 import { broadcast } from './bidChannel'
+import { activateIfDue } from './auctionService'
 import type { Auction } from '@/types'
 
 // ── closeAuction ───────────────────────────────────────────────────────────────
@@ -133,6 +134,17 @@ let _timer: ReturnType<typeof setInterval> | null = null
 export function startAuctionLifecycleTimer(): () => void {
   const tick = async () => {
     const now = Date.now()
+
+    // Activate scheduled auctions whose start time has arrived
+    const scheduled = await db.auctions
+      .where('status')
+      .equals('Scheduled')
+      .filter((a) => a.startTime <= now)
+      .toArray()
+    for (const auction of scheduled) {
+      await activateIfDue(auction.id)
+    }
+
     const toClose = await db.auctions
       .where('status')
       .anyOf('Active', 'Extended')

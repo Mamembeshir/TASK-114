@@ -56,6 +56,7 @@ describe('document numbering', () => {
       body: 'Body text',
       attachmentUrls: [],
       retentionYears: 7,
+      tags: [],
     })
 
     expect(doc.documentNumber).toBeUndefined()
@@ -71,6 +72,7 @@ describe('document numbering', () => {
       body: 'Body text',
       attachmentUrls: [],
       retentionYears: 5,
+      tags: [],
     })
 
     // Move to InReview first
@@ -94,6 +96,7 @@ describe('document numbering', () => {
         body: 'b',
         attachmentUrls: [],
         retentionYears: 7,
+        tags: [],
       })
       await db.documents.update(doc.id, { status: 'InReview' })
       setAuthUser(reviewerId, Role.ReviewerApprover, 'Reviewer')
@@ -123,6 +126,7 @@ describe('retention date calculation', () => {
       body: 'Body',
       attachmentUrls: [],
       retentionYears,
+      tags: [],
     })
 
     await db.documents.update(doc.id, { status: 'InReview' })

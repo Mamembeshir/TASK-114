@@ -105,10 +105,6 @@ export function ReadershipsAnalyticsPage() {
   }, [stats, sortKey, sortDesc])
 
   // Summary totals
-  const totalUniqueReaders = useMemo(() => {
-    return new Set(stats.flatMap((s) => Array(s.uniqueReaders))).size
-  }, [stats])
-
   const totalViews = useMemo(() => stats.reduce((s, r) => s + r.totalViews, 0), [stats])
 
   const overallAvgDuration = useMemo(() => {

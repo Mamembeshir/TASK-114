@@ -18,7 +18,6 @@ Object.defineProperty(window, 'matchMedia', {
 })
 import { beforeAll, afterAll } from 'vitest'
 import { useAuthStore } from '@/store/authStore'
-import { Role } from '@/types'
 
 // Suppress "A suspended resource finished loading inside a test, but the event
 // was not wrapped in act(...)" warnings. These come from React.lazy's internal
@@ -39,25 +38,12 @@ afterAll(() => {
   console.error = _consoleError
 })
 
-// Seed a system-level admin user into the auth store so that service-layer
-// permission guards (requirePermission) pass in all service tests.
-// Individual tests that need to verify permission denial can override this.
+// Default to unauthenticated state. Each test that requires an authenticated
+// session must explicitly call useAuthStore.setState() with the role it needs.
+// This ensures permission regressions are not masked by a globally-seeded admin.
 useAuthStore.setState({
-  currentUser: {
-    id: 'test-system-user',
-    username: 'system',
-    displayName: 'Test System',
-    email: 'system@test',
-    passwordHash: '',
-    passwordSalt: '',
-    role: Role.Administrator,
-    isActive: true,
-    isTemporaryPassword: false,
-    createdAt: 0,
-    updatedAt: 0,
-    createdBy: 'system',
-  },
-  sessionId: 'test-session',
+  currentUser: null,
+  sessionId: null,
   isLoading: false,
   error: null,
 })

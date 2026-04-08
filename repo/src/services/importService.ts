@@ -7,10 +7,11 @@ import type { Table } from 'dexie'
 import { db } from '@/db'
 import { writeAuditLog } from '@/utils/audit'
 import { requirePermission } from '@/utils/permissions'
+import { useAuthStore } from '@/store/authStore'
 import type { User } from '@/types/auth'
 import type { AuditLog } from '@/types/audit'
-import type { Auction, Bid, ProxyBid, Wallet, WalletTransaction } from '@/types/auction'
-import type { CatalogItem, Category, Tag } from '@/types/catalog'
+import type { Auction, AuctionExtensionEvent, Bid, ProxyBid, Wallet, WalletTransaction } from '@/types/auction'
+import type { CatalogItem, CatalogReview, Category, Tag } from '@/types/catalog'
 import type { Publication, PublicationVersion, ViewEvent } from '@/types/publication'
 import type {
   Document,
@@ -38,7 +39,9 @@ export const IMPORTABLE_TABLES = [
   'proxyBids',
   'wallets',
   'walletTransactions',
+  'auctionExtensionEvents',
   'catalogItems',
+  'catalogReviews',
   'categories',
   'tags',
   'publications',
@@ -78,7 +81,9 @@ type TableRowMap = {
   proxyBids: ProxyBid
   wallets: Wallet
   walletTransactions: WalletTransaction
+  auctionExtensionEvents: AuctionExtensionEvent
   catalogItems: CatalogItem
+  catalogReviews: CatalogReview
   categories: Category
   tags: Tag
   publications: Publication
@@ -107,8 +112,6 @@ type TableRowMap = {
  * Used at the generic .add()/.put() call sites so the cast target is a bounded
  * set of known domain types — never TypeScript's `any`.
  */
-type ImportableRow = TableRowMap[ImportableTable]
-
 /**
  * Typed table map: every ImportableTable name is statically verified to resolve
  * to its exact Dexie Table<RowType, string, RowType>.
@@ -127,7 +130,9 @@ const TABLE_MAP: { [K in ImportableTable]: Table<TableRowMap[K], string, TableRo
   proxyBids: db.proxyBids,
   wallets: db.wallets,
   walletTransactions: db.walletTransactions,
+  auctionExtensionEvents: db.auctionExtensionEvents,
   catalogItems: db.catalogItems,
+  catalogReviews: db.catalogReviews,
   categories: db.categories,
   tags: db.tags,
   publications: db.publications,
@@ -184,10 +189,11 @@ export function isValidBackup(parsed: unknown): parsed is ParsedBackup {
 export async function runImport(
   backup: ParsedBackup,
   strategy: ConflictStrategy,
-  actorId: string,
-  actorName: string,
 ): Promise<ImportResult[]> {
   requirePermission('manageSystem')
+  const currentUser = useAuthStore.getState().currentUser!
+  const actorId = currentUser.id
+  const actorName = currentUser.displayName
 
   const results: ImportResult[] = []
 
@@ -216,7 +222,7 @@ export async function runImport(
         const existing = await db.users.get(id)
         if (existing) { skipped++; continue }
         if (!record.passwordHash || !record.passwordSalt) { skipped++; continue }
-        await db.users.add(record as Parameters<typeof db.users.add>[0])
+        await db.users.add(record as unknown as Parameters<typeof db.users.add>[0])
         inserted++
         continue
       }
@@ -225,7 +231,7 @@ export async function runImport(
       if (tableName === 'auditLogs') {
         const existing = await db.auditLogs.get(id)
         if (existing) { skipped++; continue }
-        await db.auditLogs.add(record as Parameters<typeof db.auditLogs.add>[0])
+        await db.auditLogs.add(record as unknown as Parameters<typeof db.auditLogs.add>[0])
         inserted++
         continue
       }
@@ -243,11 +249,11 @@ export async function runImport(
         if (strategy === 'skip') {
           skipped++
         } else {
-          await table.put(record as ImportableRow)
+          await (table as { put: (row: unknown) => Promise<unknown> }).put(record)
           overwritten++
         }
       } else {
-        await table.add(record as ImportableRow)
+        await (table as { add: (row: unknown) => Promise<unknown> }).add(record)
         inserted++
       }
     }

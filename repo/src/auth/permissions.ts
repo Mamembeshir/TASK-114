@@ -62,6 +62,8 @@ export const Permission = {
   // ── Training ───────────────────────────────────────────────────────────────
   /** Access and progress through training courses */
   viewTraining: 'viewTraining',
+  /** Create, update, and deactivate training courses */
+  manageTraining: 'manageTraining',
 
   // ── Message Center ─────────────────────────────────────────────────────────
   /** View received notifications and announcements */
@@ -82,6 +84,7 @@ const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     // Full system access
     Permission.manageUsers,
     Permission.viewTraining,
+    Permission.manageTraining,
     Permission.viewAuditLog,
     Permission.manageSystem,
 
@@ -115,6 +118,7 @@ const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
 
   [Role.ContentEditor]: [
     Permission.viewTraining,
+    Permission.manageTraining,
     Permission.viewAuctions,
     Permission.createAuction,
 
@@ -160,9 +164,6 @@ const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     Permission.viewCatalog,
 
     Permission.viewPublications,
-
-    Permission.viewDocuments,
-    Permission.checkoutDocument,
 
     Permission.viewMessages,
   ],

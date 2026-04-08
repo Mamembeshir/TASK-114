@@ -22,20 +22,22 @@ curl -I http://localhost:4173
 
 Expected response: `HTTP/1.1 200 OK`
 
-## Option B — Local development (Node.js 20+)
+## Option B — Local development (Node.js 20+ / pnpm 10+)
+
+This project is managed with **pnpm**. Install it via `npm install -g pnpm` or `corepack enable` if you don't have it already.
 
 ```bash
 # 1. Install dependencies
-npm install
+pnpm install
 
 # 2. Start the dev server (hot-reload, http://localhost:5173)
-npm run dev
+pnpm dev
 
 # 3. Run the test suite
-npm test
+pnpm test
 
 # 4. Build for production (output: dist/)
-npm run build
+pnpm build
 ```
 
 > **Node version:** 20 or later is required. Use [nvm](https://github.com/nvm-sh/nvm) or
@@ -43,12 +45,14 @@ npm run build
 
 ## Seeded Accounts
 
-The following accounts are available on first launch. Use them to log in and explore the portal with different permission levels.
+Demo accounts are seeded **only in development mode** (`pnpm dev`) or when a production build is created with `VITE_SEED_DEMO=true`. They are **not** present in a standard production build (e.g. the Docker image).
 
-| Username   | Password         | Role                |
-| ---------- | ---------------- | ------------------- |
-| `admin`    | `adminPass1!`    | Administrator       |
-| `editor`   | `editorPass1!`   | Content Editor      |
-| `reviewer` | `reviewerPass1!` | Reviewer / Approver |
+| Username   | Password          | Role                |
+| ---------- | ----------------- | ------------------- |
+| `admin`    | `adminPass1!@2`   | Administrator       |
+| `editor`   | `editorPass1!@`   | Content Editor      |
+| `reviewer` | `reviewerPass1!`  | Reviewer / Approver |
+
+**Production / Docker first launch:** when no users exist (no demo seed, fresh install), the app shows a **Bootstrap Admin** wizard instead of the login screen. Use it to create the initial Administrator account, after which normal login applies.
 
 > Buyer accounts can be created via the self-registration form on the login screen.

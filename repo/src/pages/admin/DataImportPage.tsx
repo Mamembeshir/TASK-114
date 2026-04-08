@@ -20,10 +20,11 @@
  */
 
 import { useRef, useState } from 'react'
-import { Upload, AlertTriangle, CheckCircle } from 'lucide-react'
+import { Upload, AlertTriangle, CheckCircle, Lock } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/store/authStore'
 import { Button, Card, CardHeader } from '@/components/ui'
+import { unwrapAppKey } from '@/crypto/appKey'
 import {
   runImport,
   isValidBackup,
@@ -36,6 +37,9 @@ export function DataImportPage() {
   const fileRef = useRef<HTMLInputElement>(null)
 
   const [backup, setBackup] = useState<ParsedBackup | null>(null)
+  const [wrappedAppKey, setWrappedAppKey] = useState<string | null>(null)
+  const [importPassphrase, setImportPassphrase] = useState('')
+  const [keyRestored, setKeyRestored] = useState(false)
   const [fileName, setFileName] = useState('')
   const [parseError, setParseError] = useState('')
   const [strategy, setStrategy] = useState<ConflictStrategy>('skip')
@@ -51,6 +55,9 @@ export function DataImportPage() {
     setParseError('')
     setBackup(null)
     setResults(null)
+    setWrappedAppKey(null)
+    setKeyRestored(false)
+    setImportPassphrase('')
     setFileName(file.name)
 
     const reader = new FileReader()
@@ -64,6 +71,11 @@ export function DataImportPage() {
           return
         }
         setBackup(parsed)
+        // Detect wrapped encryption key in the backup envelope
+        const envelope = parsed as unknown as Record<string, unknown>
+        if (typeof envelope._wrappedAppKey === 'string') {
+          setWrappedAppKey(envelope._wrappedAppKey)
+        }
       } catch {
         setParseError('Failed to parse JSON. Make sure the file is a valid Meridian export.')
       }
@@ -71,16 +83,30 @@ export function DataImportPage() {
     reader.readAsText(file)
   }
 
+  const handleRestoreKey = async () => {
+    if (!wrappedAppKey) return
+    try {
+      await unwrapAppKey(wrappedAppKey, importPassphrase)
+      setKeyRestored(true)
+      toast.success('Encryption key restored — encrypted data will be readable after import')
+    } catch {
+      toast.error('Failed to restore encryption key — check your passphrase')
+    }
+  }
+
   const handleImport = async () => {
     if (!backup) return
+    // If backup has a wrapped key that hasn't been restored yet, warn the user
+    if (wrappedAppKey && !keyRestored) {
+      toast.error('Restore the encryption key first, or encrypted data will be unreadable')
+      return
+    }
     setIsImporting(true)
     setResults(null)
     try {
       const res = await runImport(
         backup,
         strategy,
-        currentUser.id,
-        currentUser.username,
       )
       setResults(res)
       const total = res.reduce((s, r) => s + r.inserted + r.overwritten, 0)
@@ -168,6 +194,44 @@ export function DataImportPage() {
           )}
         </div>
       </Card>
+
+      {/* Encryption key restore — shown when backup contains a wrapped key */}
+      {backup && wrappedAppKey && (
+        <Card>
+          <CardHeader
+            title="Restore Encryption Key"
+            description="This backup contains encrypted data with a passphrase-protected encryption key. Enter the passphrase used during export to restore the key before importing."
+          />
+          {keyRestored ? (
+            <div className="flex items-center gap-2 text-success-400 text-sm">
+              <CheckCircle className="w-4 h-4" />
+              Encryption key restored successfully.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-surface-500" />
+                <input
+                  type="password"
+                  value={importPassphrase}
+                  onChange={(e) => { setImportPassphrase(e.target.value) }}
+                  placeholder="Enter export passphrase…"
+                  className="w-full pl-9 pr-3 py-2 text-sm bg-surface-800 border border-surface-700 rounded-lg text-surface-200 placeholder:text-surface-600 focus:outline-none focus:border-primary-600"
+                />
+              </div>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => void handleRestoreKey()}
+                disabled={!importPassphrase}
+              >
+                <Lock className="w-3.5 h-3.5 mr-1.5" />
+                Restore Key
+              </Button>
+            </div>
+          )}
+        </Card>
+      )}
 
       {/* Conflict strategy */}
       {backup && (

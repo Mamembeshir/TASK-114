@@ -9,7 +9,7 @@ import { useAuthStore } from '@/store/authStore'
 import { useNotificationStore } from '@/store/notificationStore'
 import {
   deleteNotification,
-  getSubscription,
+  getOwnSubscription,
   setSubscription,
 } from '@/services/notificationService'
 import { Badge, Button, EmptyState } from '@/components/ui'
@@ -75,7 +75,7 @@ function SubscriptionPrefsPanel({ userId }: SubscriptionPrefsPanelProps) {
     const load = async () => {
       const entries = await Promise.all(
         ALL_TYPES.map(async (type) => {
-          const pref = await getSubscription(userId, type)
+          const pref = await getOwnSubscription(userId, type)
           return [type, pref] as const
         }),
       )
@@ -207,7 +207,7 @@ export function NotificationCenterPage() {
   }
 
   const handleDeleteSelected = async () => {
-    await Promise.all([...selected].map((id) => deleteNotification(id, currentUser.id)))
+    await Promise.all([...selected].map((id) => deleteNotification(id)))
     setSelected(new Set())
     void refresh(currentUser.id)
   }
@@ -225,7 +225,7 @@ export function NotificationCenterPage() {
   }
 
   const handleDeleteOne = async (id: string) => {
-    await deleteNotification(id, currentUser.id)
+    await deleteNotification(id)
     void refresh(currentUser.id)
   }
 

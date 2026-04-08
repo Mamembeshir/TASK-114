@@ -8,7 +8,7 @@ import { useTabStore } from '@/store/tabStore'
 import { usePermission } from '@/hooks/usePermission'
 import { db } from '@/db'
 import { listDocuments } from '@/services/documentService'
-import { Badge, Button, Card, EmptyState, Select, Table } from '@/components/ui'
+import { Badge, Button, Card, EmptyState, Table } from '@/components/ui'
 import type { ColumnDef } from '@/components/ui'
 import type { Category, Document, DocumentStatus } from '@/types'
 
@@ -45,7 +45,7 @@ const DOCUMENT_TYPES = ['Policy', 'Procedure', 'Form', 'Manual', 'Report', 'Othe
 export function DocumentListPage() {
   const currentUser = useAuthStore((s) => s.currentUser)
   const { openTab } = useTabStore()
-  const canCreate = usePermission('viewDocuments')
+  const canCreate = usePermission('createDocument')
   const canManage = usePermission('approveDocument')
 
   const [rows, setRows] = useState<Row[]>([])

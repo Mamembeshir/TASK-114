@@ -1,11 +1,11 @@
 /**
- * Tests for renderTemplate and template-backed queueOutboundMessage.
+ * Tests for renderTemplate and template-backed composeOutboundMessage.
  *
  * Verifies:
  *   - Placeholder substitution with provided values
  *   - Unknown placeholders are left as-is ({{varName}})
  *   - Empty variables map is handled gracefully
- *   - queueOutboundMessage uses the template when templateKey is set
+ *   - composeOutboundMessage uses the template when templateKey is set
  *   - Non-existent / inactive template key queues message without subject/body override
  *
  * Evidence: src/services/notificationService.ts:111–121, :150–186
@@ -13,9 +13,11 @@
 
 import { describe, it, expect, beforeEach } from 'vitest'
 import { db } from '@/db'
-import { renderTemplate, queueOutboundMessage } from '@/services/notificationService'
+import { renderTemplate, composeOutboundMessage } from '@/services/notificationService'
+import { useAuthStore } from '@/store/authStore'
 import { generateId } from '@/crypto'
-import type { NotificationTemplate, OutboundQueueItem } from '@/types'
+import { Role } from '@/types'
+import type { NotificationTemplate } from '@/types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -38,6 +40,14 @@ function makeTemplate(overrides: Partial<NotificationTemplate> = {}): Notificati
 // ── Setup ─────────────────────────────────────────────────────────────────────
 
 beforeEach(async () => {
+  useAuthStore.setState({
+    currentUser: {
+      id: 'test-user', username: 'test', displayName: 'Test', role: Role.Administrator,
+      email: 'test@test', passwordHash: '', passwordSalt: '', isActive: true, isTemporaryPassword: false,
+      createdAt: 0, updatedAt: 0, createdBy: 'system',
+    },
+    isLoading: false,
+  })
   await Promise.all([
     db.notificationTemplates.clear(),
     db.outboundQueue.clear(),
@@ -96,14 +106,14 @@ describe('renderTemplate', () => {
   })
 })
 
-// ── queueOutboundMessage with templateKey ─────────────────────────────────────
+// ── composeOutboundMessage with templateKey ─────────────────────────────────────
 
-describe('queueOutboundMessage — template rendering', () => {
+describe('composeOutboundMessage — template rendering', () => {
   it('uses template subject and body when templateKey is provided', async () => {
     const tpl = makeTemplate()
     await db.notificationTemplates.add(tpl)
 
-    await queueOutboundMessage({
+    await composeOutboundMessage({
       channel: 'Email',
       recipientUserId: 'user-1',
       recipientAddress: 'alice@example.com',
@@ -121,7 +131,7 @@ describe('queueOutboundMessage — template rendering', () => {
     const tpl = makeTemplate()
     await db.notificationTemplates.add(tpl)
 
-    await queueOutboundMessage({
+    await composeOutboundMessage({
       channel: 'SMS',
       recipientUserId: 'user-2',
       recipientAddress: '+15550001234',
@@ -134,7 +144,7 @@ describe('queueOutboundMessage — template rendering', () => {
   })
 
   it('falls back to empty body when templateKey does not match any active template', async () => {
-    await queueOutboundMessage({
+    await composeOutboundMessage({
       channel: 'Email',
       recipientUserId: 'user-3',
       recipientAddress: 'ghost@example.com',
@@ -150,7 +160,7 @@ describe('queueOutboundMessage — template rendering', () => {
     const tpl = makeTemplate({ isActive: false })
     await db.notificationTemplates.add(tpl)
 
-    await queueOutboundMessage({
+    await composeOutboundMessage({
       channel: 'Email',
       recipientUserId: 'user-4',
       recipientAddress: 'x@example.com',
@@ -168,7 +178,7 @@ describe('queueOutboundMessage — template rendering', () => {
     const tpl = makeTemplate()
     await db.notificationTemplates.add(tpl)
 
-    await queueOutboundMessage({
+    await composeOutboundMessage({
       channel: 'Email',
       recipientUserId: 'user-5',
       recipientAddress: 'u5@example.com',

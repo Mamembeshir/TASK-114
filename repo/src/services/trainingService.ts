@@ -10,6 +10,8 @@ import { db } from '@/db'
 import { generateId } from '@/crypto'
 import { writeAuditLog } from '@/utils/audit'
 import { requirePermission } from '@/utils/permissions'
+import { hasPermission } from '@/auth/permissions'
+import { useAuthStore } from '@/store/authStore'
 import type { TrainingCourse, TrainingProgress } from '@/types'
 
 export interface TrainingCourseInput {
@@ -22,10 +24,11 @@ export interface TrainingCourseInput {
 
 export async function createTrainingCourse(
   input: TrainingCourseInput,
-  actorId: string,
-  actorName: string,
 ): Promise<TrainingCourse> {
-  requirePermission('createCatalogItem') // admin/editor gate
+  requirePermission('manageTraining')
+  const currentUser = useAuthStore.getState().currentUser!
+  const actorId = currentUser.id
+  const actorName = currentUser.displayName
   const now = Date.now()
   const course: TrainingCourse = {
     id: generateId(),
@@ -37,7 +40,7 @@ export async function createTrainingCourse(
   }
   await db.trainingCourses.add(course)
   await writeAuditLog({
-    eventType: 'catalog.created',
+    eventType: 'training.course_created',
     actorId,
     actorName,
     entityType: 'TrainingCourse',
@@ -50,15 +53,16 @@ export async function createTrainingCourse(
 export async function updateTrainingCourse(
   id: string,
   updates: Partial<TrainingCourseInput>,
-  actorId: string,
-  actorName: string,
 ): Promise<void> {
-  requirePermission('createCatalogItem')
+  requirePermission('manageTraining')
+  const currentUser = useAuthStore.getState().currentUser!
+  const actorId = currentUser.id
+  const actorName = currentUser.displayName
   const course = await db.trainingCourses.get(id)
   if (!course) throw new Error('Training course not found')
   await db.trainingCourses.update(id, { ...updates, updatedAt: Date.now() })
   await writeAuditLog({
-    eventType: 'catalog.updated',
+    eventType: 'training.course_updated',
     actorId,
     actorName,
     entityType: 'TrainingCourse',
@@ -69,15 +73,16 @@ export async function updateTrainingCourse(
 
 export async function deactivateTrainingCourse(
   id: string,
-  actorId: string,
-  actorName: string,
 ): Promise<void> {
-  requirePermission('createCatalogItem')
+  requirePermission('manageTraining')
+  const currentUser = useAuthStore.getState().currentUser!
+  const actorId = currentUser.id
+  const actorName = currentUser.displayName
   const course = await db.trainingCourses.get(id)
   if (!course) throw new Error('Training course not found')
   await db.trainingCourses.update(id, { isActive: false, updatedAt: Date.now() })
   await writeAuditLog({
-    eventType: 'catalog.archived',
+    eventType: 'training.course_deactivated',
     actorId,
     actorName,
     entityType: 'TrainingCourse',
@@ -117,9 +122,12 @@ export async function completeSection(
   userId: string,
   courseId: string,
   sectionIndex: number,
-  actorId: string,
-  actorName: string,
 ): Promise<TrainingProgress> {
+  const currentUser = useAuthStore.getState().currentUser!
+  const actorId = currentUser.id
+  const actorName = currentUser.displayName
+  if (userId !== actorId)
+    throw new Error('Forbidden: you can only record your own training progress')
   const course = await db.trainingCourses.get(courseId)
   if (!course) throw new Error('Training course not found')
 
@@ -143,7 +151,7 @@ export async function completeSection(
 
   if (isNowComplete) {
     await writeAuditLog({
-      eventType: 'user.activated', // closest event type for completion
+      eventType: 'training.course_completed',
       actorId,
       actorName,
       entityType: 'TrainingCourse',
@@ -159,7 +167,20 @@ export async function completeSection(
 export async function listCoursesWithProgress(
   userId: string,
 ): Promise<{ course: TrainingCourse; progress: TrainingProgress | null }[]> {
-  const courses = await db.trainingCourses.where('isActive').equals(1).toArray()
+  requirePermission('viewTraining')
+  const currentUser = useAuthStore.getState().currentUser!
+  if (currentUser.id !== userId && !hasPermission(currentUser.role, 'manageTraining'))
+    throw new Error('Forbidden: you can only view your own training progress')
+  const allCourses = await db.trainingCourses.where('isActive').equals(1).toArray()
+
+  // Staff with manageTraining see all courses; otherwise filter by targetRoles.
+  // Empty targetRoles means "all roles".
+  const viewingRole = currentUser.role
+  const canManage = hasPermission(viewingRole, 'manageTraining')
+  const courses = canManage
+    ? allCourses
+    : allCourses.filter((c) => c.targetRoles.length === 0 || c.targetRoles.includes(viewingRole))
+
   const allProgress = await db.trainingProgress.where('userId').equals(userId).toArray()
   const progressMap = new Map(allProgress.map((p) => [p.courseId, p]))
   return courses.map((course) => ({

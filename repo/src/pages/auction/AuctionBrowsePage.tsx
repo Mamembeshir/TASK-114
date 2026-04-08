@@ -16,6 +16,7 @@ const STATUS_VARIANTS: Record<
   'default' | 'primary' | 'success' | 'warning' | 'danger' | 'info'
 > = {
   Draft: 'default',
+  Scheduled: 'info',
   Active: 'success',
   Extended: 'warning',
   Ended: 'default',
@@ -31,7 +32,7 @@ export function AuctionBrowsePage() {
 
   const load = useCallback(async () => {
     try {
-      const active = await db.auctions.where('status').anyOf('Active', 'Extended').toArray()
+      const active = await db.auctions.where('status').anyOf('Scheduled', 'Active', 'Extended').toArray()
       setAuctions(active.sort((a, b) => a.endTime - b.endTime))
     } finally {
       setIsLoading(false)

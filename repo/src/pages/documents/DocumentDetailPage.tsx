@@ -317,19 +317,24 @@ export function DocumentDetailPage({ documentId }: Props) {
       )}
 
       {/* Destruction workflow */}
-      {doc.status === 'Approved' && canDestroy && !destructionApproval && (
+      {['Approved', 'Archived'].includes(doc.status) && canDestroy && !destructionApproval && (() => {
+        const retentionElapsed = !doc.retentionDueDate || doc.retentionDueDate <= Date.now()
+        return (
         <Card>
           <div className="flex items-center gap-3">
             <ShieldAlert className="w-5 h-5 text-red-400 shrink-0" />
             <div className="flex-1">
               <p className="text-sm font-medium text-surface-200">Request Document Destruction</p>
               <p className="text-xs text-surface-500 mt-0.5">
-                This initiates the two-step destruction approval process.
+                {retentionElapsed
+                  ? 'This initiates the two-step destruction approval process.'
+                  : `Retention period has not elapsed yet (due ${new Date(doc.retentionDueDate!).toLocaleDateString()}).`}
               </p>
             </div>
             <Button
               variant="danger"
               size="sm"
+              disabled={!retentionElapsed}
               onClick={() => {
                 setShowDestroyModal(true)
               }}
@@ -338,7 +343,8 @@ export function DocumentDetailPage({ documentId }: Props) {
             </Button>
           </div>
         </Card>
-      )}
+        )
+      })()}
 
       {/* Destruction pending actions */}
       {destructionApproval && doc.status === 'PendingDestruction' && (

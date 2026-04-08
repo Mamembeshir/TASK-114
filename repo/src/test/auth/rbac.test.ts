@@ -160,11 +160,16 @@ describe('hasPermission — Participant', () => {
   it('can view publications', () => {
     expect(hasPermission(r, Permission.viewPublications)).toBe(true)
   })
-  it('can checkout documents', () => {
-    expect(hasPermission(r, Permission.checkoutDocument)).toBe(true)
-  })
   it('can view messages', () => {
     expect(hasPermission(r, Permission.viewMessages)).toBe(true)
+  })
+
+  // Denied — documents are staff-only
+  it('cannot view documents', () => {
+    expect(hasPermission(r, Permission.viewDocuments)).toBe(false)
+  })
+  it('cannot checkout documents', () => {
+    expect(hasPermission(r, Permission.checkoutDocument)).toBe(false)
   })
 
   // Denied — all staff-only capabilities

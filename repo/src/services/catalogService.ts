@@ -12,6 +12,7 @@ import { generateId } from '@/crypto'
 import { writeAuditLog } from '@/utils/audit'
 import { moderateContent } from '@/utils/moderation'
 import { requirePermission } from '@/utils/permissions'
+import { isExternalUrl } from '@/utils/fileUtils'
 import { useAuthStore } from '@/store/authStore'
 import { hasPermission } from '@/auth/permissions'
 import type { CatalogItem } from '@/types'
@@ -37,6 +38,9 @@ export async function createCatalogItem(
   const currentUser = useAuthStore.getState().currentUser!
   const actorId = currentUser.id
   const actorName = currentUser.displayName
+  if (input.imageUrls.some(isExternalUrl)) {
+    throw new Error('External URLs are not allowed — upload images from your device')
+  }
   const moderationFlags = await moderateContent([input.title, input.description, ...input.tags])
   const item: CatalogItem = {
     id: generateId(),
@@ -71,6 +75,9 @@ export async function updateCatalogItem(
   const currentUser = useAuthStore.getState().currentUser!
   const actorId = currentUser.id
   const actorName = currentUser.displayName
+  if (updates.imageUrls?.some(isExternalUrl)) {
+    throw new Error('External URLs are not allowed — upload images from your device')
+  }
   const item = await db.catalogItems.get(id)
   if (!item) throw new Error('Catalog item not found')
   if (item.status === 'Archived') throw new Error('Cannot edit an archived item')

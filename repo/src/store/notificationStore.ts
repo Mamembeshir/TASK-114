@@ -50,7 +50,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
   markRead: async (id: string, userId: string) => {
     // recordReadReceipt writes the MessageReadReceipt row and also sets isRead: true
-    await recordReadReceipt(id, userId)
+    await recordReadReceipt(id)
     await get().refresh(userId)
     broadcastRefresh()
   },
@@ -63,7 +63,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       .equals(userId)
       .filter((n) => !n.isRead)
       .toArray()
-    await Promise.all(unread.map((n) => recordReadReceipt(n.id, userId)))
+    await Promise.all(unread.map((n) => recordReadReceipt(n.id)))
     await get().refresh(userId)
     broadcastRefresh()
   },

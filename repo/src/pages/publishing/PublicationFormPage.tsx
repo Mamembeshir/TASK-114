@@ -14,7 +14,7 @@ import {
   submitForReview,
 } from '@/services/publicationService'
 import { Button, Card, CardHeader, Checkbox, Input, RichTextEditor, Select } from '@/components/ui'
-import { decodeLocalFile, encodeLocalFile, fileToDataUrl } from '@/utils/fileUtils'
+import { decodeLocalFile, encodeLocalFile, fileToDataUrl, isExternalUrl } from '@/utils/fileUtils'
 import { Role } from '@/types'
 import type { PublicationType } from '@/types'
 
@@ -83,7 +83,7 @@ export function PublicationFormPage({ editId, tabId }: Props) {
         title: title.trim(),
         type,
         body,
-        attachmentUrls: attachmentUrls.filter((u) => u.trim() && !u.startsWith('http')),
+        attachmentUrls: attachmentUrls.filter((u) => u.trim() && !isExternalUrl(u)),
         audienceRoles,
         audienceOrgs,
         audienceTags,
@@ -252,9 +252,9 @@ export function PublicationFormPage({ editId, tabId }: Props) {
         <CardHeader title="Attachments" description="Upload files from your device (stored locally, no internet required)" />
         <div className="space-y-3">
           {/* Uploaded attachment chips */}
-          {attachmentUrls.filter((u) => u.trim() && !u.startsWith('http')).length > 0 && (
+          {attachmentUrls.filter((u) => u.trim() && !isExternalUrl(u)).length > 0 && (
             <div className="space-y-1.5">
-              {attachmentUrls.filter((u) => u.trim() && !u.startsWith('http')).map((stored, idx) => {
+              {attachmentUrls.filter((u) => u.trim() && !isExternalUrl(u)).map((stored, idx) => {
                 const file = decodeLocalFile(stored)
                 return (
                   <div key={idx} className="flex items-center gap-2 px-3 py-2 bg-surface-800 rounded-lg">

@@ -14,9 +14,10 @@ import { generateId } from '@/crypto'
 import { writeAuditLog } from '@/utils/audit'
 import { moderateContent } from '@/utils/moderation'
 import { requirePermission } from '@/utils/permissions'
+import { isExternalUrl } from '@/utils/fileUtils'
 import { useAuthStore } from '@/store/authStore'
 import { hasPermission } from '@/auth/permissions'
-import { createNotification, createNotificationForMany } from './notificationService'
+import { notify, notifyMany } from './notificationService'
 import type { Publication, PublicationType, WorkflowStatus } from '@/types'
 import type { Role } from '@/types'
 
@@ -92,6 +93,9 @@ export async function createPublication(
   const currentUser = useAuthStore.getState().currentUser!
   const actorId = currentUser.id
   const actorName = currentUser.displayName
+  if (input.attachmentUrls.some(isExternalUrl)) {
+    throw new Error('External URLs are not allowed — upload files from your device')
+  }
   const moderationFlags = await moderateContent([input.title, input.body])
   const id = generateId()
   const now = Date.now()
@@ -141,6 +145,9 @@ export async function updatePublication(
   updates: Partial<CreatePublicationInput>,
 ): Promise<void> {
   requirePermission('createPublication')
+  if (updates.attachmentUrls?.some(isExternalUrl)) {
+    throw new Error('External URLs are not allowed — upload files from your device')
+  }
   const currentUser = useAuthStore.getState().currentUser!
   const actorId = currentUser.id
   const actorName = currentUser.displayName
@@ -164,7 +171,7 @@ export async function updatePublication(
   })
 
   await writeAuditLog({
-    eventType: 'publication.created',
+    eventType: 'publication.updated',
     actorId,
     actorName,
     entityType: 'Publication',
@@ -244,7 +251,7 @@ export async function approvePublication(
     description: `${actorName} approved "${pub.title}"${comment ? ` — ${comment}` : ''}`,
   })
 
-  await createNotification({
+  await notify({
     userId: pub.createdBy,
     type: 'PublicationApproved',
     title: 'Publication Approved',
@@ -285,7 +292,7 @@ export async function rejectPublication(
     description: `${actorName} rejected "${pub.title}" — ${comment}`,
   })
 
-  await createNotification({
+  await notify({
     userId: pub.createdBy,
     type: 'PublicationRejected',
     title: 'Publication Rejected',
@@ -342,7 +349,7 @@ export async function publishPublication(
       (audienceOrgs.length === 0 || (u.organization != null && audienceOrgs.includes(u.organization))) &&
       (audienceTags.length === 0 || audienceTags.some((t) => u.tags?.includes(t))),
   )
-  await createNotificationForMany(
+  await notifyMany(
     recipients.map((u) => u.id),
     {
       type: 'PublicationPublished',

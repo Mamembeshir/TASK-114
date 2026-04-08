@@ -17,6 +17,7 @@ const STATUS_VARIANTS: Record<
   'default' | 'primary' | 'success' | 'warning' | 'danger' | 'info'
 > = {
   Draft: 'default',
+  Scheduled: 'info',
   Active: 'success',
   Extended: 'warning',
   Ended: 'default',
@@ -207,6 +208,7 @@ export function AuctionListPage() {
             {(
               [
                 'Draft',
+                'Scheduled',
                 'Active',
                 'Extended',
                 'Ended',

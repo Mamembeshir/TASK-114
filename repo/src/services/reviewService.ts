@@ -129,10 +129,11 @@ export async function listItemReviews(itemId: string): Promise<CatalogReview[]> 
 }
 
 /** Returns the current user's own review for an item, if any (any status). */
-export async function getMyReview(itemId: string, userId: string): Promise<CatalogReview | null> {
+export async function getMyReview(itemId: string): Promise<CatalogReview | null> {
+  const currentUser = useAuthStore.getState().currentUser!
   const found = await db.catalogReviews
     .where('[itemId+userId]')
-    .equals([itemId, userId])
+    .equals([itemId, currentUser.id])
     .first()
   return found ?? null
 }

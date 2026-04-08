@@ -18,7 +18,8 @@ import { prepareReservation, applyReservationInTx } from './walletService'
 import type { PreparedReservation } from './walletService'
 import { broadcast } from './bidChannel'
 import { acquireBidLock, releaseBidLock } from './bidLockManager'
-import { createNotification } from './notificationService'
+import { useAuthStore } from '@/store/authStore'
+import { notify } from './notificationService'
 import type { Bid } from '@/types'
 
 export { subscribeToBidEvents } from './bidChannel'
@@ -111,14 +112,17 @@ export interface PlaceBidResult {
 
 export async function placeBid(
   auctionId: string,
-  bidderId: string,
-  bidderName: string,
+  _bidderId: string,
+  _bidderName: string,
   amount: number,
   idempotencyKey: string,
   depositAmount: number,
-  previousDepositHeld: number,
+  _previousDepositHeld?: number,
 ): Promise<PlaceBidResult> {
   requirePermission('placeBid')
+  const currentUser = useAuthStore.getState().currentUser!
+  const bidderId = currentUser.id
+  const bidderName = currentUser.displayName
 
   // Pre-flight: validate auction before doing expensive wallet crypto work.
   // This also avoids throwing "Wallet not found" on tests that only seed a wallet
@@ -130,6 +134,14 @@ export async function placeBid(
       success: false,
       newPrice: preCheck.currentPrice,
       message: 'Auction is not accepting bids',
+      extended: false,
+    }
+  }
+  if (Date.now() < preCheck.startTime) {
+    return {
+      success: false,
+      newPrice: preCheck.currentPrice,
+      message: 'Auction has not started yet',
       extended: false,
     }
   }
@@ -152,11 +164,11 @@ export async function placeBid(
 
   // Pre-compute the encrypted wallet reservation outside the transaction so that
   // Web Crypto `await` calls don't escape Dexie's microtask zone (PrematureCommitError).
+  // Prior hold is computed service-side from persisted wallet transactions.
   const walletReservation = await prepareReservation(
     bidderId,
     auctionId,
     depositAmount,
-    previousDepositHeld,
   )
 
   // Collect outbid info outside the transaction to avoid accessing db.notifications
@@ -167,7 +179,7 @@ export async function placeBid(
 
   const result = await db.transaction(
     'rw',
-    [db.auctions, db.bids, db.proxyBids, db.wallets, db.walletTransactions, db.auditLogs],
+    [db.auctions, db.bids, db.proxyBids, db.wallets, db.walletTransactions, db.auditLogs, db.auctionExtensionEvents],
     async () => {
       const auction = await db.auctions.get(auctionId)
       if (!auction)
@@ -178,6 +190,14 @@ export async function placeBid(
           success: false,
           newPrice: auction.currentPrice,
           message: 'Auction is not accepting bids',
+          extended: false,
+        }
+      }
+      if (Date.now() < auction.startTime) {
+        return {
+          success: false,
+          newPrice: auction.currentPrice,
+          message: 'Auction has not started yet',
           extended: false,
         }
       }
@@ -257,6 +277,19 @@ export async function placeBid(
           : {}),
       })
 
+      // Persist anti-sniping extension as a first-class event for timeline tracing
+      const finalBid = counterBid ?? bid
+      if (extended) {
+        await db.auctionExtensionEvents.add({
+          id: generateId(),
+          auctionId,
+          triggeringBidId: finalBid.id,
+          previousEndTime: auction.endTime,
+          newEndTime,
+          createdAt: Date.now(),
+        })
+      }
+
       // Apply pre-computed wallet reservation (pure DB writes — no crypto inside tx)
       await applyReservationInTx(walletReservation)
 
@@ -268,8 +301,6 @@ export async function placeBid(
         entityId: auctionId,
         description: `${bidderName} bid ${String(amount)} on auction ${auctionId}`,
       })
-
-      const finalBid = counterBid ?? bid
 
       broadcast({ type: 'BID_PLACED', auctionId, bid: finalBid, newPrice: winningAmount })
       if (extended) broadcast({ type: 'AUCTION_EXTENDED', auctionId, newEndTime })
@@ -296,7 +327,7 @@ export async function placeBid(
   try {
     // Send outbid notification outside the transaction (db.notifications not in scope above)
     if (outbidUserId !== undefined && outbidNewPrice !== undefined) {
-      await createNotification({
+      await notify({
         userId: outbidUserId,
         type: 'BidOutbid',
         title: 'You Were Outbid',
@@ -317,13 +348,16 @@ export async function placeBid(
 
 export async function setProxyBid(
   auctionId: string,
-  bidderId: string,
-  bidderName: string,
+  _bidderId: string,
+  _bidderName: string,
   maxAmount: number,
   depositAmount: number,
-  previousDepositHeld: number,
+  _previousDepositHeld?: number,
 ): Promise<{ success: boolean; message: string }> {
   requirePermission('placeBid')
+  const currentUser = useAuthStore.getState().currentUser!
+  const bidderId = currentUser.id
+  const bidderName = currentUser.displayName
   const auction = await db.auctions.get(auctionId)
   if (!auction) return { success: false, message: 'Auction not found' }
   if (auction.status !== 'Active' && auction.status !== 'Extended') {
@@ -337,11 +371,11 @@ export async function setProxyBid(
   }
 
   // Pre-compute wallet reservation outside the transaction (Web Crypto compat)
+  // Prior hold is computed service-side from persisted wallet transactions.
   const proxyReservation: PreparedReservation = await prepareReservation(
     bidderId,
     auctionId,
     depositAmount,
-    previousDepositHeld,
   )
 
   await db.transaction('rw', db.proxyBids, db.wallets, db.walletTransactions, async () => {
@@ -379,7 +413,7 @@ export async function setProxyBid(
   })
 
   // Immediately fire a bid at the minimum to trigger proxy resolution
-  const minBid = auction.currentPrice + auction.minimumIncrement
+  const minBid = auction.currentPrice + getMinimumIncrement(auction.currentPrice, auction.incrementTiers, auction.minimumIncrement)
   if (maxAmount >= minBid) {
     await placeBid(
       auctionId,
