@@ -39,12 +39,10 @@ if [ "$CLEAN" = true ]; then
 fi
 
 # ── Select vitest command based on mode ──────────────────────────────────────
-# node_modules are mounted from the host (no network access in the container),
-# so we invoke vitest directly via node rather than via pnpm.
 case $MODE in
-  coverage) CMD="node_modules/.bin/vitest run --coverage" ;;
-  watch)    CMD="node_modules/.bin/vitest" ;;
-  *)        CMD="node_modules/.bin/vitest run" ;;
+  coverage) CMD="pnpm test:coverage" ;;
+  watch)    CMD="pnpm test:watch" ;;
+  *)        CMD="pnpm test" ;;
 esac
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -61,8 +59,7 @@ docker build \
   .
 
 # ── Run the tests ─────────────────────────────────────────────────────────────
-# Mount host node_modules (read-only) so the container has all dependencies
-# without needing any network access during the build or run.
+# Dependencies are installed inside the image (no host mounts needed).
 echo "→ Running tests..."
 docker run \
   --rm \
@@ -70,7 +67,6 @@ docker run \
   --env CI=true \
   --env NODE_ENV=test \
   --volume "$(pwd)/coverage:/app/coverage" \
-  --volume "$(pwd)/node_modules:/app/node_modules" \
   "$IMAGE" \
   sh -c "$CMD"
 
