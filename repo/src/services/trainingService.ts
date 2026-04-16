@@ -171,7 +171,7 @@ export async function listCoursesWithProgress(
   const currentUser = useAuthStore.getState().currentUser!
   if (currentUser.id !== userId && !hasPermission(currentUser.role, 'manageTraining'))
     throw new Error('Forbidden: you can only view your own training progress')
-  const allCourses = await db.trainingCourses.where('isActive').equals(1).toArray()
+  const allCourses = (await db.trainingCourses.toArray()).filter((c) => c.isActive)
 
   // Staff with manageTraining see all courses; otherwise filter by targetRoles.
   // Empty targetRoles means "all roles".

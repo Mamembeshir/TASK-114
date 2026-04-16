@@ -310,7 +310,8 @@ export async function searchDocuments(criteria: {
   } else if (criteria.categoryId) {
     raws = await db.documents.where('categoryId').equals(criteria.categoryId).toArray()
   } else {
-    raws = await db.documents.orderBy('updatedAt').reverse().toArray()
+    // updatedAt is not indexed — fetch all and sort in-memory (line 348)
+    raws = await db.documents.toArray()
   }
 
   // Decrypt all sensitive fields (title, body, metadata)

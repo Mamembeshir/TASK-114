@@ -30,7 +30,10 @@ export default function App() {
       try {
         // Gate demo account seeding: skip in production builds unless explicitly enabled.
         // Set VITE_SEED_DEMO=true at build time to include demo accounts.
-        if (import.meta.env.DEV || import.meta.env.VITE_SEED_DEMO === 'true') {
+        // The skip_seed URL param bypasses seeding so that E2E tests can reach
+        // the BootstrapAdminPage in any build (seeded or not).
+        const skipSeed = new URLSearchParams(window.location.search).has('skip_seed')
+        if (!skipSeed && (import.meta.env.DEV || import.meta.env.VITE_SEED_DEMO === 'true')) {
           await seedDefaultAdmin()
         }
         await seedDefaultCategories()

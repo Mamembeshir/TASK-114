@@ -1,21 +1,26 @@
 /**
- * TabContent — PermissionGuard privilege-escalation tests.
+ * TabContent — PermissionGuard integration tests.
  *
- * Verifies that page-level guards in TabContent correctly deny access when a
- * low-privilege user's tab path points at a restricted route. Each guarded
- * route is tested for at least one denied role and one allowed role to confirm
- * the guard fires and is not accidentally hardcoded to "always deny".
+ * Verifies that page-level guards in TabContent correctly deny or allow access
+ * based on the current user's role, AND that the real page component renders
+ * meaningful content when access is granted.
+ *
+ * Key design:
+ *  - The 6 guarded admin/outbound pages are NOT mocked — they render with the
+ *    real implementation against a fake IndexedDB.  This validates that the
+ *    permission guard fires correctly AND that the actual page boots without
+ *    error for the allowed role.
+ *  - All OTHER lazy-loaded pages that appear in TabContent routing are stubbed
+ *    with empty <div>s so their Suspense Promises resolve instantly and don't
+ *    emit "suspended resource not wrapped in act" warnings in unrelated tests.
  *
  * Guarded routes under test:
- *   /admin/users          requires manageUsers       → Admin only
- *   /admin/settings       requires manageSystem      → Admin only
- *   /admin/sensitive-words requires manageSystem     → Admin only
- *   /admin/audit-log      requires viewAuditLog      → Admin + Reviewer
- *   /admin/export         requires manageSystem      → Admin only
- *   /outbound-queue       requires manageMessages    → Admin only
- *
- * Strategy: lazy-loaded page modules are mocked with lightweight stubs so the
- * Suspense resolves instantly and the test doesn't depend on Dexie availability.
+ *   /admin/users           requires manageUsers    → Administrator only
+ *   /admin/settings        requires manageSystem   → Administrator only
+ *   /admin/sensitive-words requires manageSystem   → Administrator only
+ *   /admin/audit-log       requires viewAuditLog   → Administrator + ReviewerApprover
+ *   /admin/export          requires manageSystem   → Administrator only
+ *   /outbound-queue        requires manageMessages → Administrator only
  */
 
 import { act, render, screen } from '@testing-library/react'
@@ -25,41 +30,14 @@ import { useAuthStore } from '@/store/authStore'
 import { useTabStore } from '@/store/tabStore'
 import { Role } from '@/types'
 
-// ── Stub lazy-loaded page modules ─────────────────────────────────────────────
+// ── Stub background-noise lazy pages ─────────────────────────────────────────
+// These pages are part of TabContent's routing but are not the focus of these
+// tests.  Stubbing them prevents unresolved Suspense Promises from leaking
+// "not wrapped in act" warnings into unrelated test cases.
 
-// ── Stub ALL lazy-loaded page modules ────────────────────────────────────────
-// Every React.lazy() factory in TabContent is mocked so Suspense Promises
-// resolve synchronously, eliminating "suspended resource not wrapped in act"
-// warnings in all test cases (both "Access Denied" and "renders the page").
-
-// Admin pages under test
-vi.mock('@/pages/admin/UserManagementPage', () => ({
-  UserManagementPage: () => <div data-testid="page-user-management">User Management Page</div>,
-}))
-vi.mock('@/pages/admin/SystemSettingsPage', () => ({
-  SystemSettingsPage: () => <div data-testid="page-system-settings">System Settings Page</div>,
-}))
-vi.mock('@/pages/admin/SensitiveWordListPage', () => ({
-  SensitiveWordListPage: () => <div data-testid="page-sensitive-words">Sensitive Words Page</div>,
-}))
-vi.mock('@/pages/admin/AuditLogPage', () => ({
-  AuditLogPage: () => <div data-testid="page-audit-log">Audit Log Page</div>,
-}))
-vi.mock('@/pages/admin/DataExportPage', () => ({
-  DataExportPage: () => <div data-testid="page-data-export">Data Export Page</div>,
-}))
-// Notification pages under test
-vi.mock('@/pages/notifications/OutboundQueuePage', () => ({
-  OutboundQueuePage: () => <div data-testid="page-outbound-queue">Outbound Queue Page</div>,
-}))
-vi.mock('@/pages/notifications/NotificationCenterPage', () => ({
-  NotificationCenterPage: () => <div>Notification Center</div>,
-}))
-// Dashboard (always present as home tab in tests that use resetStores)
 vi.mock('@/pages/DashboardPage', () => ({
   DashboardPage: () => <div data-testid="page-dashboard">Dashboard</div>,
 }))
-// Remaining lazy pages — stubbed to prevent unresolved Suspense Promises
 vi.mock('@/pages/auction/AuctionListPage', () => ({ AuctionListPage: () => <div /> }))
 vi.mock('@/pages/auction/AuctionFormPage', () => ({ AuctionFormPage: () => <div /> }))
 vi.mock('@/pages/auction/AuctionDetailPage', () => ({ AuctionDetailPage: () => <div /> }))
@@ -75,10 +53,21 @@ vi.mock('@/pages/publishing/PublicationFormPage', () => ({ PublicationFormPage: 
 vi.mock('@/pages/publishing/ReviewQueuePage', () => ({ ReviewQueuePage: () => <div /> }))
 vi.mock('@/pages/publishing/ReviewDetailPage', () => ({ ReviewDetailPage: () => <div /> }))
 vi.mock('@/pages/publishing/PublicationFeedPage', () => ({ PublicationFeedPage: () => <div /> }))
+vi.mock('@/pages/publishing/ReadershipsAnalyticsPage', () => ({
+  ReadershipsAnalyticsPage: () => <div />,
+}))
 vi.mock('@/pages/documents/DocumentListPage', () => ({ DocumentListPage: () => <div /> }))
 vi.mock('@/pages/documents/DocumentFormPage', () => ({ DocumentFormPage: () => <div /> }))
 vi.mock('@/pages/documents/DocumentDetailPage', () => ({ DocumentDetailPage: () => <div /> }))
 vi.mock('@/pages/training/TrainingPage', () => ({ TrainingPage: () => <div /> }))
+vi.mock('@/pages/notifications/NotificationCenterPage', () => ({
+  NotificationCenterPage: () => <div />,
+}))
+vi.mock('@/pages/admin/DataImportPage', () => ({ DataImportPage: () => <div /> }))
+
+// NOTE: UserManagementPage, SystemSettingsPage, SensitiveWordListPage,
+// AuditLogPage, DataExportPage, and OutboundQueuePage are intentionally NOT
+// mocked — they render with real implementations against fake IndexedDB.
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -99,19 +88,10 @@ function makeUser(role: Role) {
   }
 }
 
-/**
- * Renders the component and flushes any pending Suspense lazy-load resolutions
- * so tests don't emit "suspended resource not wrapped in act" warnings.
- */
 async function renderAndFlush(ui: React.ReactElement) {
-  // Wrap render + a macro-task flush inside act so all pending Suspense lazy-load
-  // Promises resolve before act exits, eliminating "suspended resource not wrapped
-  // in act" warnings from unmocked React.lazy imports in TabContent.
   await act(async () => {
     render(ui)
-    await new Promise<void>((resolve) => {
-      setTimeout(resolve, 0)
-    })
+    await new Promise<void>((resolve) => setTimeout(resolve, 0))
   })
 }
 
@@ -144,28 +124,17 @@ function resetStores() {
   })
 }
 
-beforeEach(() => {
-  act(() => {
-    resetStores()
-  })
-})
-afterEach(() => {
-  // Flush pending Suspense/state updates before tearing down store state,
-  // which prevents "update not wrapped in act" warnings from lazy-loaded pages.
-  act(() => {
-    resetStores()
-  })
-})
+beforeEach(() => { act(() => { resetStores() }) })
+afterEach(() => { act(() => { resetStores() }) })
 
-// ── /admin/users (requires manageUsers — Admin only) ─────────────────────────
+// ── /admin/users ─────────────────────────────────────────────────────────────
 
-describe('TabContent /admin/users', () => {
+describe('TabContent /admin/users (requires manageUsers)', () => {
   it('shows Access Denied for Participant', async () => {
     setRole(Role.Participant)
     openTab('/admin/users')
     await renderAndFlush(<TabContent />)
     expect(await screen.findByText('Access Denied')).toBeInTheDocument()
-    expect(screen.queryByTestId('page-user-management')).not.toBeInTheDocument()
   })
 
   it('shows Access Denied for ContentEditor', async () => {
@@ -173,7 +142,6 @@ describe('TabContent /admin/users', () => {
     openTab('/admin/users')
     await renderAndFlush(<TabContent />)
     expect(await screen.findByText('Access Denied')).toBeInTheDocument()
-    expect(screen.queryByTestId('page-user-management')).not.toBeInTheDocument()
   })
 
   it('shows Access Denied for ReviewerApprover', async () => {
@@ -181,27 +149,33 @@ describe('TabContent /admin/users', () => {
     openTab('/admin/users')
     await renderAndFlush(<TabContent />)
     expect(await screen.findByText('Access Denied')).toBeInTheDocument()
-    expect(screen.queryByTestId('page-user-management')).not.toBeInTheDocument()
   })
 
-  it('renders the page for Administrator', async () => {
+  it('renders the real User Management page for Administrator', async () => {
     setRole(Role.Administrator)
     openTab('/admin/users')
     await renderAndFlush(<TabContent />)
-    expect(await screen.findByTestId('page-user-management')).toBeInTheDocument()
+    // Real page heading — not a stub
+    expect(await screen.findByRole('heading', { name: 'User Management' })).toBeInTheDocument()
     expect(screen.queryByText('Access Denied')).not.toBeInTheDocument()
+  })
+
+  it('shows the + New User button for Administrator', async () => {
+    setRole(Role.Administrator)
+    openTab('/admin/users')
+    await renderAndFlush(<TabContent />)
+    expect(await screen.findByText(/\+ New User/)).toBeInTheDocument()
   })
 })
 
-// ── /admin/settings (requires manageSystem — Admin only) ────────────────────
+// ── /admin/settings ───────────────────────────────────────────────────────────
 
-describe('TabContent /admin/settings', () => {
+describe('TabContent /admin/settings (requires manageSystem)', () => {
   it('shows Access Denied for Participant', async () => {
     setRole(Role.Participant)
     openTab('/admin/settings')
     await renderAndFlush(<TabContent />)
     expect(await screen.findByText('Access Denied')).toBeInTheDocument()
-    expect(screen.queryByTestId('page-system-settings')).not.toBeInTheDocument()
   })
 
   it('shows Access Denied for ContentEditor', async () => {
@@ -218,44 +192,56 @@ describe('TabContent /admin/settings', () => {
     expect(await screen.findByText('Access Denied')).toBeInTheDocument()
   })
 
-  it('renders the page for Administrator', async () => {
+  it('renders the real System Settings page for Administrator', async () => {
     setRole(Role.Administrator)
     openTab('/admin/settings')
     await renderAndFlush(<TabContent />)
-    expect(await screen.findByTestId('page-system-settings')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'System Settings' })).toBeInTheDocument()
     expect(screen.queryByText('Access Denied')).not.toBeInTheDocument()
+  })
+
+  it('shows the Organisation settings section for Administrator', async () => {
+    setRole(Role.Administrator)
+    openTab('/admin/settings')
+    await renderAndFlush(<TabContent />)
+    expect(await screen.findByText('Organisation')).toBeInTheDocument()
   })
 })
 
-// ── /admin/sensitive-words (requires manageSystem — Admin only) ──────────────
+// ── /admin/sensitive-words ────────────────────────────────────────────────────
 
-describe('TabContent /admin/sensitive-words', () => {
+describe('TabContent /admin/sensitive-words (requires manageSystem)', () => {
   it('shows Access Denied for Participant', async () => {
     setRole(Role.Participant)
     openTab('/admin/sensitive-words')
     await renderAndFlush(<TabContent />)
     expect(await screen.findByText('Access Denied')).toBeInTheDocument()
-    expect(screen.queryByTestId('page-sensitive-words')).not.toBeInTheDocument()
   })
 
-  it('renders the page for Administrator', async () => {
+  it('shows Access Denied for ReviewerApprover', async () => {
+    setRole(Role.ReviewerApprover)
+    openTab('/admin/sensitive-words')
+    await renderAndFlush(<TabContent />)
+    expect(await screen.findByText('Access Denied')).toBeInTheDocument()
+  })
+
+  it('renders the real Sensitive Word List page for Administrator', async () => {
     setRole(Role.Administrator)
     openTab('/admin/sensitive-words')
     await renderAndFlush(<TabContent />)
-    expect(await screen.findByTestId('page-sensitive-words')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Sensitive Word List' })).toBeInTheDocument()
     expect(screen.queryByText('Access Denied')).not.toBeInTheDocument()
   })
 })
 
-// ── /admin/audit-log (requires viewAuditLog — Admin + Reviewer) ──────────────
+// ── /admin/audit-log ──────────────────────────────────────────────────────────
 
-describe('TabContent /admin/audit-log', () => {
+describe('TabContent /admin/audit-log (requires viewAuditLog)', () => {
   it('shows Access Denied for Participant', async () => {
     setRole(Role.Participant)
     openTab('/admin/audit-log')
     await renderAndFlush(<TabContent />)
     expect(await screen.findByText('Access Denied')).toBeInTheDocument()
-    expect(screen.queryByTestId('page-audit-log')).not.toBeInTheDocument()
   })
 
   it('shows Access Denied for ContentEditor', async () => {
@@ -263,55 +249,59 @@ describe('TabContent /admin/audit-log', () => {
     openTab('/admin/audit-log')
     await renderAndFlush(<TabContent />)
     expect(await screen.findByText('Access Denied')).toBeInTheDocument()
-    expect(screen.queryByTestId('page-audit-log')).not.toBeInTheDocument()
   })
 
-  it('renders the page for ReviewerApprover', async () => {
+  it('renders the real Audit Log page for ReviewerApprover', async () => {
     setRole(Role.ReviewerApprover)
     openTab('/admin/audit-log')
     await renderAndFlush(<TabContent />)
-    expect(await screen.findByTestId('page-audit-log')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Audit Log' })).toBeInTheDocument()
     expect(screen.queryByText('Access Denied')).not.toBeInTheDocument()
   })
 
-  it('renders the page for Administrator', async () => {
+  it('renders the real Audit Log page for Administrator', async () => {
     setRole(Role.Administrator)
     openTab('/admin/audit-log')
     await renderAndFlush(<TabContent />)
-    expect(await screen.findByTestId('page-audit-log')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Audit Log' })).toBeInTheDocument()
     expect(screen.queryByText('Access Denied')).not.toBeInTheDocument()
+  })
+
+  it('shows the empty-state message when no audit events exist', async () => {
+    setRole(Role.Administrator)
+    openTab('/admin/audit-log')
+    await renderAndFlush(<TabContent />)
+    expect(await screen.findByText('No audit events')).toBeInTheDocument()
   })
 })
 
-// ── /admin/export (requires manageSystem — Admin only) ───────────────────────
+// ── /admin/export ─────────────────────────────────────────────────────────────
 
-describe('TabContent /admin/export', () => {
+describe('TabContent /admin/export (requires manageSystem)', () => {
   it('shows Access Denied for Participant', async () => {
     setRole(Role.Participant)
     openTab('/admin/export')
     await renderAndFlush(<TabContent />)
     expect(await screen.findByText('Access Denied')).toBeInTheDocument()
-    expect(screen.queryByTestId('page-data-export')).not.toBeInTheDocument()
   })
 
-  it('renders the page for Administrator', async () => {
+  it('renders the real Data Export page for Administrator', async () => {
     setRole(Role.Administrator)
     openTab('/admin/export')
     await renderAndFlush(<TabContent />)
-    expect(await screen.findByTestId('page-data-export')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Data Export' })).toBeInTheDocument()
     expect(screen.queryByText('Access Denied')).not.toBeInTheDocument()
   })
 })
 
-// ── /outbound-queue (requires manageMessages — Admin only) ───────────────────
+// ── /outbound-queue ───────────────────────────────────────────────────────────
 
-describe('TabContent /outbound-queue', () => {
+describe('TabContent /outbound-queue (requires manageMessages)', () => {
   it('shows Access Denied for Participant', async () => {
     setRole(Role.Participant)
     openTab('/outbound-queue')
     await renderAndFlush(<TabContent />)
     expect(await screen.findByText('Access Denied')).toBeInTheDocument()
-    expect(screen.queryByTestId('page-outbound-queue')).not.toBeInTheDocument()
   })
 
   it('shows Access Denied for ContentEditor', async () => {
@@ -328,11 +318,11 @@ describe('TabContent /outbound-queue', () => {
     expect(await screen.findByText('Access Denied')).toBeInTheDocument()
   })
 
-  it('renders the page for Administrator', async () => {
+  it('renders the real Outbound Queue page for Administrator', async () => {
     setRole(Role.Administrator)
     openTab('/outbound-queue')
     await renderAndFlush(<TabContent />)
-    expect(await screen.findByTestId('page-outbound-queue')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Outbound Queue' })).toBeInTheDocument()
     expect(screen.queryByText('Access Denied')).not.toBeInTheDocument()
   })
 })

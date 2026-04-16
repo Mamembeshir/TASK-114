@@ -1,17 +1,54 @@
-# Dedicated image for CI test runs
-FROM node:20-slim
+# ── Stage 1: node-deps — node + pnpm + npm dependencies only ─────────────────
+# No source code here. This layer is only invalidated when package.json or
+# pnpm-lock.yaml changes, so it stays cached across every source-only edit.
+FROM node:20-slim AS node-deps
 
 RUN npm install -g pnpm@10.23.0
 
 WORKDIR /app
 
-# Copy manifests + .npmrc first (layer caching)
 COPY package.json pnpm-lock.yaml* .npmrc ./
+RUN pnpm install --no-frozen-lockfile
 
-RUN pnpm install
+# ── Stage 2: base — adds source + Vite build (unit-test target) ───────────────
+# Used directly for Vitest (unit/integration) runs.
+# No browser or system-graphics libs needed.
+FROM node-deps AS base
 
-# Copy all source files
 COPY . .
 
-# Default: run tests once (CI mode)
+# Build the Vite app so Playwright's webServer can serve it via vite preview.
+# VITE_SEED_DEMO=true seeds the demo accounts (admin / editor / reviewer)
+# on the first browser visit. Uses vite directly to skip tsc type-checking.
+RUN VITE_SEED_DEMO=true npx vite build
+
+# Default: run unit tests only.  run_tests.sh overrides CMD per mode.
 CMD ["pnpm", "test"]
+
+# ── Stage 3: e2e-browsers — Chromium install on top of node-deps ──────────────
+# Extends node-deps (NOT base) so that source-file changes do NOT invalidate
+# the apt-get or playwright install layers. Chromium is only re-downloaded
+# when package.json / pnpm-lock.yaml / this stage itself changes.
+FROM node-deps AS e2e-browsers
+
+# System dependencies required by Chromium on Debian/Bookworm
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libnss3 libnspr4 libdbus-1-3 libatk1.0-0 libatk-bridge2.0-0 \
+    libcups2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 \
+    libxrandr2 libgbm1 libpango-1.0-0 libcairo2 libasound2 \
+    fonts-liberation ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV PLAYWRIGHT_BROWSERS_PATH=/root/.cache/ms-playwright
+RUN npx playwright install chromium
+
+# ── Stage 4: e2e — adds source + Vite build on top of the browser layer ───────
+# Only built when E2E or full-suite mode is requested (--target e2e).
+# apt-get and playwright install are already cached from e2e-browsers;
+# only the COPY + vite build re-run when source changes.
+FROM e2e-browsers AS e2e
+
+COPY . .
+RUN VITE_SEED_DEMO=true npx vite build
+
+CMD ["npx", "playwright", "test", "--reporter=list"]

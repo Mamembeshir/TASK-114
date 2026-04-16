@@ -71,9 +71,8 @@ export function DocumentListPage() {
     void load()
   }, [])
 
-  if (!currentUser) return null
-
-  // Multidimensional in-memory filter (uses indexed results from listDocuments)
+  // Multidimensional in-memory filter — declared before the early return so that
+  // the hook call count is always the same regardless of auth state (Rules of Hooks).
   const filtered = useMemo(() => {
     let result = rows.filter((r) => r.doc.status !== 'Destroyed')
 
@@ -101,6 +100,9 @@ export function DocumentListPage() {
     }
     return result
   }, [rows, statusFilter, typeFilter, categoryFilter, tagFilter, query])
+
+  // Early return after all hooks so the hook call count is always constant.
+  if (!currentUser) return null
 
   const columns: ColumnDef<Row>[] = [
     {

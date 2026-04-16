@@ -310,7 +310,9 @@ export function DocumentFormPage({ editId, tabId }: Props) {
         <CardHeader title="Document Details" />
         <div className="space-y-4">
           <Input
+            id="doc-title"
             label="Title"
+            placeholder="Enter document title"
             value={title}
             onChange={(e) => {
               setTitle(e.target.value)
@@ -336,6 +338,7 @@ export function DocumentFormPage({ editId, tabId }: Props) {
               ))}
             </Select>
             <Select
+              id="doc-category"
               label="Category"
               value={categoryId}
               onChange={(e) => {

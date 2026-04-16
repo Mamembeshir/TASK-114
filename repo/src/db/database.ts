@@ -252,5 +252,11 @@ export class MeridianDB extends Dexie {
     this.version(8).stores({
       auctionExtensionEvents: 'id, auctionId, createdAt',
     })
+
+    // Version 9: index updatedAt on publications so PublicationListPage can use
+    // orderBy('updatedAt') for efficient sort-by-recently-updated queries.
+    this.version(9).stores({
+      publications: 'id, type, status, createdBy, createdAt, publishedAt, updatedAt',
+    })
   }
 }

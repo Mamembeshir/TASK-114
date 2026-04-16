@@ -1,6 +1,13 @@
 /**
  * Shared BroadcastChannel singleton for bid/auction events.
  * Imported by both biddingEngine and auctionLifecycle to keep them in sync.
+ *
+ * Architecture:
+ *  - Cross-tab delivery: via BroadcastChannel (browser spec — does NOT deliver
+ *    messages back to the originating context).
+ *  - Same-context delivery: via a local subscriber set notified synchronously
+ *    inside broadcast(). This makes the module fully testable without mocks and
+ *    ensures same-tab UI updates are immediate.
  */
 
 import type { Bid } from '@/types'
@@ -10,6 +17,12 @@ export type BidEvent =
   | { type: 'AUCTION_EXTENDED'; auctionId: string; newEndTime: number }
   | { type: 'AUCTION_CLOSED'; auctionId: string }
 
+// ── In-process (same-context) subscribers ────────────────────────────────────
+
+const _localHandlers = new Set<(event: BidEvent) => void>()
+
+// ── Cross-tab BroadcastChannel ────────────────────────────────────────────────
+
 let _channel: BroadcastChannel | null = null
 
 function getChannel(): BroadcastChannel {
@@ -17,17 +30,29 @@ function getChannel(): BroadcastChannel {
   return _channel
 }
 
+// ── Public API ────────────────────────────────────────────────────────────────
+
 export function broadcast(event: BidEvent): void {
+  // Notify same-context subscribers first (synchronous, no BroadcastChannel quirks)
+  for (const handler of _localHandlers) {
+    handler(event)
+  }
+  // Then broadcast to other tabs via BroadcastChannel
   getChannel().postMessage(event)
 }
 
 export function subscribeToBidEvents(handler: (event: BidEvent) => void): () => void {
+  _localHandlers.add(handler)
+
+  // Also listen for events originating in OTHER tabs via BroadcastChannel
   const ch = getChannel()
-  const listener = (e: MessageEvent<BidEvent>) => {
+  const crossTabListener = (e: MessageEvent<BidEvent>) => {
     handler(e.data)
   }
-  ch.addEventListener('message', listener)
+  ch.addEventListener('message', crossTabListener)
+
   return () => {
-    ch.removeEventListener('message', listener)
+    _localHandlers.delete(handler)
+    ch.removeEventListener('message', crossTabListener)
   }
 }

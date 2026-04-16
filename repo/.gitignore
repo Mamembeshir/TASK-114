@@ -9,6 +9,10 @@ dist-ssr
 # Test coverage
 coverage
 
+# Playwright E2E artefacts
+playwright-report
+test-results
+
 # Logs
 *.log
 npm-debug.log*
