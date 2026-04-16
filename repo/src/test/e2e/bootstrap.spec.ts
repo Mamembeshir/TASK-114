@@ -14,7 +14,6 @@
  */
 
 import { test, expect, type BrowserContext, type Page } from '@playwright/test'
-import { TEST_NEW_PASSWORD } from './helpers/auth'
 
 /** Navigate to the bootstrap page in a context with zero users. */
 async function gotoBootstrap(page: Page): Promise<void> {

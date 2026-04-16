@@ -12,7 +12,6 @@
 
 import { test, expect, type BrowserContext, type Page } from '@playwright/test'
 import {
-  loginAsAdmin,
   loginAsEditor,
   loginAsReviewer,
   logout,
